@@ -7,14 +7,36 @@ from scipy.spatial import Delaunay
 import pandas as pd
 from tqdm import tqdm 
 import torch
-#%%
+import os,sys
+import dlib
+import mediapipe as mp
 
-video_folder="/home/falhamdoosh/tgcn/data/PartA/video"
+#%%
+if torch.cuda.is_available():
+    
+  torch.cuda.set_device(0)
+  device = 'cuda'  
+else:
+  device='cpu'
+
+dlib.cuda.set_device(0)
+
+def get_centroid(points):
+    """
+    Calulate the centroid of list of points(x,y)
+    """
+    #coords=torch.tensor(points).t().contiguous().squeeze()
+    
+    centroid =np.mean(points, axis=0)
+    return centroid
+
+video_folder="/home/falhamdoosh/tgcn/data/PartA/"
+
 df = pd.read_csv('/home/falhamdoosh/tgcn/data/PartA/samples.csv',sep='\t')
 
 #filename = [ 'video/' subject_name '/' sample_name '.mp4' ];
 #Create list of all files paths
-filesnames=filesnames=(df['subject_name'] + '/' + df['sample_name']+'.mp4').to_numpy()
+filesnames=filesnames=(df['subject_name'] + '/' + df['sample_name']).to_numpy()
 #apply map. function that take the path and extract the feateurs. then list all of them.
 
 #for i,file in tqdm(enumerate(filesnames)):
@@ -27,7 +49,9 @@ def extract_landmarks_from_video(root,path_file,centroid=True):
     list_landmarks:[num_frames,68,2]
     """
     #path='/home/falhamdoosh/tgcn/data/PartA/video/071309_w_21/071309_w_21-BL1-081.mp4'
-    path=root+ path_file
+    path=root+"video/"+ path_file+".mp4"
+    outputfile=root+"landmarks/"+path_file+".npy"
+    os.makedirs(os.path.dirname(outputfile), exist_ok=True)
     cap = cv2.VideoCapture(path)
     list_landmarks=[]
     while True:
@@ -35,23 +59,82 @@ def extract_landmarks_from_video(root,path_file,centroid=True):
         ret, frame = cap.read() 
         if not ret:
             break
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
         # Extract the landmarks of the face
-        landmarks = extract_face_landmarks(frame)
+        #data=torch.from_numpy(gray).to(device)
+        landmarks = extract_face_landmarks(gray)
+        
         if centroid:
-            landmarks.append(get_centroid(landmarks))
+            landmarks=np.vstack((landmarks,get_centroid(landmarks)))
         list_landmarks.append(landmarks)
 
     # Release the resources
     cap.release()
-    
+    np.save(outputfile,list_landmarks)
     return list_landmarks
 
 
-extract_landmarks_from_video_folder=lambda x: extract_landmarks_from_video(video_folder,x)
-
-data=list(map(extract_landmarks_from_video_folder,filesnames))
 labels=df['class_id'].values
-np.save("/home/falhamdoosh/tgcn/data/PartA/data.npy",data)
+#%%
+for i in tqdm(range (400,len(filesnames))):
+    extract_landmarks_from_video(video_folder,filesnames[i])
+
+#%%
+mp_face_mesh = mp.solutions.face_mesh.FaceMesh(
+    static_image_mode=False,
+    max_num_faces=1,
+    min_detection_confidence=0.5,
+    min_tracking_confidence=0.5
+)
+def extract_landmarks_from_video_media_pipe(root,path_file,centroid=True):
+    """
+    This function take in input:
+    root: Director where all videos are saved
+    path_file: a pathe insid videos folder to a video.mp4
+    Return:
+    list_landmarks:[num_frames,68,2]
+    """
+    #path='/home/falhamdoosh/tgcn/data/PartA/video/071309_w_21/071309_w_21-BL1-081.mp4'
+    path=root+"video/"+ path_file+".mp4"
+    outputfile=root+"landmarks/"+path_file+".npy"
+    os.makedirs(os.path.dirname(outputfile), exist_ok=True)
+    cap = cv2.VideoCapture(path)
+    list_landmarks=[]
+    while True:
+    # Read a frame from the video capture
+        ret, frame = cap.read()
+
+        if not ret:
+            break
+        data = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        #gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        results = mp_face_mesh.process(data)
+        if results.multi_face_landmarks:
+            for face_landmarks in results.multi_face_landmarks:
+                # Convert normalized landmarks to pixel coordinates
+                h, w, _ = frame.shape
+                landmarks = []
+                for landmark in face_landmarks.landmark:
+                    x, y = int(landmark.x * w), int(landmark.y * h)
+                    landmarks.append((x, y))
+                if centroid:
+                    landmarks=np.vstack((landmarks,get_centroid(landmarks)))
+                    list_landmarks.append(landmarks)
+    cap.release()
+    np.save(outputfile,list_landmarks)
+    return list_landmarks
+
+for i in tqdm(range (0,len(filesnames))):
+    extract_landmarks_from_video_media_pipe(video_folder,filesnames[i])
+   
+# Initialize OpenCV capture
+#%%
+
+
+#%%
+np.save("/home/falhamdoosh/tgcn/data/PartA/data_landmarks.npy",data)
 np.save("/home/falhamdoosh/tgcn/data/PartA/labels.npy",labels)
 
 #%%
@@ -71,12 +154,6 @@ def filter_neutral_subject(df):
     df=df[~mask]
     return indices_filtered
 
-def get_centroid(points):
-    """
-    Calulate the centroid of list of points(x,y)
-    """
-    coords=torch.tensor(points).t().contiguous()
-    return np.mean(coords, axis=1)
 def preprocess_data(data,standardization =True, minMaxNormalization=False):
     """
     This function perform data preproccessing:
