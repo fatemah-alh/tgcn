@@ -6,7 +6,7 @@ import pickle
 import numpy as np
 from tqdm import tqdm
 from torch_geometric_temporal.signal import StaticGraphTemporalSignal,StaticGraphTemporalSignalBatch
-
+import torch_geometric
 from torch_geometric.utils import dense_to_sparse
 
 data_path="/home/falhamdoosh/tgcn/Painformer/dataset_data_biovid.npy"
@@ -101,8 +101,9 @@ if __name__=="__main__":
     print(loader.get_shapes())
     dataset=loader.get_dataset()
     train_dataset, test_dataset = temporal_signal_split(dataset, train_ratio=0.7)
-    
-    print(next(iter(dataset)))
+    data_loader=torch_geometric.loade.DataLoader(dataset,batch_size=128, shuffle=True,
+                                               drop_last=True)
+    print(next(iter(data_loader)))
 
     """
   
