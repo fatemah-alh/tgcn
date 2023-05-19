@@ -13,7 +13,6 @@ import mediapipe as mp
 
 #%%
 if torch.cuda.is_available():
-    
   torch.cuda.set_device(0)
   device = 'cuda'  
 else:
@@ -29,17 +28,6 @@ def get_centroid(points):
     
     centroid =np.mean(points, axis=0)
     return centroid
-
-video_folder="/home/falhamdoosh/tgcn/data/PartA/"
-
-df = pd.read_csv('/home/falhamdoosh/tgcn/data/PartA/samples.csv',sep='\t')
-
-#filename = [ 'video/' subject_name '/' sample_name '.mp4' ];
-#Create list of all files paths
-filesnames=filesnames=(df['subject_name'] + '/' + df['sample_name']).to_numpy()
-#apply map. function that take the path and extract the feateurs. then list all of them.
-
-#for i,file in tqdm(enumerate(filesnames)):
 def extract_landmarks_from_video(root,path_file,centroid=True):
     """
     This function take in input:
@@ -74,19 +62,6 @@ def extract_landmarks_from_video(root,path_file,centroid=True):
     np.save(outputfile,list_landmarks)
     return list_landmarks
 
-
-labels=df['class_id'].values
-#%%
-for i in tqdm(range (400,len(filesnames))):
-    extract_landmarks_from_video(video_folder,filesnames[i])
-
-#%%
-mp_face_mesh = mp.solutions.face_mesh.FaceMesh(
-    static_image_mode=False,
-    max_num_faces=1,
-    min_detection_confidence=0.5,
-    min_tracking_confidence=0.5
-)
 def extract_landmarks_from_video_media_pipe(root,path_file,centroid=True):
     """
     This function take in input:
@@ -125,23 +100,6 @@ def extract_landmarks_from_video_media_pipe(root,path_file,centroid=True):
     cap.release()
     np.save(outputfile,list_landmarks)
     return list_landmarks
-
-for i in tqdm(range (0,len(filesnames))):
-    extract_landmarks_from_video_media_pipe(video_folder,filesnames[i])
-   
-# Initialize OpenCV capture
-#%%
-
-
-#%%
-np.save("/home/falhamdoosh/tgcn/data/PartA/data_landmarks.npy",data)
-np.save("/home/falhamdoosh/tgcn/data/PartA/labels.npy",labels)
-
-#%%
-#Process_data
-FILTER_NEUTRAL=False
-FILTER_VALIDATE=True
-#there is many subject in common within validation and neutral. so choose some of them.
 def filter_neutral_subject(df):
 
     neutral_subjects_id=["082315_w_60", "082414_m_64", "082909_m_47", "083009_w_42",
@@ -153,6 +111,37 @@ def filter_neutral_subject(df):
     indices_filtered= df.loc[mask].index.tolist()
     df=df[~mask]
     return indices_filtered
+
+
+def split_test_train_balance(df,data,labels):
+
+    """
+    Split in train and test data according to Biovid indication to obtain balance.
+    inputs:
+            df: datafram of samples.csv
+            data:matrix of all landmarks of all video [num of samples,[num_frames,68 or 69 if centroid was added,2]]
+            labels: one dimension array of labels between 0 and 4 of size [ num of samples ] 
+    Return:
+            test_data,test_labels,train_data,train_labels
+    """
+    validation_subjects_id=["100914_m_39", "101114_w_37", "082315_w_60", "083114_w_55", 
+                            "083109_m_60", "072514_m_27", "080309_m_29", "112016_m_25", 
+                            "112310_m_20", "092813_w_24", "112809_w_23", "112909_w_20", 
+                            "071313_m_41", "101309_m_48", "101609_m_36", "091809_w_43", 
+                            "102214_w_36", "102316_w_50", "112009_w_43", "101814_m_58", 
+                            "101908_m_61", "102309_m_61", "112209_m_51", "112610_w_60", 
+                            "112914_w_51", "120514_w_56"]
+    mask = df['subject_name'].isin(validation_subjects_id)
+    indices_validation= df.loc[mask].index.tolist()
+    #df_test=df[mask]
+    #df_train=df[~mask]
+    test_data=data[indices_validation]
+    test_labels=labels[indices_validation]
+    train_data=data[~indices_validation]
+    train_labels=labels[~indices_validation]
+    assert len(train_data)==len(train_labels)
+    assert len(test_data)==len(test_labels)
+    return (test_data,test_labels,train_data,train_labels)
 
 def preprocess_data(data,standardization =True, minMaxNormalization=False):
     """
@@ -239,32 +228,33 @@ def rotation_matrix_2d(theta):
 
 
 
-def split_test_train_balance(df,data,labels):
+video_folder="/home/falhamdoosh/tgcn/data/PartA/"
+df = pd.read_csv('/home/falhamdoosh/tgcn/data/PartA/samples.csv',sep='\t')
+labels=df['class_id'].values
+filesnames=filesnames=(df['subject_name'] + '/' + df['sample_name']).to_numpy()
 
-    """
-    Split in train and test data according to Biovid indication to obtain balance.
-    inputs:
-            df: datafram of samples.csv
-            data:matrix of all landmarks of all video [num of samples,[num_frames,68 or 69 if centroid was added,2]]
-            labels: one dimension array of labels between 0 and 4 of size [ num of samples ] 
-    Return:
-            test_data,test_labels,train_data,train_labels
-    """
-    validation_subjects_id=["100914_m_39", "101114_w_37", "082315_w_60", "083114_w_55", 
-                            "083109_m_60", "072514_m_27", "080309_m_29", "112016_m_25", 
-                            "112310_m_20", "092813_w_24", "112809_w_23", "112909_w_20", 
-                            "071313_m_41", "101309_m_48", "101609_m_36", "091809_w_43", 
-                            "102214_w_36", "102316_w_50", "112009_w_43", "101814_m_58", 
-                            "101908_m_61", "102309_m_61", "112209_m_51", "112610_w_60", 
-                            "112914_w_51", "120514_w_56"]
-    mask = df['subject_name'].isin(validation_subjects_id)
-    indices_validation= df.loc[mask].index.tolist()
-    #df_test=df[mask]
-    #df_train=df[~mask]
-    test_data=data[indices_validation]
-    test_labels=labels[indices_validation]
-    train_data=data[~indices_validation]
-    train_labels=labels[~indices_validation]
-    assert len(train_data)==len(train_labels)
-    assert len(test_data)==len(test_labels)
-    return (test_data,test_labels,train_data,train_labels)
+#%%
+for i in tqdm(range (0,len(filesnames))):
+    extract_landmarks_from_video(video_folder,filesnames[i])
+
+#%%
+mp_face_mesh = mp.solutions.face_mesh.FaceMesh(
+    static_image_mode=False,
+    max_num_faces=1,
+    min_detection_confidence=0.5,
+    min_tracking_confidence=0.5
+)
+
+for i in tqdm(range (0,len(filesnames))):
+    extract_landmarks_from_video_media_pipe(video_folder,filesnames[i])
+#%%
+#TODO apply function to create data array
+data=[]
+np.save("/home/falhamdoosh/tgcn/data/PartA/data_landmarks.npy",data)
+np.save("/home/falhamdoosh/tgcn/data/PartA/labels.npy",labels)
+
+#%%
+#Process_data
+FILTER_NEUTRAL=False
+FILTER_VALIDATE=True
+#there is many subject in common within validation and neutral. so choose some of them.

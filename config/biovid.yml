@@ -1,0 +1,36 @@
+Description: " first training using signl, whitout bathing and without shuffling, without data augmentaion.."
+name_exp: "biovid"
+data_path: "/home/falhamdoosh/tgcn/Painformer/dataset_data_biovid.npy"
+labels_path: "/home/falhamdoosh/tgcn/Painformer/dataset_label_biovid.pkl"
+#edges_path: "/home/falhamdoosh/tgcn/data/edges_indx_dlib68.npy"
+#edges_path: "/home/falhamdoosh/tgcn/Painformer/painformer-main/biovid_dlib_51_normalized_adjacency_new.npy"
+edges_path: "/home/falhamdoosh/tgcn/Painformer/edge_index_51biovid.npy"
+###Optimizer###
+
+weight_decay: 0.001
+step_decay: 20
+optimizer: 'Adam'
+#momentum: 0.9
+
+###Network###
+start_epoch: 0
+num_epoch: 20 
+batch_size: 32
+batch_size_test: 32
+continue_training: False   #If set True will continue training from pretrained model
+pretrain_model: ""       #Name of folder that contains the model resume training
+gpu: 0
+#k_fold: 3
+###Model parameters###
+
+embed_dim: 32
+n_classes: 5
+num_features: 4
+output_features: 1
+TS: 137
+n_joints: 51
+train_ratio: 0.7
+lr: 0.001
+LOG_DIR: "./log/"
+#n_layers: 3
+#dropout: 0.2

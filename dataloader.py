@@ -1,18 +1,11 @@
-import torch
-import os, sys
-pt_version = torch.__version__
-print(pt_version)
 import pickle
 import numpy as np
 from tqdm import tqdm
 from torch_geometric_temporal.signal import StaticGraphTemporalSignal,StaticGraphTemporalSignalBatch
 import torch_geometric
 from torch_geometric.utils import dense_to_sparse
-
-data_path="/home/falhamdoosh/tgcn/Painformer/dataset_data_biovid.npy"
-labels_path="/home/falhamdoosh/tgcn/Painformer/dataset_label_biovid.pkl"
-edges_path="/home/falhamdoosh/tgcn/data/edges_indx_dlib68.npy"
-TS=137
+from torch_geometric_temporal.signal import temporal_signal_split
+import torch
 class DataLoader(object):
     def __init__(self, data_path,labels_path,edges_index_path):
         super(DataLoader, self).__init__()
@@ -22,8 +15,9 @@ class DataLoader(object):
         self._read_data()
 
     def _read_data(self):
-        edges=np.load(self.edges_index_path)
+        self.edges_index=np.load(self.edges_index_path)
         #print(self.edges_index.shape, self.edges_index[0].shape, self.edges_index[0])
+        """
        
         #filter edges
         filtered_edges=[[],[]]
@@ -32,15 +26,13 @@ class DataLoader(object):
                     filtered_edges[0].append(edges[0][i])
                     filtered_edges[1].append(edges[1][i])
         self.edges_index=np.array(filtered_edges)
-            
+        """
        
         print("index shape ",self.edges_index.shape)
         #self.edge_weights=
         self.X=np.load(self.data_path)
         self.X=self.reshape_data(self.X)
         self.features= [self.X[i] for i in range(self.X.shape[0])]
-
-
         label_file= open(self.labels_path,'rb')
         labels=pickle.load(label_file)
         labels=labels[1]
@@ -48,7 +40,6 @@ class DataLoader(object):
         self.labels=np.array(self.labels)
         
         """
-        
         X = np.load(datapath+"AllDSSkeleton.npy").transpose((1, 2, 0))
         X = X.astype(np.float32)
 
@@ -58,10 +49,10 @@ class DataLoader(object):
         stds = np.std(X, axis=(0, 2))
         X = X / stds.reshape(1, -1, 1)
         """
-   
-       
+
+
     def reshape_data(self,data):
-        # Assuming your tensor is named 'tensor'
+       
         reshaped_tensor = np.transpose(data, (0, 3, 1, 2))  # Transpose dimensions
         reshaped_tensor = np.reshape(reshaped_tensor, (8600, 51, 4, 137))  # Reshape to desired shape
         return reshaped_tensor
@@ -78,8 +69,6 @@ class DataLoader(object):
             * **dataset** *(StaticGraphTemporalSignal)* 
         """
        # StaticGraphTemporalSignalBatch
-       
-
         dataset = StaticGraphTemporalSignal(
            edge_index= self.edges_index,edge_weight= None ,features= self.features, targets= self.labels
         )
@@ -95,20 +84,27 @@ class DataLoader(object):
         return dataset
     
 if __name__=="__main__":
+
+    data_path="/home/falhamdoosh/tgcn/Painformer/dataset_data_biovid.npy"
+    labels_path="/home/falhamdoosh/tgcn/Painformer/dataset_label_biovid.pkl"
+    edges_path="/home/falhamdoosh/tgcn/data/edges_indx_dlib68.npy"
+    TS=137
+
     loader=DataLoader(data_path,labels_path,edges_path)
-    from torch_geometric_temporal.signal import temporal_signal_split
     
     print(loader.get_shapes())
     dataset=loader.get_dataset()
     train_dataset, test_dataset = temporal_signal_split(dataset, train_ratio=0.7)
-    data_loader=torch_geometric.loade.DataLoader(dataset,batch_size=128, shuffle=True,
-                                               drop_last=True)
-    print(next(iter(data_loader)))
+    
+    print(next(iter(train_dataset)))
 
-    """
-  
+    # i should get a Data object at each iteration
+    # apply manual dataset for batch and for filtred train and test
+    #apply function to add ids training and id test
+    #apply random sampling.
+
     for i in tqdm(dataset):
-        print (i.x[:,:,1].shape,i.y.shape)
-        break
-    """
+        print (i.x[:,:,1].shape,i.y)
+        if i>10:
+            break
  

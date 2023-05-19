@@ -10,3 +10,6 @@ __pycache__/dataloader.cpython-37.pyc
 __pycache__/model.cpython-37.pyc
 colab_notBook.py
 train.py
+writer
+log
+
