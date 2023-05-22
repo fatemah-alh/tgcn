@@ -3,7 +3,7 @@ import torch.nn.functional as F
 from torch_geometric_temporal.nn.recurrent import A3TGCN
 import numpy as np
 from torch_geometric_temporal.signal import StaticGraphTemporalSignal
-from model import TemporalGNN 
+from model import TemporalGNN,TemporalGNNBatch
 from dataloader import DataLoader
 from torch_geometric_temporal.signal import temporal_signal_split
 from tqdm import tqdm 
@@ -39,6 +39,8 @@ class Trainer():
         self.data_path=config['data_path']
         self.labels_path=config['labels_path']
         self.edges_path=config['edges_path']
+        self.idx_train=config['idx_train']
+        self.idx_test=config['idx_test']
         self.train_ratio=config['train_ratio']
         self.batch_size=config['batch_size']
         self.set_log_dir()
@@ -65,9 +67,22 @@ class Trainer():
         self.writer = SummaryWriter('./writer/' + self.name_exp+self.date)
     def load_datasets(self):
 
-        loader = DataLoader(self.data_path,self.labels_path,self.edges_path)
-        self.dataset = loader.get_dataset()
-        self.train_dataset,self.test_dataset = temporal_signal_split(self.dataset, train_ratio=self.train_ratio)
+        #loader = DataLoader(self.data_path,self.labels_path,self.edges_path)
+        #self.dataset = loader.get_dataset()
+        #self.train_dataset,self.test_dataset = temporal_signal_split(self.dataset, train_ratio=self.train_ratio)
+        #self.train_dataset,self.test_dataset = loader,loader
+
+        self.train_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,idx_path=self.idx_train,mode="train")
+        self.test_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,idx_path=self.idx_test,mode="test")
+        self.train_loader = torch.utils.data.DataLoader(self.train_dataset, 
+                                                   batch_size=32, 
+                                                   shuffle=True,
+                                                   drop_last=True)
+        self.test_loader = torch.utils.data.DataLoader(self.test_dataset, 
+                                                   batch_size=1, 
+                                                   shuffle=False,
+                                                   sampler=torch.utils.data.SequentialSampler(self.test_dataset),
+                                                   drop_last=False)
     def load_model(self):
         self.model = TemporalGNN(node_features=self.num_features,embed_dim=self.embed_dim, periods=self.TS)
         
@@ -79,36 +94,38 @@ class Trainer():
         self.model.to(self.device)
 
     def load_optimizer(self):
-        self.optimizer = torch.optim.Adam(list(self.model.parameters()), lr=self.lr,betas=(0.9, 0.999))
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr,betas=(0.9, 0.999))
         self.lr_scheduler = lr_scheduler.StepLR(self.optimizer,self.step_decay, self.weight_decay)
     def load_loss(self):
         self.loss=torch.nn.MSELoss()
         self.loss.to(self.device)
+        #torch.mean((y_hat-label)**2)
     def train(self):
         print("Running training...")
         avg_loss = 0.0
         loss = 0.0
-        step = 0
         self.model.train()
-        tq=tqdm(self.train_dataset)
+        tq=tqdm(self.train_loader)
         for num_index,snapshot in enumerate(tq):
-            snapshot = snapshot.to(self.device)
-            y_hat = self.model(snapshot.x, snapshot.edge_index) # output vettore [num_nodes]
-            label = snapshot.y   
-            loss += self.loss(y_hat,label.float()).float()
-            self.writer.add_scalars('Training y_hat and true labels epoch', {"y_hat":y_hat,"True label":label}, num_index)
-            avg_loss += loss
-            del snapshot
-            if step>31:
-                loss = loss / (step + 1)
-                tq.set_description("train: Loss batch , value loss: {l}".format(l=loss))
-                loss.backward()
-                self.optimizer.step()
-                self.optimizer.zero_grad()
-                loss=0
-                step=0
-            step += 1
-        return avg_loss/(num_index+1)
+            x,y,edge_index=snapshot
+            x=torch.tensor(x).to(self.device)
+            edge_index=torch.tensor(edge_index).to(self.device)
+            label = torch.tensor(y).to(self.device) 
+            for i in range(len(label)):
+                #print(x[i].shape,edge_index[i].shape)
+                y_hat = self.model(x[i], edge_index[i]) # output vettore [num_nodes]
+                sample_loss=self.loss(y_hat,label[i].float())
+                loss += sample_loss
+                tq.set_description("trainloss: {} ,yahat{} label {}".format(sample_loss,y_hat,label[i]))
+                self.writer.add_scalars('Training y_hat and true labels epoch', {"y_hat":y_hat,"True label":label[i],"loss":sample_loss}, (num_index+1)*i)
+                avg_loss += sample_loss
+            loss = loss / (len(label))
+            tq.set_description("train: Loss batch , value loss: {l}".format(l=loss))
+            loss.backward()
+            self.optimizer.step()
+            self.optimizer.zero_grad()
+            loss=0
+        return avg_loss/(self.train_loader.__len__())
 
     def eval(self):
         self.model.eval()
@@ -117,12 +134,13 @@ class Trainer():
         tq=tqdm(self.test_dataset)
         with torch.no_grad():
             for num_index,snapshot in enumerate(tq):
-                snapshot = snapshot.to(self.device)
-                y_hat = self.model(snapshot.x, snapshot.edge_index)
-                label = snapshot.y
-                loss=self.loss(y_hat,label.float())
-                loss=loss.float()
-                avg_loss += loss
+                x,y,edge_index=snapshot
+                x=torch.tensor(x).to(self.device)
+                edge_index=torch.tensor(edge_index).to(self.device)
+                label = torch.tensor(y).to(self.device)  
+                y_hat = self.model(x, edge_index) # output vettore [num_nodes]
+                sample_loss=self.loss(y_hat,label.float())
+                avg_loss += sample_loss
                 self.writer.add_scalars('Eval y_hat and true labels epoch', {"y_hat":y_hat,"True label":label}, num_index)
                 tq.set_description("Test Loss  , value loss: {}".format(self.loss(y_hat,label)))
                 del snapshot

@@ -10,6 +10,15 @@ import torch
 import os,sys
 import dlib
 import mediapipe as mp
+import math
+import pickle
+import yaml
+from yaml import FullLoader
+
+
+name_exp = 'biovid'
+config_file=open("./config/"+name_exp+".yml", 'r')
+config = yaml.safe_load(config_file)
 
 #%%
 if torch.cuda.is_available():
@@ -111,8 +120,40 @@ def filter_neutral_subject(df):
     indices_filtered= df.loc[mask].index.tolist()
     df=df[~mask]
     return indices_filtered
+#%%
+def get_idx_train_test():
+    validation_subjects_id=["100914_m_39", "101114_w_37", "082315_w_60", "083114_w_55", 
+                            "083109_m_60", "072514_m_27", "080309_m_29", "112016_m_25", 
+                            "112310_m_20", "092813_w_24", "112809_w_23", "112909_w_20", 
+                            "071313_m_41", "101309_m_48", "101609_m_36", "091809_w_43", 
+                            "102214_w_36", "102316_w_50", "112009_w_43", "101814_m_58", 
+                            "101908_m_61", "102309_m_61", "112209_m_51", "112610_w_60", 
+                            "112914_w_51", "120514_w_56"]
+    labels_path=config['labels_path']
+    label_file= open(labels_path,'rb')
+    labels=pickle.load(label_file)
+    print(labels[0])
+    idx_test=[]
+    idx_train=[]
+    for i in range(len(labels[0])):
+        test=False
+        for j in validation_subjects_id:
+            if labels[0][i].startswith(j):
+                test=True
+        if test:
+            idx_test.append(i)        
+        else:
+            idx_train.append(i)
 
+    print("Percent test",(len(idx_test)*100)/len(labels[0]))
+    assert len(idx_test)+len(idx_train)==len(labels[0])
+    return idx_train,idx_test
+idx_train,idx_test=get_idx_train_test()
 
+#%%
+np.save("/home/falhamdoosh/tgcn/Painformer/idx_train.npy",idx_train)
+np.save("/home/falhamdoosh/tgcn/Painformer/idx_test.npy",idx_test)
+#%%
 def split_test_train_balance(df,data,labels):
 
     """

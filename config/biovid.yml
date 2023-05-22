@@ -5,6 +5,8 @@ labels_path: "/home/falhamdoosh/tgcn/Painformer/dataset_label_biovid.pkl"
 #edges_path: "/home/falhamdoosh/tgcn/data/edges_indx_dlib68.npy"
 #edges_path: "/home/falhamdoosh/tgcn/Painformer/painformer-main/biovid_dlib_51_normalized_adjacency_new.npy"
 edges_path: "/home/falhamdoosh/tgcn/Painformer/edge_index_51biovid.npy"
+idx_train: "/home/falhamdoosh/tgcn/Painformer/idx_train.npy"
+idx_test: "/home/falhamdoosh/tgcn/Painformer/idx_test.npy"
 ###Optimizer###
 
 weight_decay: 0.001
