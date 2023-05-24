@@ -20,6 +20,7 @@ name_exp = 'biovid'
 config_file=open("./config/"+name_exp+".yml", 'r')
 config = yaml.safe_load(config_file)
 
+
 #%%
 if torch.cuda.is_available():
   torch.cuda.set_device(0)
@@ -120,8 +121,8 @@ def filter_neutral_subject(df):
     indices_filtered= df.loc[mask].index.tolist()
     df=df[~mask]
     return indices_filtered
-#%%
-def get_idx_train_test():
+
+def get_idx_train_test(path):
     validation_subjects_id=["100914_m_39", "101114_w_37", "082315_w_60", "083114_w_55", 
                             "083109_m_60", "072514_m_27", "080309_m_29", "112016_m_25", 
                             "112310_m_20", "092813_w_24", "112809_w_23", "112909_w_20", 
@@ -129,31 +130,33 @@ def get_idx_train_test():
                             "102214_w_36", "102316_w_50", "112009_w_43", "101814_m_58", 
                             "101908_m_61", "102309_m_61", "112209_m_51", "112610_w_60", 
                             "112914_w_51", "120514_w_56"]
-    labels_path=config['labels_path']
-    label_file= open(labels_path,'rb')
-    labels=pickle.load(label_file)
-    print(labels[0])
+    df = pd.read_csv('/home/falhamdoosh/tgcn/data/PartA/samples.csv',sep='\t')
+    labels=df['subject_name'].to_numpy()
+    print(labels)
+   # labels_path=config['labels_path']
+    #label_file= open(labels_path,'rb')
+    #labels=pickle.load(label_file)
+    #labels=labels[0]
+   # print(labels[0])
     idx_test=[]
     idx_train=[]
-    for i in range(len(labels[0])):
+    for i in range(len(labels)):
         test=False
         for j in validation_subjects_id:
-            if labels[0][i].startswith(j):
+            if labels[i].strip()==j:
                 test=True
         if test:
             idx_test.append(i)        
         else:
             idx_train.append(i)
 
-    print("Percent test",(len(idx_test)*100)/len(labels[0]))
-    assert len(idx_test)+len(idx_train)==len(labels[0])
-    return idx_train,idx_test
-idx_train,idx_test=get_idx_train_test()
+    print("Percent test",(len(idx_test)*100)/len(labels))
+    assert len(idx_test)+len(idx_train)==len(labels)
 
-#%%
-np.save("/home/falhamdoosh/tgcn/Painformer/idx_train.npy",idx_train)
-np.save("/home/falhamdoosh/tgcn/Painformer/idx_test.npy",idx_test)
-#%%
+    np.save(path+"idx_train.npy",idx_train)
+    np.save(path+"idx_test.npy",idx_test)
+    return idx_train,idx_test
+
 def split_test_train_balance(df,data,labels):
 
     """
@@ -212,17 +215,17 @@ def remove_rotation(sample):
     matrix_x = rotation_matrix_2d(angle)
     return np.dot(sample, matrix_x).transpose()
 def noise_centring(sample):
-
-    return sample - sample[30]
-            
+    return sample - sample[30]    
 def calc_velocity(sample):
     velcetiy=[]
     for i in range(1,len(sample)):
         velcetiy.append(sample[i]-sample[i-1])
     return velcetiy  
 
-def standardize(values):
-    return (values - values.mean())/values.std()
+def standardize(frame):
+     #print(np.mean(frame ,axis=0)) #first point [773.61752137 546.12179487]
+     #print(np.std(frame,axis=0))#[82.34992859 91.95303401]
+    return (frame - np.mean(frame ,axis=0)) /np.std(frame,axis=0)
 
 def angle_between(v1, v2):
     '''
@@ -267,12 +270,38 @@ def rotation_matrix_2d(theta):
     '''
     return np.array([[math.cos(theta), math.sin(theta)], [-math.sin(theta), math.cos(theta)]])
 
-
-
+#%%
+#Create Data matrix and normalize..
+landmarks_folder="/home/falhamdoosh/tgcn/data/PartA/landmarks/"
 video_folder="/home/falhamdoosh/tgcn/data/PartA/"
 df = pd.read_csv('/home/falhamdoosh/tgcn/data/PartA/samples.csv',sep='\t')
 labels=df['class_id'].values
-filesnames=filesnames=(df['subject_name'] + '/' + df['sample_name']).to_numpy()
+filesnames=(df['subject_name'] + '/' + df['sample_name']).to_numpy()
+
+normalized_data = np.zeros((8700, 137, 469, 4), dtype=np.float32)
+for i in tqdm(range (0,len(filesnames))):
+    path=landmarks_folder+filesnames[i]+".npy"
+    sample=np.load(path) #[138,468,2] 
+    lens=set()  
+    lens.add(len(sample)) 
+    for i in range(len(sample)): #[468,2]
+        frame=sample[i]
+        sample[i]= standardize(frame)
+        
+    velocity=calc_velocity(sample)
+    data=np.concatenate((sample[:-1,:,:], velocity), axis=2)
+    lens=set()  
+    lens.add(data.shape)
+    normalized_data[i,:data.shape[0],:,:]=data
+    
+#%%
+
+#%%
+path="/home/falhamdoosh/tgcn/data/PartA/Mediapipe/"
+np.save(path+"dataset_mediapipe.npy",normalized_data)
+np.save(path+"label_mediapipe.npy",labels)
+#%%
+get_idx_train_test(path)
 
 #%%
 for i in tqdm(range (0,len(filesnames))):
@@ -293,9 +322,3 @@ for i in tqdm(range (0,len(filesnames))):
 data=[]
 np.save("/home/falhamdoosh/tgcn/data/PartA/data_landmarks.npy",data)
 np.save("/home/falhamdoosh/tgcn/data/PartA/labels.npy",labels)
-
-#%%
-#Process_data
-FILTER_NEUTRAL=False
-FILTER_VALIDATE=True
-#there is many subject in common within validation and neutral. so choose some of them.

@@ -6,6 +6,7 @@ import torch
 from tqdm import tqdm
 from dataloader import DataLoader
 #%%
+"""
 class TemporalGNN(torch.nn.Module):
     def __init__(self, node_features=4,output_features=1,num_nodes=51,embed_dim=32, periods=137):
         super(TemporalGNN, self).__init__()
@@ -17,17 +18,19 @@ class TemporalGNN(torch.nn.Module):
         self.tgnn = A3TGCN(in_channels=self.node_features,
                            out_channels=self.embed_dim,
                            periods=self.periods)
+        self.dropout = torch.nn.Dropout(0.2)
         self.linear_1= torch.nn.Linear(self.embed_dim, self.output_features)
         self.linear_2=torch.nn.Linear(self.num_nodes, self.output_features)
 
 
     def forward(self, x, edge_index):
-        """
+     
         x = Node features for T time steps [51,4,137]
         edge_index = Graph edge indices [2,num_edges]
-        """
+        
         h = self.tgnn(x, edge_index)
-        h = F.relu(h)
+        #h = F.relu(h)
+        h=self.dropout(h)
         h = self.linear_1(h)
         h = F.relu(h)
         h=h.view(-1,self.num_nodes)
@@ -35,10 +38,13 @@ class TemporalGNN(torch.nn.Module):
         h= self.linear_2(h)
        
         #h = F.relu(h)
-        h=5.0 * torch.sigmoid(h)
+       # h=5.0 * torch.sigmoid(h)
         h=h.view(-1)
         return h
 
+
+
+"""
 class TemporalGNNBatch(torch.nn.Module):
     def __init__(self, node_features=4,output_features=1,num_nodes=51,embed_dim=32, periods=137,batch_size=32):
         super(TemporalGNNBatch, self).__init__()
@@ -51,30 +57,35 @@ class TemporalGNNBatch(torch.nn.Module):
         self.tgnn = A3TGCN2(in_channels=self.node_features,
                            out_channels=self.embed_dim,
                            periods=self.periods,batch_size=self.batch_size)
-        self.linear_1= torch.nn.Linear(self.embed_dim, self.output_features)# input[32,[51*32]] uscita come [batch 32, 51*1] per ogni nodo ha un imbed di dimensione 32 invece del 137
+        self.dropout = torch.nn.Dropout(0.2)
+        self.linear_1= torch.nn.Linear(self.embed_dim, 1)
+        # input[32,[51*32]] uscita come [batch 32, 51*1] per ogni nodo ha un imbed di dimensione 32 invece del 137
+        
         self.linear_2=torch.nn.Linear(self.num_nodes, self.output_features)# batch [32, 51] [32,1]
 
 
-    def forward(self, x, edge_index):
+    def forward(self, x, edge_index,edge_attr=None):
         """
         x = Node features for T time steps [51,4,137]
         edge_index = Graph edge indices [2,num_edges]
         """
-        h = self.tgnn(x, edge_index) #batch,
-        #print("tgnn shape",h.shape)
+        
+        if edge_attr!=None:
+            h = self.tgnn(x, edge_index,edge_attr)
+        else:
+            h = self.tgnn(x, edge_index) #batch,
         h = F.relu(h)
+        h=self.dropout(h)
         h = self.linear_1(h)
         h = F.relu(h)
-        #print("linear 1 shape", h.shape)
         h=h.view(-1,self.num_nodes)
-       # print("linear 1 shape after view", h.shape)
-        h= self.linear_2(h)
-        #print("linear 12 shape", h.shape)
-        h = F.relu(h)
-        #h=5.0 * torch.sigmoid(h)
-        #print("relu", h.shape)
+        h=self.linear_2(h)
+       # h = F.relu(h) #same loss with 0 values or 2.25
+        h=5.0 * torch.sigmoid(h)
+        # a volte l'output è sempre zero, a volte 2.45
         h=h.view(-1)
-        #print("finale h ", h.shape)
+        
+        
         return h
 
 if __name__=="__main__":

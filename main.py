@@ -1,9 +1,7 @@
 import torch
 import torch.nn.functional as F
-from torch_geometric_temporal.nn.recurrent import A3TGCN
 import numpy as np
-from torch_geometric_temporal.signal import StaticGraphTemporalSignal
-from model import TemporalGNN,TemporalGNNBatch
+from model import TemporalGNNBatch
 from dataloader import DataLoader
 from torch_geometric_temporal.signal import temporal_signal_split
 from tqdm import tqdm 
@@ -11,7 +9,6 @@ import torch.optim.lr_scheduler as lr_scheduler
 import datetime
 import os
 import yaml
-from yaml import FullLoader
 from tensorboardX import SummaryWriter
 
 
@@ -43,6 +40,7 @@ class Trainer():
         self.idx_test=config['idx_test']
         self.train_ratio=config['train_ratio']
         self.batch_size=config['batch_size']
+        self.num_nodes=config['n_joints']
         self.set_log_dir()
         self.set_device()
         self.load_datasets()
@@ -54,7 +52,7 @@ class Trainer():
     def set_log_dir(self):
         self.date=datetime.datetime.now().strftime("%m-%d-%H:%M")
         self.log_dir=os.path.join(self.LOG_DIR,self.date)
-        os.makedirs(self.log_dir)
+        os.makedirs(self.log_dir,exist_ok=True)
     def set_device(self):
         if torch.cuda.is_available():
             print("set cuda device")
@@ -75,16 +73,20 @@ class Trainer():
         self.train_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,idx_path=self.idx_train,mode="train")
         self.test_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,idx_path=self.idx_test,mode="test")
         self.train_loader = torch.utils.data.DataLoader(self.train_dataset, 
-                                                   batch_size=32, 
+                                                   batch_size=self.batch_size, 
                                                    shuffle=True,
                                                    drop_last=True)
         self.test_loader = torch.utils.data.DataLoader(self.test_dataset, 
-                                                   batch_size=1, 
+                                                   batch_size=self.batch_size, 
                                                    shuffle=False,
                                                    sampler=torch.utils.data.SequentialSampler(self.test_dataset),
                                                    drop_last=False)
     def load_model(self):
-        self.model = TemporalGNN(node_features=self.num_features,embed_dim=self.embed_dim, periods=self.TS)
+        self.model = TemporalGNNBatch(node_features=self.num_features,
+                                      num_nodes=self.num_nodes,
+                                      embed_dim=self.embed_dim, 
+                                      periods=self.TS,
+                                      batch_size=self.batch_size)
         
         if(self.continue_training):
                 path_pretrained_model=os.path.join(self.LOG_DIR,"{}/best_model.pkl".format(self.pretrain_model))
@@ -94,57 +96,81 @@ class Trainer():
         self.model.to(self.device)
 
     def load_optimizer(self):
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr,betas=(0.9, 0.999))
-        self.lr_scheduler = lr_scheduler.StepLR(self.optimizer,self.step_decay, self.weight_decay)
+        self.optimizer = torch.optim.SGD(list(self.model.parameters()),
+                                  lr = self.lr,
+                                  momentum = 0.9
+                                 )
+        for var_name in self.optimizer.state_dict():
+            print(var_name, '\t', self.optimizer.state_dict()[var_name])
+       # self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
+       # self.lr_scheduler = lr_scheduler.StepLR(self.optimizer,self.step_decay, self.weight_decay)
     def load_loss(self):
-        self.loss=torch.nn.MSELoss()
-        self.loss.to(self.device)
+        self.loss=torch.nn.MSELoss().to(self.device)
+        #self.loss=torch.nn.L1Loss().to(self.device)
         #torch.mean((y_hat-label)**2)
     def train(self):
-        print("Running training...")
         avg_loss = 0.0
-        loss = 0.0
         self.model.train()
+        loss=0.0
         tq=tqdm(self.train_loader)
-        for num_index,snapshot in enumerate(tq):
-            x,y,edge_index=snapshot
-            x=torch.tensor(x).to(self.device)
-            edge_index=torch.tensor(edge_index).to(self.device)
-            label = torch.tensor(y).to(self.device) 
-            for i in range(len(label)):
-                #print(x[i].shape,edge_index[i].shape)
-                y_hat = self.model(x[i], edge_index[i]) # output vettore [num_nodes]
-                sample_loss=self.loss(y_hat,label[i].float())
-                loss += sample_loss
-                tq.set_description("trainloss: {} ,yahat{} label {}".format(sample_loss,y_hat,label[i]))
-                self.writer.add_scalars('Training y_hat and true labels epoch', {"y_hat":y_hat,"True label":label[i],"loss":sample_loss}, (num_index+1)*i)
-                avg_loss += sample_loss
-            loss = loss / (len(label))
-            tq.set_description("train: Loss batch , value loss: {l}".format(l=loss))
+        #try to update each epoch
+        
+        for i,snapshot in enumerate(tq):
+            x,y,edge_index,edg_attr=snapshot
+            x=x.to(self.device)
+            edge_index=edge_index.to(self.device)
+            label = y.to(self.device) 
+            edg_attr=edg_attr.to(self.device)
+             #label=label.view(-1)
+            
+            y_hat = self.model(x, edge_index[0],edg_attr[0])
+            #loss=torch.mean((y_hat-label)**2)
+            loss=self.loss(y_hat,label.float())
+
             loss.backward()
+            for name, param in self.model.named_parameters():
+               #print(name, param.grad)
+               if param.grad==None:
+                   raise RuntimeError(f"Gradient is None {name}" )
+           
             self.optimizer.step()
+            #check if gradient is updated:
+            for name, param in self.model.named_parameters():
+               #print(name, param.grad)
+               if param.grad==None:
+                   raise RuntimeError(f"Gradient is None {name}" )
             self.optimizer.zero_grad()
-            loss=0
-        return avg_loss/(self.train_loader.__len__())
+            for j in range(len(y_hat)):
+                self.writer.add_scalars('Training y-hat and label', {"y_hat":y_hat[j],"label":label[j]}, i*j)
+            
+            self.writer.add_scalars('train loss', {"loss":loss}, i)
+            tq.set_description("train: Loss batch: {}".format(loss))
+            avg_loss += loss
+        
+        return avg_loss/(i+1)
 
     def eval(self):
         self.model.eval()
-        print("Evaluation...")
         avg_loss = 0.0
-        tq=tqdm(self.test_dataset)
+        tq=tqdm(self.test_loader)
         with torch.no_grad():
-            for num_index,snapshot in enumerate(tq):
-                x,y,edge_index=snapshot
-                x=torch.tensor(x).to(self.device)
-                edge_index=torch.tensor(edge_index).to(self.device)
-                label = torch.tensor(y).to(self.device)  
-                y_hat = self.model(x, edge_index) # output vettore [num_nodes]
-                sample_loss=self.loss(y_hat,label.float())
-                avg_loss += sample_loss
-                self.writer.add_scalars('Eval y_hat and true labels epoch', {"y_hat":y_hat,"True label":label}, num_index)
-                tq.set_description("Test Loss  , value loss: {}".format(self.loss(y_hat,label)))
-                del snapshot
-        avg_loss = avg_loss / (num_index+1)
+            for i,snapshot in enumerate(tq):
+                x,y,edge_index,edg_attr=snapshot
+                x=x.to(self.device)
+                edge_index=edge_index.to(self.device)
+                label = y.to(self.device) 
+                edg_attr=edg_attr.to(self.device) 
+               # label=label.view(-1)
+                y_hat = self.model(x, edge_index[0],edg_attr[0]) # output vettore [num_nodes]
+                #loss=torch.mean((y_hat-label)**2)
+                loss=self.loss(y_hat,label.float())
+                avg_loss += loss
+                for j in range(len(y_hat)):
+                    self.writer.add_scalars('Eval loss', {"y_hat":y_hat[j],"label":label[j]}, i*j)
+                self.writer.add_scalars('Eval loss', {"loss":loss}, i)
+                tq.set_description("Test Loss batch: {}".format(loss))
+               
+        avg_loss = avg_loss / (i+1)
         return avg_loss
     
     def run(self):
@@ -160,16 +186,18 @@ class Trainer():
         for epoch in range(self.num_epoch):
             avg_train_loss=self.train()
         
-            #if (epoch%5==0):
-            torch.save(self.model.state_dict(), os.path.join(self.log_dir, "ckpt_%d.pkl" % (epoch + 1)))
-            print('Saved new checkpoint  ckpt_{epoch}.pkl , avr loss {l}'.format( epoch=epoch+1, l=avg_train_loss))
+            if (epoch%5==0):
+                torch.save(self.model.state_dict(), os.path.join(self.log_dir, "ckpt_%d.pkl" % (epoch + 1)))
+                print('Saved new checkpoint  ckpt_{epoch}.pkl , avr loss {l}'.format( epoch=epoch+1, l=avg_train_loss))
+          
             avg_test_loss= self.eval()
             self.writer.add_scalars("Loss training and evaluating",{'train_loss': avg_train_loss,'eval_loss': avg_test_loss}, epoch)
 
-            result="Epoch {e}, Train_loss: {l}, lr:{lr}\n".format(lr= self.lr_scheduler.get_lr(),e=epoch + 1,l=avg_train_loss)
+            result="Epoch {}, Train_loss: {} , eval loss {}  \n".format(epoch + 1,avg_train_loss,avg_test_loss)
             with open(os.path.join(self.log_dir, 'log.txt'), 'a') as f:
                 f.write(result)
             print(result)
+            
 
         
             if avg_test_loss < previous_best_avg_loss:
@@ -180,12 +208,12 @@ class Trainer():
                 #previous_best_avg_test_acc = avg_test_acc
                 previous_best_avg_loss=avg_test_loss
 
-            self.lr_scheduler.step()
+            #self.lr_scheduler.step()
 
 if __name__=="__main__":
     torch.manual_seed(100)
 
-    name_exp = 'biovid'
+    name_exp = 'mediapipe'
     config_file=open("./config/"+name_exp+".yml", 'r')
     config = yaml.safe_load(config_file)
 
