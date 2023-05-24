@@ -14,10 +14,7 @@ from tensorboardX import SummaryWriter
 
 class Trainer():
     def __init__(self, config) -> None:
-        
-        
         self.config=config
-
         self.lr=config['lr']
         self.LOG_DIR=config['LOG_DIR']
         self.num_epoch=config['num_epoch']
@@ -64,14 +61,8 @@ class Trainer():
     def init_writer(self):
         self.writer = SummaryWriter('./writer/' + self.name_exp+self.date)
     def load_datasets(self):
-
-        #loader = DataLoader(self.data_path,self.labels_path,self.edges_path)
-        #self.dataset = loader.get_dataset()
-        #self.train_dataset,self.test_dataset = temporal_signal_split(self.dataset, train_ratio=self.train_ratio)
-        #self.train_dataset,self.test_dataset = loader,loader
-
-        self.train_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,idx_path=self.idx_train,mode="train")
-        self.test_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,idx_path=self.idx_test,mode="test")
+        self.train_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,self.name_exp,idx_path=self.idx_train,mode="train")
+        self.test_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,self.name_exp,idx_path=self.idx_test,mode="test")
         self.train_loader = torch.utils.data.DataLoader(self.train_dataset, 
                                                    batch_size=self.batch_size, 
                                                    shuffle=True,
@@ -96,13 +87,11 @@ class Trainer():
         self.model.to(self.device)
 
     def load_optimizer(self):
-        self.optimizer = torch.optim.SGD(list(self.model.parameters()),
-                                  lr = self.lr,
-                                  momentum = 0.9
-                                 )
+        #self.optimizer = torch.optim.SGD(list(self.model.parameters()),lr = self.lr,momentum = 0.9)
+        self.optimizer = torch.optim.Adam(list(self.model.parameters()), lr=self.lr)
         for var_name in self.optimizer.state_dict():
             print(var_name, '\t', self.optimizer.state_dict()[var_name])
-       # self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
+      
        # self.lr_scheduler = lr_scheduler.StepLR(self.optimizer,self.step_decay, self.weight_decay)
     def load_loss(self):
         self.loss=torch.nn.MSELoss().to(self.device)
@@ -111,42 +100,31 @@ class Trainer():
     def train(self):
         avg_loss = 0.0
         self.model.train()
-        loss=0.0
         tq=tqdm(self.train_loader)
-        #try to update each epoch
-        
         for i,snapshot in enumerate(tq):
             x,y,edge_index,edg_attr=snapshot
+            #Move tensors to device
             x=x.to(self.device)
-            edge_index=edge_index.to(self.device)
             label = y.to(self.device) 
+            edge_index=edge_index.to(self.device)
             edg_attr=edg_attr.to(self.device)
-             #label=label.view(-1)
-            
+            #forward
             y_hat = self.model(x, edge_index[0],edg_attr[0])
-            #loss=torch.mean((y_hat-label)**2)
             loss=self.loss(y_hat,label.float())
-
+            #calc gradient and backpropagation
             loss.backward()
-            for name, param in self.model.named_parameters():
-               #print(name, param.grad)
-               if param.grad==None:
-                   raise RuntimeError(f"Gradient is None {name}" )
-           
             self.optimizer.step()
-            #check if gradient is updated:
+            #check gradient, if some tensors has been detached from CG
             for name, param in self.model.named_parameters():
                #print(name, param.grad)
                if param.grad==None:
                    raise RuntimeError(f"Gradient is None {name}" )
             self.optimizer.zero_grad()
             for j in range(len(y_hat)):
-                self.writer.add_scalars('Training y-hat and label', {"y_hat":y_hat[j],"label":label[j]}, i*j)
-            
-            self.writer.add_scalars('train loss', {"loss":loss}, i)
+                self.writer.add_scalars('Training y-hat and label', {"y_hat":y_hat[j],"label":label[j]}, (i*x.shape[0])+j)
+            self.writer.add_scalars('train loss batch', {"loss":loss}, i)
             tq.set_description("train: Loss batch: {}".format(loss))
             avg_loss += loss
-        
         return avg_loss/(i+1)
 
     def eval(self):
@@ -160,14 +138,12 @@ class Trainer():
                 edge_index=edge_index.to(self.device)
                 label = y.to(self.device) 
                 edg_attr=edg_attr.to(self.device) 
-               # label=label.view(-1)
-                y_hat = self.model(x, edge_index[0],edg_attr[0]) # output vettore [num_nodes]
-                #loss=torch.mean((y_hat-label)**2)
+                y_hat = self.model(x, edge_index[0],edg_attr[0]) 
                 loss=self.loss(y_hat,label.float())
                 avg_loss += loss
                 for j in range(len(y_hat)):
-                    self.writer.add_scalars('Eval loss', {"y_hat":y_hat[j],"label":label[j]}, i*j)
-                self.writer.add_scalars('Eval loss', {"loss":loss}, i)
+                    self.writer.add_scalars('Eval y_hat,label', {"y_hat":y_hat[j],"label":label[j]}, (i*x.shape[0])+j)
+                self.writer.add_scalars('Eval loss batch', {"loss":loss}, i)
                 tq.set_description("Test Loss batch: {}".format(loss))
                
         avg_loss = avg_loss / (i+1)
@@ -213,7 +189,8 @@ class Trainer():
 if __name__=="__main__":
     torch.manual_seed(100)
 
-    name_exp = 'mediapipe'
+    #name_exp = 'mediapipe'
+    name_exp = 'dlib'
     config_file=open("./config/"+name_exp+".yml", 'r')
     config = yaml.safe_load(config_file)
 

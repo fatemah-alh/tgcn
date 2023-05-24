@@ -15,16 +15,14 @@ optimizer: 'Adam'
 #momentum: 0.9
 
 ###Network###
-start_epoch: 0
 num_epoch: 100 
-batch_size: 64
+batch_size: 8
 continue_training: False   #If set True will continue training from pretrained model
-pretrain_model: ""       #Name of folder that contains the model resume training
+pretrain_model: ""       #Name of folder that contains the model to resume training
 gpu: 1
-#k_fold: 3
 ###Model parameters###
 
-embed_dim: 32
+embed_dim: 128
 n_classes: 5
 num_features: 4
 output_features: 1
