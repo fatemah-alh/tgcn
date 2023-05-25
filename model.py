@@ -83,7 +83,7 @@ class TemporalGNNBatch(torch.nn.Module):
         h=h.view(-1,self.num_nodes)
         h=self.linear_3(h)
         #h = F.relu(h) 
-        h=torch.sigmoid(h)
+        #h=torch.sigmoid(h)
         #h=5.0 * torch.sigmoid(h)
         h=h.view(-1)
         

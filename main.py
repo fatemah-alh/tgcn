@@ -59,7 +59,9 @@ class Trainer():
             self.device="cpu"
             print('Warning: Using CPU')
     def init_writer(self):
-        self.writer = SummaryWriter('./writer/' + self.name_exp+self.date)
+        writer_path='./writer/' + self.name_exp+self.date
+        os.makedirs(writer_path,exist_ok=True)
+        self.writer = SummaryWriter(writer_path)
     def load_datasets(self):
         self.train_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,self.name_exp,idx_path=self.idx_train,mode="train")
         self.test_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,self.name_exp,idx_path=self.idx_test,mode="test")
@@ -92,7 +94,7 @@ class Trainer():
         for var_name in self.optimizer.state_dict():
             print(var_name, '\t', self.optimizer.state_dict()[var_name])
       
-       # self.lr_scheduler = lr_scheduler.StepLR(self.optimizer,self.step_decay, self.weight_decay)
+        self.lr_scheduler = lr_scheduler.StepLR(self.optimizer,self.step_decay, self.weight_decay)
     def load_loss(self):
         self.loss=torch.nn.MSELoss().to(self.device)
         #self.loss=torch.nn.L1Loss().to(self.device)
@@ -189,8 +191,11 @@ class Trainer():
 if __name__=="__main__":
     torch.manual_seed(100)
 
-    #name_exp = 'mediapipe'
+    
+   # name_exp = 'mediapipe'
     name_exp = 'dlib'
+    #name_exp = 'minidata'
+
     config_file=open("./config/"+name_exp+".yml", 'r')
     config = yaml.safe_load(config_file)
 
