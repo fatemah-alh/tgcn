@@ -2,9 +2,8 @@ Description: " without data augmentaion, with label normalization"
 name_exp: "mediapipe"
 data_path: "/home/falhamdoosh/tgcn/data/PartA/Mediapipe/dataset_mediapipe.npy"
 labels_path: "/home/falhamdoosh/tgcn/data/PartA/Mediapipe/label_mediapipe.npy"
-#edges_path: "/home/falhamdoosh/tgcn/data/edges_indx_dlib68.npy"
-#edges_path: "/home/falhamdoosh/tgcn/Painformer/painformer-main/biovid_dlib_51_normalized_adjacency_new.npy"
 edges_path: "/home/falhamdoosh/tgcn/data/PartA/Mediapipe/edges.npy"
+
 idx_train: "/home/falhamdoosh/tgcn/data/PartA/Mediapipe/idx_train.npy"
 idx_test: "/home/falhamdoosh/tgcn/data/PartA/Mediapipe/idx_test.npy"
 ###Optimizer###

@@ -18,14 +18,14 @@ We utilize the Biovid PartA dataset for this research.
 Landmarks are extracted using the dlib library and the Mediapipe framework. For more information, refer to the  `utils.py ` file.
 
 ## Dependency:
-This project requires installtion of 
+This project requires installation of 
 1. pytorch
 `conda install python=3.7 pytorch torchvision torchaudio pytorch-cuda=11.7 -c pytorch -c nvidia`
 
 2. pytorch geometric 
 `conda install pyg -c pyg`
 
-3. pytorch geometric temporal replace torch-1.13.1+cu117 by the version of pytorch and cuda installed. This command valid for pytorch version 1.13.1, and cuda version 11.7
+3. pytorch geometric temporal. replace `torch-1.13.1+cu117` by the version of pytorch and cuda installed. This command valid for pytorch version 1.13.1, and cuda version 11.7
 
 `pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-1.13.1+cu117.html`
 

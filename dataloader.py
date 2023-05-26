@@ -9,7 +9,7 @@ import torch
 import yaml
 
 class DataLoader(torch.utils.data.Dataset):
-    def __init__(self, data_path,labels_path,edges_index_path,name_exp,idx_path=None,mode=None):
+    def __init__(self, data_path,labels_path,edges_index_path,name_exp,normalize_labels=False,idx_path=None,mode=None):
         super(DataLoader, self).__init__()
 
         self.data_path = data_path
@@ -18,6 +18,7 @@ class DataLoader(torch.utils.data.Dataset):
         self.idx_path=idx_path
         self.mode=mode
         self.name_exp=name_exp
+        self.normalize_labels=normalize_labels
         self._read_data()
         #split data set with idx
         if self.mode!=None:
@@ -42,7 +43,8 @@ class DataLoader(torch.utils.data.Dataset):
         self.load_edges()
         self.values=np.ones(self.edges_index.shape[1],dtype=np.float32)
         #Normalize label between 0,1.
-        self.labels=self.labels/np.max(self.labels)
+        if self.normalize_labels :
+            self.labels=self.labels/np.max(self.labels)
        
     def reshape_data(self,data):
         reshaped_tensor = np.transpose(data, (0, 3, 1, 2))  # 

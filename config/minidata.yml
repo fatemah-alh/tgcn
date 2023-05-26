@@ -1,8 +1,13 @@
 Description: " train on small data set from 20 sample"
-name_exp: "dlib"
-data_path: "/home/falhamdoosh/tgcn/Painformer/dataset_data_biovid.npy"
-labels_path: "/home/falhamdoosh/tgcn/Painformer/dataset_label_biovid.pkl"
-edges_path: "/home/falhamdoosh/tgcn/Painformer/edge_index_51biovid.npy"
+name_exp: "mediapipe"
+
+data_path: "/home/falhamdoosh/tgcn/data/PartA/Mediapipe/dataset_mediapipe.npy"
+labels_path: "/home/falhamdoosh/tgcn/data/PartA/Mediapipe/label_mediapipe.npy"
+edges_path: "/home/falhamdoosh/tgcn/data/PartA/Mediapipe/edges.npy"
+
+#data_path: "/home/falhamdoosh/tgcn/Painformer/dataset_data_biovid.npy"
+#labels_path: "/home/falhamdoosh/tgcn/Painformer/dataset_label_biovid.pkl"
+#edges_path: "/home/falhamdoosh/tgcn/Painformer/edge_index_51biovid.npy"
 
 idx_train: "/home/falhamdoosh/tgcn/data/PartA/minidata/idx_train.npy"
 idx_test: "/home/falhamdoosh/tgcn/data/PartA/minidata/idx_test.npy"
@@ -16,7 +21,7 @@ optimizer: 'Adam'
 ###Network###
 
 num_epoch: 500 
-batch_size: 20
+batch_size: 5
 continue_training: False   #If set True will continue training from pretrained model
 pretrain_model: ""       #Name of folder that contains the model resume training
 gpu: 1

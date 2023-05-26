@@ -193,8 +193,8 @@ if __name__=="__main__":
 
     
    # name_exp = 'mediapipe'
-    name_exp = 'dlib'
-    #name_exp = 'minidata'
+    #name_exp = 'dlib'
+    name_exp = 'minidata'
 
     config_file=open("./config/"+name_exp+".yml", 'r')
     config = yaml.safe_load(config_file)
