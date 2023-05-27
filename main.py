@@ -63,8 +63,8 @@ class Trainer():
         os.makedirs(writer_path,exist_ok=True)
         self.writer = SummaryWriter(writer_path)
     def load_datasets(self):
-        self.train_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,self.name_exp,idx_path=self.idx_train,mode="train")
-        self.test_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,self.name_exp,idx_path=self.idx_test,mode="test")
+        self.train_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,self.name_exp,normalize_labels=True,idx_path=self.idx_train,mode="train")
+        self.test_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,self.name_exp,normalize_labels=True,idx_path=self.idx_test,mode="test")
         self.train_loader = torch.utils.data.DataLoader(self.train_dataset, 
                                                    batch_size=self.batch_size, 
                                                    shuffle=True,
@@ -192,9 +192,9 @@ if __name__=="__main__":
     torch.manual_seed(100)
 
     
-   # name_exp = 'mediapipe'
+    name_exp = 'mediapipe'
     #name_exp = 'dlib'
-    name_exp = 'minidata'
+    #name_exp = 'minidata'
 
     config_file=open("./config/"+name_exp+".yml", 'r')
     config = yaml.safe_load(config_file)

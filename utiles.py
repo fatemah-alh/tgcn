@@ -12,7 +12,7 @@ import mediapipe as mp
 import math
 import pickle
 import yaml
-from yaml import FullLoader
+
 
 
 def extract_landmarks_from_video(root,path_file,centroid=True):
@@ -263,3 +263,62 @@ def get_mini_dataset(path):
     
     np.save(path+"idx_train.npy",idx_train)
     np.save(path+"idx_test.npy",idx_test)
+
+
+def rotation_matrix_2d(theta):
+    '''
+    Function to get the 2D rotation matrix for a given angle theta (in radians).
+
+    Parameters
+    ----------
+    theta : Float
+        Angle in radians
+
+    Returns
+    -------
+    Array
+        The 2D rotation matrix for the given angle theta
+
+    '''
+    return np.array([[math.cos(theta), math.sin(theta)], [-math.sin(theta), math.cos(theta)]])
+
+
+def angle_between(v1, v2):
+    '''
+    Function that return the angle between 2 vectors.
+    Angle is in radians.
+
+    Parameters
+    ----------
+    v1 : Vector
+        Coordinates of the vector v1
+    v2 : Vector
+        Coordinates of the vector v2
+
+    Returns
+    -------
+    Float
+        Angle between vectors v1 and v2 in radians
+
+    '''
+    if np.abs(v1).sum() < 1e-6 or np.abs(v2).sum() < 1e-6:
+        return 0
+    
+    unit_v1 = v1 / np.linalg.norm(v1)
+    unit_v2 = v2 / np.linalg.norm(v2)
+    dot_prod = np.dot(unit_v1, unit_v2)
+    return np.arccos(np.clip(dot_prod, -1.0, 1.0))
+
+def frobenius_norm(arr):
+    """
+    frame: array
+    """
+    return arr/np.linalg.norm(arr, 'fro')
+def align_points(arr):
+    frontup=arr[10]
+    frontdown=arr[152]
+    angle = angle_between(frontup - frontdown ,[1,0] )
+    matrix_x = rotation_matrix_2d(angle)
+    rotated_points = np.dot(arr, matrix_x)
+    rotated_points=np.dot(rotated_points,[[0,1],[-1,0]])
+    return rotated_points

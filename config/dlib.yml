@@ -1,29 +1,24 @@
-Description: "  whitout data augmentation, with label normalization"
+Description: ""
 name_exp: "dlib"
-data_path: "/home/falhamdoosh/tgcn/Painformer/dataset_data_biovid.npy"
-labels_path: "/home/falhamdoosh/tgcn/Painformer/dataset_label_biovid.pkl"
-#edges_path: "/home/falhamdoosh/tgcn/data/edges_indx_dlib68.npy"
-#edges_path: "/home/falhamdoosh/tgcn/Painformer/painformer-main/biovid_dlib_51_normalized_adjacency_new.npy"
-edges_path: "/home/falhamdoosh/tgcn/Painformer/edge_index_51biovid.npy"
-idx_train: "/home/falhamdoosh/tgcn/Painformer/idx_train.npy"
-idx_test: "/home/falhamdoosh/tgcn/Painformer/idx_test.npy"
-###Optimizer###
+data_path: "/home/falhamdoosh/tgcn/data/PartA/dlib_student/dataset_data_biovid.npy"
+labels_path: "/home/falhamdoosh/tgcn/data/PartA/dlib_student/dataset_label_biovid.pkl"
+edges_path: "/home/falhamdoosh/tgcn/data/PartA/dlib_student/edge_index_51biovid.npy"
+idx_train: "/home/falhamdoosh/tgcn/data/PartA/dlib_student/idx_train.npy"
+idx_test: "/home/falhamdoosh/tgcn/data/PartA/dlib_student/idx_test.npy"
 
+###Optimizer###
 weight_decay: 0.0001
 step_decay: 10
 optimizer: 'Adam'
-#momentum: 0.9
 
 ###Network###
-
 num_epoch: 100 
 batch_size: 32
 continue_training: False   #If set True will continue training from pretrained model
 pretrain_model: ""       #Name of folder that contains the model resume training
 gpu: 1
-#k_fold: 3
-###Model parameters###
 
+###Model parameters###
 embed_dim: 128
 n_classes: 5
 num_features: 4

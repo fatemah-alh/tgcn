@@ -1,26 +1,24 @@
-Description: " without data augmentaion, with label normalization"
+Description: ""
 name_exp: "mediapipe"
 data_path: "/home/falhamdoosh/tgcn/data/PartA/Mediapipe/dataset_mediapipe.npy"
 labels_path: "/home/falhamdoosh/tgcn/data/PartA/Mediapipe/label_mediapipe.npy"
 edges_path: "/home/falhamdoosh/tgcn/data/PartA/Mediapipe/edges.npy"
-
 idx_train: "/home/falhamdoosh/tgcn/data/PartA/Mediapipe/idx_train.npy"
 idx_test: "/home/falhamdoosh/tgcn/data/PartA/Mediapipe/idx_test.npy"
-###Optimizer###
 
+###Optimizer###
 weight_decay: 0.0001
 step_decay: 10
 optimizer: 'Adam'
-#momentum: 0.9
 
 ###Network###
 num_epoch: 100 
-batch_size: 8
+batch_size: 16
 continue_training: False   #If set True will continue training from pretrained model
 pretrain_model: ""       #Name of folder that contains the model to resume training
 gpu: 1
-###Model parameters###
 
+###Model parameters###
 embed_dim: 128
 n_classes: 5
 num_features: 4
@@ -28,7 +26,7 @@ output_features: 1
 TS: 137
 n_joints: 469
 train_ratio: 0.7
-lr: 0.01
+lr: 0.001
 LOG_DIR: "./log/"
 #n_layers: 3
 #dropout: 0.2

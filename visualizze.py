@@ -16,10 +16,10 @@ import yaml
 from yaml import FullLoader
 from PIL import Image
 import imageio
-from utiles import  get_mini_dataset,extract_landmarks_from_video_media_pipe,calc_velocity,standardize,get_idx_train_test,extract_landmarks_from_video
+from utiles import  align_points,frobenius_norm,rotation_matrix_2d,angle_between,get_mini_dataset,extract_landmarks_from_video_media_pipe,calc_velocity,standardize,get_idx_train_test,extract_landmarks_from_video
 from dataloader import DataLoader
 
-path="/home/falhamdoosh/tgcn/data/PartA/minidata/vis"
+path="/home/falhamdoosh/tgcn/data/PartA/minidata/vis/"
 name_file = 'minidata'
 
 config_file=open("./config/"+name_file+".yml", 'r')
@@ -39,8 +39,6 @@ name_exp=config['name_exp']
 
 train_dataset=DataLoader(data_path,labels_path,edges_path,name_exp,idx_path=idx_train,mode="train")
 #test_dataset=DataLoader(data_path,labels_path,edges_path,name_exp,idx_path=idx_test,mode="test")
-writer = imageio.get_writer(path+'/vis_landmarks_mediapipe.mp4')
-
 figures = []
 for time_step in tqdm(range(137)):
     # Create a figure and axes for subplots
@@ -49,13 +47,17 @@ for time_step in tqdm(range(137)):
     axs = axs.flatten()
     for i,sample in enumerate(train_dataset):
         x,y,_,_=sample
-        axs[i].scatter(x[:,0,time_step], -x[:,1,time_step], alpha=0.8)
+        fram=x[:,:2,time_step]        
+        axs[i].scatter(fram[:,0], fram[:,1], alpha=0.8)
+        #annotate points:
+       # for index in range(len(x)):
+       #     axs[i].annotate(index,(x[index,0,time_step],x[index,1,time_step]))
         axs[i].set_title(f"VAS level: {y}")
+    
     fig.canvas.draw()
     image = Image.frombytes('RGB', fig.canvas.get_width_height(), fig.canvas.tostring_rgb())
     figures.append(image)
-    writer.append_data(image)
-writer.close()
-    #plt.show()
+    break
+   
 #%%
-#imageio.mimsave(path+'/vis_landmarks_mediapipe.gif', figures, duration=50)
+imageio.mimsave(path+'vis_landmarks_mediapipe_aligned_frobinus.gif', figures, duration=50)
