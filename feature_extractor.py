@@ -3,8 +3,6 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm 
 import mediapipe as mp
-
-
 from utiles import frobenius_norm,align_points,extract_landmarks_from_video_media_pipe,calc_velocity,standardize,extract_landmarks_from_video
 
 def extract_dlib(filesnames,video_folder):

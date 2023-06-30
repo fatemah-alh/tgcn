@@ -7,7 +7,8 @@ name_exp: "dlib"
 data_path: "/home/falhamdoosh/tgcn/data/PartA/dlib_student/dataset_data_biovid.npy"
 labels_path: "/home/falhamdoosh/tgcn/data/PartA/dlib_student/dataset_label_biovid.pkl"
 edges_path: "/home/falhamdoosh/tgcn/data/PartA/dlib_student/edge_index_51biovid.npy"
-
+video_path: "/home/falhamdoosh/tgcn/data/PartA/"
+csv_file: "/home/falhamdoosh/tgcn/data/PartA/samples.csv"
 idx_train: "/home/falhamdoosh/tgcn/data/PartA/minidata/idx_train.npy"
 idx_test: "/home/falhamdoosh/tgcn/data/PartA/minidata/idx_test.npy"
 ###Optimizer###
