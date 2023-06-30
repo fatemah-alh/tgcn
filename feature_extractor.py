@@ -39,12 +39,12 @@ def process_data(landmarks_folder:str,filesnames:list,normalized_data:np.array,p
         for j in range(len(sample)): #[468,2]
             frame=sample[j]
             frame= standardize(frame)
-            frame=align_points(frame)
+          #  frame=align_points(frame)
             sample[j]=frobenius_norm(frame)
         velocity=calc_velocity(sample)
         data=np.concatenate((sample[:-1,:,:], velocity), axis=2)
         normalized_data[i][:data.shape[0]]= data
-    np.save(path_save+"dataset_mediapipe.npy",normalized_data)
+    np.save(path_save+"dataset_mediapipe_without_process.npy",normalized_data)
     return normalized_data
 
 def get_mini_dataset(path):
@@ -67,7 +67,6 @@ path_save="/home/falhamdoosh/tgcn/data/PartA/Mediapipe/"
 
 df = pd.read_csv('/home/falhamdoosh/tgcn/data/PartA/samples.csv',sep='\t')
 
-labels=df['class_id'].values
 filesnames=(df['subject_name'] + '/' + df['sample_name']).to_numpy()
 
 normalized_data = np.zeros((8700, 137, 469, 4), dtype=np.float32)
@@ -77,6 +76,8 @@ process_data(landmarks_folder_mediapipe,filesnames,normalized_data,path_save)
 
 
 #save labels
+
+#labels=df['class_id'].values
 #np.save(path+"label_mediapipe.npy",labels)
 #get_mini_dataset()
 #get_idx_train_test(path)

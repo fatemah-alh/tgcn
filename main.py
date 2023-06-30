@@ -96,7 +96,8 @@ class Trainer():
       
         self.lr_scheduler = lr_scheduler.StepLR(self.optimizer,self.step_decay, self.weight_decay)
     def load_loss(self):
-        self.loss=torch.nn.MSELoss().to(self.device)
+        self.loss=torch.nn.CrossEntropyLoss().to(self.device)
+        #self.loss=torch.nn.MSELoss().to(self.device)
         #self.loss=torch.nn.L1Loss().to(self.device)
         #torch.mean((y_hat-label)**2)
     def train(self):
@@ -112,7 +113,9 @@ class Trainer():
             edg_attr=edg_attr.to(self.device)
             #forward
             y_hat = self.model(x, edge_index[0],edg_attr[0])
-            loss=self.loss(y_hat,label.float())
+            
+            #loss=self.loss(y_hat,label.float())
+            loss=self.loss(y_hat,label)
             #calc gradient and backpropagation
             loss.backward()
             self.optimizer.step()
@@ -123,7 +126,8 @@ class Trainer():
                    raise RuntimeError(f"Gradient is None {name}" )
             self.optimizer.zero_grad()
             for j in range(len(y_hat)):
-                self.writer.add_scalars('Training y-hat and label', {"y_hat":y_hat[j],"label":label[j]}, (i*x.shape[0])+j)
+
+                self.writer.add_scalars('Training y-hat and label', {"y_hat":y_hat[j].argmax(),"label":label[j]}, (i*x.shape[0])+j)
             self.writer.add_scalars('train loss batch', {"loss":loss}, i)
             tq.set_description("train: Loss batch: {}".format(loss))
             avg_loss += loss
@@ -141,10 +145,11 @@ class Trainer():
                 label = y.to(self.device) 
                 edg_attr=edg_attr.to(self.device) 
                 y_hat = self.model(x, edge_index[0],edg_attr[0]) 
-                loss=self.loss(y_hat,label.float())
+                #loss=self.loss(y_hat,label.float())
+                loss=self.loss(y_hat,label)
                 avg_loss += loss
                 for j in range(len(y_hat)):
-                    self.writer.add_scalars('Eval y_hat,label', {"y_hat":y_hat[j],"label":label[j]}, (i*x.shape[0])+j)
+                    self.writer.add_scalars('Eval y_hat,label', {"y_hat":y_hat[j].argmax(),"label":label[j]}, (i*x.shape[0])+j)
                 self.writer.add_scalars('Eval loss batch', {"loss":loss}, i)
                 tq.set_description("Test Loss batch: {}".format(loss))
                

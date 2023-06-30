@@ -12,7 +12,7 @@ import mediapipe as mp
 import math
 import pickle
 import yaml
-
+from numpy.linalg import eig
 
 
 def extract_landmarks_from_video(root,path_file,centroid=True):
@@ -194,11 +194,12 @@ def min_max_normalization(sample):
     face_min_max_y = (sample[:,1] - np.min(sample[:,1])) / (np.max(sample[:,1]) - np.min(sample[:,1]))
     return np.stack((face_min_max_x, face_min_max_y), axis=1)
 def remove_rotation(sample):
-    right_eye = sample[36]
-    left_eye = sample[45]
-    angle = angle_between(left_eye - right_eye, [1, 0])
+    right_eye = sample[263]
+    left_eye = sample[33]
+    angle = angle_between(-left_eye + right_eye,[1,0] )
     matrix_x = rotation_matrix_2d(angle)
-    return np.dot(sample, matrix_x).transpose()
+    rotated_points = np.dot(sample, matrix_x)
+    return rotated_points.transpose()
 def noise_centring(sample):
     return sample - sample[30]    
 def calc_velocity(sample):
@@ -282,7 +283,11 @@ def rotation_matrix_2d(theta):
     '''
     return np.array([[math.cos(theta), math.sin(theta)], [-math.sin(theta), math.cos(theta)]])
 
-
+def frobenius_norm(arr):
+    """
+    frame: array
+    """
+    return arr/np.linalg.norm(arr, 'fro')
 def angle_between(v1, v2):
     '''
     Function that return the angle between 2 vectors.
@@ -309,16 +314,66 @@ def angle_between(v1, v2):
     dot_prod = np.dot(unit_v1, unit_v2)
     return np.arccos(np.clip(dot_prod, -1.0, 1.0))
 
-def frobenius_norm(arr):
-    """
-    frame: array
-    """
-    return arr/np.linalg.norm(arr, 'fro')
+def get_angle_degree(v1,v2):
+    dY = v1[1] - v2[1]
+    dX = v1[0] - v2[0]
+    angle = np.degrees(np.arctan2(dY, dX)) - 180
+    return angle
+
 def align_points(arr):
-    frontup=arr[10]
-    frontdown=arr[152]
+    frontup=arr[263]#arr[10]
+    frontdown=arr[33]#arr[152]
     angle = angle_between(frontup - frontdown ,[1,0] )
+    print(angle,"hhhhhhh")
     matrix_x = rotation_matrix_2d(angle)
+
     rotated_points = np.dot(arr, matrix_x)
-    rotated_points=np.dot(rotated_points,[[0,1],[-1,0]])
+    #rotated_points=np.dot(rotated_points,[[0,1],[-1,0]]) # 270 
+    rotated_points=np.dot(rotated_points,[[0,-1],[1,0]]) # 90
     return rotated_points
+
+
+def align_points_degree(arr):
+    rotated_points=arr
+    
+    leftEye=rotated_points[263]#arr[10]
+    rightEye=rotated_points[33]#arr[152]
+    
+    eyesCenter = (np.mean([leftEye[0],rightEye[0]]),np.mean([leftEye[1],rightEye[1]]))
+    #print(leftEye,rightEye,eyesCenter)
+    angle =get_angle_degree(leftEye ,rightEye)
+    M=cv2.getRotationMatrix2D(eyesCenter,angle,1)
+    rotated_points=np.dot(rotated_points,M.T)
+    return  rotated_points
+
+def align_points_2(arr):
+    rotated_points=arr
+    #rotate intorn vertical axis
+    
+    point1=rotated_points[152] #frontal up
+    point2=rotated_points[10]
+    angle1 = angle_between(point2 -point1 ,[1,0] )
+
+  #  print(angle,"hhhhhhh")
+    matrix_x = rotation_matrix_2d(angle1)
+    
+    rotated_points = np.dot(rotated_points, matrix_x.T)
+   ########
+  #  print(angle,"hhhhhhh")
+
+    eyeL=rotated_points[263]# #eyes
+    eyeR=rotated_points[33]#eyes
+    angle2 = angle_between(eyeL -eyeR ,[0,1] )
+    matrix_x = rotation_matrix_2d(angle2)
+    rotated_points = np.dot(rotated_points, matrix_x.T)
+    #rotated_points=np.dot(rotated_points,[[0,1],[-1,0]]) # 270 
+    #rotated_points=np.dot(rotated_points,[[0,-1],[1,0]]) # 90
+    #rotated_points=np.dot(rotated_points,[[0,1],[-1,0]]) # 270 
+    return rotated_points
+
+def align_covariance(arr):
+    cova=np.cov(arr,rowvar=False)
+  #  print(cova,"cova")
+    eigenvalues, eigenvectors = eig(cova)
+    print(eigenvalues)
+    return eigenvectors

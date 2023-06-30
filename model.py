@@ -62,7 +62,8 @@ class TemporalGNNBatch(torch.nn.Module):
         self.dropout = torch.nn.Dropout(0.2)
         self.linear_1= torch.nn.Linear(self.embed_dim, 32)
         self.linear_2=torch.nn.Linear(32, 1)#
-        self.linear_3=torch.nn.Linear(self.num_nodes, self.output_features)# batch [32, 51] [32,1]
+        self.linear_3=torch.nn.Linear(self.num_nodes, 2)# batch [32, 51] [32,1]
+        
 
 
     def forward(self, x, edge_index,edge_attr=None):
@@ -85,10 +86,11 @@ class TemporalGNNBatch(torch.nn.Module):
         #h = F.relu(h) 
         #h=torch.sigmoid(h)
         #h=5.0 * torch.sigmoid(h)
-        h=h.view(-1)
+        #h=h.view(-1)
+        class_pred=torch.softmax(h, dim=1)#.argmax(dim=1)
         
         
-        return h
+        return class_pred
 
 if __name__=="__main__":
 

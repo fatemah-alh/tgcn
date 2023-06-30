@@ -26,7 +26,8 @@ class DataLoader(torch.utils.data.Dataset):
                 raise(ValueError("No idx_path has been found"))
             else:
                 self.split_data()
-        self.get_shapes()
+        #self.get_shapes()
+        self.binary_class()
     def _read_data(self):
         print("Loading Dataset")
         self.X=np.load(self.data_path)
@@ -42,9 +43,10 @@ class DataLoader(torch.utils.data.Dataset):
        
         self.load_edges()
         self.values=np.ones(self.edges_index.shape[1],dtype=np.float32)
+
         #Normalize label between 0,1.
-        if self.normalize_labels :
-            self.labels=self.labels/np.max(self.labels)
+       # if self.normalize_labels :
+           # self.labels=self.labels/np.max(self.labels)
        
     def reshape_data(self,data):
         reshaped_tensor = np.transpose(data, (0, 3, 1, 2))  # 
@@ -93,6 +95,19 @@ class DataLoader(torch.utils.data.Dataset):
         idx=np.array(idx,dtype=np.int32)
         self.features=self.features[idx]
         self.labels=self.labels[idx]
+
+    def binary_class(self):
+        values = [0, 4]
+        indices = np.where(np.isin(self.labels, values))[0]
+        self.labels=self.labels[indices]
+        self.features=self.features[indices]
+        indices_4 = np.where(self.labels == 4)
+        self.labels[indices_4] = 1
+        print(len(self.labels))
+        print("number of samples with 4 class ",len(indices_4))
+
+
+
         
    
 if __name__=="__main__":
