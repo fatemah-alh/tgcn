@@ -38,45 +38,14 @@ def frontalize_landmarks_dlib(root,path_file,detector,predictor,frontalization_w
             break
         image = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         face = detector(image)
-        
-        landmarks_raw = predictor(image,face[0])
-        landmarks = get_landmark_array(landmarks_raw)
-        landmarks_frontal = frontalize_landmarks(landmarks,frontalization_weights)
-        list_landmarks.append(landmarks_frontal)
-        if landmarks is not None:
-            # initialize new image
-            fig = plt.figure(figsize=(7,3))
+        if(len(face)>0):
+            landmarks_raw = predictor(image,face[0])
+            landmarks = get_landmark_array(landmarks_raw)
             
-            plt.subplot(1,3,1)
-            plt.title('Detected face')
-            x1 = landmarks_raw.rect.left()
-            y1 = landmarks_raw.rect.top()
-            x2 = x1 + landmarks_raw.rect.width()
-            y2 = y1 + landmarks_raw.rect.height()
-            plt.imshow(image[y1:y2, x1:x2])
-            plt.axis(False)
+            landmarks_frontal = frontalize_landmarks(landmarks,frontalization_weights)
             
-            plt.subplot(1,3,2)
-            plt.title('Original landmarks')
+            list_landmarks.append(landmarks_frontal)
             
-            plt.subplot(1,3,3)
-            plt.title('Frontalized landmarks')
-            
-            plt.suptitle('Face')
-            plt.tight_layout()
-            axes = fig.get_axes()
-            axes[1].invert_yaxis()
-            axes[1].axis('off')
-            axes[1].set_aspect(aspect=1)
-            axes[2].invert_yaxis()
-            axes[2].axis('off')
-            axes[2].set_aspect(aspect=1)
-            axes[1].scatter(landmarks[:,0], landmarks[:,1], alpha=0.8)
-            axes[2].scatter(landmarks_frontal[:,0], landmarks_frontal[:,1], alpha=0.8)
-            #plot_landmarks(landmarks, axis=axes[1])
-            #plot_landmarks(landmarks_frontal, axis=axes[2])
-
-            plt.show()
     cap.release()
     np.save(outputfile,list_landmarks)
     return list_landmarks

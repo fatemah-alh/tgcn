@@ -22,8 +22,6 @@ from dataloader import DataLoader
 
 path="/home/falhamdoosh/tgcn/data/PartA/vis/"
 name_file = 'minidata'
-
-
 config_file=open("./config/"+name_file+".yml", 'r')
 config = yaml.safe_load(config_file)
 data_path=config['data_path']
