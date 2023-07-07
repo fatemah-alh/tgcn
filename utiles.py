@@ -324,7 +324,8 @@ def frobenius_norm(arr):
     """
     frame: array
     """
-    return arr/np.linalg.norm(arr, 'fro')
+    
+    return arr/np.linalg.norm(arr,ord= 'fro')
 def angle_between(v1, v2):
     '''
     Function that return the angle between 2 vectors.
@@ -361,11 +362,9 @@ def align_points(arr):
     frontup=arr[263]#arr[10]
     frontdown=arr[33]#arr[152]
     angle = angle_between(frontup - frontdown ,[1,0] )
-    print(angle,"hhhhhhh")
     matrix_x = rotation_matrix_2d(angle)
 
     rotated_points = np.dot(arr, matrix_x)
-    #rotated_points=np.dot(rotated_points,[[0,1],[-1,0]]) # 270 
     rotated_points=np.dot(rotated_points,[[0,-1],[1,0]]) # 90
     return rotated_points
 
@@ -390,13 +389,9 @@ def align_points_2(arr):
     point1=rotated_points[152] #frontal up
     point2=rotated_points[10]
     angle1 = angle_between(point2 -point1 ,[1,0] )
-
-  #  print(angle,"hhhhhhh")
     matrix_x = rotation_matrix_2d(angle1)
     
     rotated_points = np.dot(rotated_points, matrix_x.T)
-   ########
-  #  print(angle,"hhhhhhh")
 
     eyeL=rotated_points[263]# #eyes
     eyeR=rotated_points[33]#eyes
@@ -408,12 +403,48 @@ def align_points_2(arr):
     #rotated_points=np.dot(rotated_points,[[0,1],[-1,0]]) # 270 
     return rotated_points
 
-def align_covariance(arr):
+
+def process_data(landmarks_folder:str,filesnames:list,normalized_data:np.array,path_save:str):
+    """
+    Iterate over all landmarks.npy for each sample, apply
+    1- make coordiates have zero mean and unitary std.
+    2- remove rotaione of the face, align points to be in frontal face position. 
+    3- Divise each frame by frobenius norm
+    4- calculate velocitie
+    create the data matrix that containes all samples [num_samples,num_frame,num_landmarks,num_featuers]
+    """
+    
+    for i in tqdm(range (0,len(filesnames))):
+        path=landmarks_folder+filesnames[i]+".npy"
+        sample=np.load(path) #[138,468,2] 
+        for j in range(len(sample)): #[468,2]
+            sample[j]=preprocess_frame(sample[j])
+        velocity=calc_velocity(sample)
+        data=np.concatenate((sample[:-1,:,:], velocity), axis=2)
+        normalized_data[i][:data.shape[0]]= data
+    np.save(path_save+"dataset_mediapipe_without_process.npy",normalized_data)
+    return normalized_data
+
+
+
+def preprocess_frame(sample):
+    sample= standardize(sample)
+    sample=frobenius_norm(sample)
+    return sample
+
+def get_eigenvectors(arr):
     cova=np.cov(arr,rowvar=False)
-  #  print(cova,"cova")
     eigenvalues, eigenvectors = eig(cova)
-    print(eigenvalues)
+    
+    idx = eigenvalues.argsort()[::-1]   
+    #eigenvalues = eigenvalues[idx]
+    #eigenvectors = eigenvectors[:,idx]
+   
     return eigenvectors
+def align_eigenvectors(eigenvectors,arr):
+    arr=np.dot(arr, eigenvectors.T) # 68*3 __ 3*3 
+
+    return arr
 
 
 

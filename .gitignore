@@ -10,3 +10,4 @@ __pycache__/model.cpython-37.pyc
 train.py
 writer
 log
+__pycache__

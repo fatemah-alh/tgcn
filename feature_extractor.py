@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm 
 import mediapipe as mp
-from utiles import frobenius_norm,align_points,extract_landmarks_from_video_media_pipe,calc_velocity,standardize,extract_landmarks_from_video
+from utiles import process_data,extract_landmarks_from_video_media_pipe,extract_landmarks_from_video
 
 def extract_dlib(filesnames,video_folder):
     for i in tqdm(range (0,len(filesnames))):
@@ -19,31 +19,6 @@ def extract_mediaPipe(filesnames,video_folder):
 
     for i in tqdm(range (0,len(filesnames))):
         extract_landmarks_from_video_media_pipe(video_folder,filesnames[i],mp_face_mesh)
-
-
-def process_data(landmarks_folder:str,filesnames:list,normalized_data:np.array,path_save:str):
-    """
-    Iterate over all landmarks.npy for each sample, apply
-    1- make coordiates have zero mean and unitary std.
-    2- remove rotaione of the face, align points to be in frontal face position. 
-    3- Divise each frame by frobenius norm
-    4- calculate velocitie
-    create the data matrix that containes all samples [num_samples,num_frame,num_landmarks,num_featuers]
-    """
-    
-    for i in tqdm(range (0,len(filesnames))):
-        path=landmarks_folder+filesnames[i]+".npy"
-        sample=np.load(path) #[138,468,2] 
-        for j in range(len(sample)): #[468,2]
-            frame=sample[j]
-            frame= standardize(frame)
-          #  frame=align_points(frame)
-            sample[j]=frobenius_norm(frame)
-        velocity=calc_velocity(sample)
-        data=np.concatenate((sample[:-1,:,:], velocity), axis=2)
-        normalized_data[i][:data.shape[0]]= data
-    np.save(path_save+"dataset_mediapipe_without_process.npy",normalized_data)
-    return normalized_data
 
 def get_mini_dataset(path):
     path="/home/falhamdoosh/tgcn/data/PartA/minidata/"
