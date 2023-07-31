@@ -1,15 +1,11 @@
-import pickle
+
 import numpy as np
 from tqdm import tqdm
-from torch_geometric_temporal.signal import StaticGraphTemporalSignal,StaticGraphTemporalSignalBatch
-import torch_geometric
-from torch_geometric.utils import dense_to_sparse,add_self_loops,to_undirected
-from torch_geometric_temporal.signal import temporal_signal_split
 import torch
 import yaml
 
 class DataLoader(torch.utils.data.Dataset):
-    def __init__(self, data_path,labels_path,edges_index_path,name_exp,data_shape=(8700, 53, 5, 137),normalize_labels=False,idx_path=None):
+    def __init__(self, data_path,labels_path,edges_index_path,name_exp,data_shape=(8700, 51, 6, 137),normalize_labels=True,idx_path=None):
         super(DataLoader, self).__init__()
 
         self.data_path = data_path
@@ -20,42 +16,32 @@ class DataLoader(torch.utils.data.Dataset):
         self.normalize_labels=normalize_labels
         self.data_shape=data_shape
         self._read_data()
-        #split data set with idx
-        if self.idx_path!=None:
-            self.split_data()
-        #self.get_shapes()
+        self.get_shapes()
         
     def _read_data(self):
         print("Loading Dataset")
         self.X=np.load(self.data_path)
-        self.load_label()
         self.reshape_data()
-        self.load_edges()
-        self.values=np.ones(self.edges_index.shape[1],dtype=np.float32)
+        self.edges_index=np.load(self.edges_index_path)
+        self.labels=np.load(self.labels_path)
         #Normalize label between 0,1.
         if self.normalize_labels :
             self.labels=self.labels/np.max(self.labels)
+        #split data set with idx
+        if self.idx_path!=None:
+            self.split_data()
+        print("Data is loaded!")
        
     def reshape_data(self):
         reshaped_tensor = np.transpose(self.X, (0, 2, 3, 1))  # Transpose dimensions from 8700,137,469,4) to 8600, 469, 4, 137
-        reshaped_tensor = np.reshape(reshaped_tensor, self.data_shape)  # Reshape to desired shape
-        self.features=reshaped_tensor
+        self.features= np.reshape(reshaped_tensor, self.data_shape)  # Reshape to desired shape 
         
-    def load_label(self):
-        self.labels=np.load(self.labels_path)
-       
-    def load_edges(self):
-        self.edges_index=np.load(self.edges_index_path)
-        self.edges_index=to_undirected(torch.tensor(self.edges_index),num_nodes=self.features.shape[1])
-        self_loops=add_self_loops(self.edges_index,num_nodes=self.features.shape[1])
-        self.edges_index=torch.stack((self_loops[0][0],self_loops[0][1]))
-       
     def __len__(self):
         return self.features.shape[0]
     def get_shapes(self):
         print("featuers: ",self.features.shape, "labels:", self.labels.shape,"edges:",self.edges_index.shape)
         print("assert featuers:",self.features[0][0],np.max(self.features[0]))
-        print("assert X:",self.X[0][0],np.max(self.X[0]))
+        print("assert X:",self.X[0][0],np.max(self.X),np.min(self.X))
         print("assert label",self.labels,np.unique(self.labels))
         print("assert edges",self.edges_index)
         return self.features.shape, self.edges_index.shape
@@ -63,7 +49,7 @@ class DataLoader(torch.utils.data.Dataset):
     def __getitem__(self, index):
         x = self.features[index]
         y=self.labels[index]
-        return x, y, self.edges_index,self.values
+        return x, y, self.edges_index
     
     def split_data(self):
         idx=np.load(self.idx_path) 
@@ -71,7 +57,7 @@ class DataLoader(torch.utils.data.Dataset):
         self.features=self.features[idx]
         self.labels=self.labels[idx]
 
-    def binary_class(self):
+    def binary_classification(self):
         values = [0, 4]
         indices = np.where(np.isin(self.labels, values))[0]
         self.labels=self.labels[indices]
@@ -86,8 +72,8 @@ class DataLoader(torch.utils.data.Dataset):
         
    
 if __name__=="__main__":
-
-    name_exp = 'mediapipe'
+    name_exp="open_face"
+    #name_exp = 'mediapipe'
     #name_exp = 'dlib'
 
     config_file=open("./config/"+name_exp+".yml", 'r')
@@ -98,11 +84,11 @@ if __name__=="__main__":
     idx_train= config['idx_train']
     idx_test=config['idx_test']
     data_shape=config['data_shape']
-    loader=DataLoader(data_path,labels_path,edges_path,name_exp,data_shape)
-    train_dataset=DataLoader(data_path,labels_path,edges_path,name_exp,idx_path=idx_train,mode="train")
-    #test_dataset=DataLoader(data_path,labels_path,edges_path,name_exp,idx_path=idx_test,mode="test")
+    loader=DataLoader(data_path,labels_path,edges_path,name_exp)
+    train_dataset=DataLoader(data_path,labels_path,edges_path,name_exp,idx_path=idx_train)
+    test_dataset=DataLoader(data_path,labels_path,edges_path,name_exp,idx_path=idx_test)
     
     for sample in train_dataset:
-        x,y,edges_index,edges_attr=sample
+        x,y,edges_index=sample
        #print (x,x.shape,np.max(x))
         break

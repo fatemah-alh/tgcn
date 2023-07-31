@@ -23,10 +23,14 @@ This will perform :
 4- calculate velocity on x,y
 5- Insert centroid of landmarls before alignement, to account of head movement
 """
-def visualize_landmarks(data,label_data,edges=[],vis_edges=False,vis="2d",vis_index=False):
+def visualize_landmarks(data,label_data,edges=[],time_steps=137,vis_edges=False,vis="2d",vis_index=False,save=False):
+    """
+    this function will visualize landmarks of data tensor, just the f
+    """
+    
     figures=[]
     origin=[0,0,0]
-    for time_step in tqdm(range(10)):
+    for time_step in tqdm(range(time_steps)):
         # Create a figure and axes for subplots
         if vis=="2d":
             fig, axs = plt.subplots(5, 4, figsize=(30, 30))
@@ -63,8 +67,8 @@ def visualize_landmarks(data,label_data,edges=[],vis_edges=False,vis="2d",vis_in
         fig.canvas.draw()
         image = Image.frombytes('RGB', fig.canvas.get_width_height(), fig.canvas.tostring_rgb())
         figures.append(image)
-
-        #imageio.mimsave(path_vis+'vis_landmarks_3D_openface_absolut_eigenvectors_without_contur.gif', figures, duration=50)
+    if save:
+        imageio.mimsave(path_vis+'vis_landmarks_3D_openface_absolut_eigenvectors_without_contur.gif', figures, duration=50)
 def save_labels(csv_file,label_data):
     df = pd.read_csv(csv_file,sep='\t')
     labels=df['class_id'].values
@@ -126,7 +130,6 @@ def get_edges(landmarks,edges_path):
     print("Contian self loops:",contains_self_loops(edges_index))
     print("Graph is now undircte:",is_undirected(edges_index))
     print("number of index after adding symmetric edges:",edges_index.shape)
-    print(edges_index[0].shape)
     np.save(edges_path,edges_index)
     return edges_index
     
@@ -254,19 +257,32 @@ if name_file=="mediapipe":
 
 if name_file=="open_face":
     normalized_data = np.zeros((8700, 137, 51, 6), dtype=np.float32)
+
+
+
 #%%   #Create the the dataset file with process
 process_all_data(landmarks_path,filesnames,normalized_data,data_path)
 
+
+
 #%%   # create label file
 labels=save_labels(csv_file,labels_path)
+
+
+
 #%%   #Split to train set and test 
 #split_idx_train_test(idx_train,idx_test,csv_file,filter_idx_90)
+
+
+
 #%%   #Create the edges array 
 data=np.load(data_path)
 labels_path
 print(data[0,0,:,:2].shape)
 edges_index=get_edges(data[0,0,:,:2],edges_path)
-print(edges_index.shape)
+
+
+
 #%% #visualize
 visualize_landmarks(data,labels,edges_index,vis_edges=True)
 
