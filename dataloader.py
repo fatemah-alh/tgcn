@@ -5,14 +5,13 @@ import torch
 import yaml
 
 class DataLoader(torch.utils.data.Dataset):
-    def __init__(self, data_path,labels_path,edges_index_path,name_exp,data_shape=(8700, 51, 6, 137),normalize_labels=True,idx_path=None):
+    def __init__(self, data_path,labels_path,edges_index_path,data_shape=(8700, 51, 6, 137),normalize_labels=True,idx_path=None):
         super(DataLoader, self).__init__()
 
         self.data_path = data_path
         self.labels_path=labels_path
         self.edges_index_path=edges_index_path
         self.idx_path=idx_path
-        self.name_exp=name_exp
         self.normalize_labels=normalize_labels
         self.data_shape=data_shape
         self._read_data()
@@ -84,9 +83,9 @@ if __name__=="__main__":
     idx_train= config['idx_train']
     idx_test=config['idx_test']
     data_shape=config['data_shape']
-    loader=DataLoader(data_path,labels_path,edges_path,name_exp)
-    train_dataset=DataLoader(data_path,labels_path,edges_path,name_exp,idx_path=idx_train)
-    test_dataset=DataLoader(data_path,labels_path,edges_path,name_exp,idx_path=idx_test)
+    loader=DataLoader(data_path,labels_path,edges_path)
+    train_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_train)
+    test_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_test)
     
     for sample in train_dataset:
         x,y,edges_index=sample

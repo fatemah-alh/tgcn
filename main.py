@@ -63,8 +63,8 @@ class Trainer():
         os.makedirs(writer_path,exist_ok=True)
         self.writer = SummaryWriter(writer_path)
     def load_datasets(self):
-        self.train_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,self.name_exp,normalize_labels=True,idx_path=self.idx_train,mode="train")
-        self.test_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,self.name_exp,normalize_labels=True,idx_path=self.idx_test,mode="test")
+        self.train_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,normalize_labels=True,idx_path=self.idx_train)
+        self.test_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,normalize_labels=True,idx_path=self.idx_test)
         self.train_loader = torch.utils.data.DataLoader(self.train_dataset, 
                                                    batch_size=self.batch_size, 
                                                    shuffle=True,
@@ -96,8 +96,8 @@ class Trainer():
       
         self.lr_scheduler = lr_scheduler.StepLR(self.optimizer,self.step_decay, self.weight_decay)
     def load_loss(self):
-        self.loss=torch.nn.CrossEntropyLoss().to(self.device)
-        #self.loss=torch.nn.MSELoss().to(self.device)
+        #self.loss=torch.nn.CrossEntropyLoss().to(self.device)
+        self.loss=torch.nn.MSELoss().to(self.device)
         #self.loss=torch.nn.L1Loss().to(self.device)
         #torch.mean((y_hat-label)**2)
     def train(self):
@@ -105,17 +105,17 @@ class Trainer():
         self.model.train()
         tq=tqdm(self.train_loader)
         for i,snapshot in enumerate(tq):
-            x,y,edge_index,edg_attr=snapshot
+            x,y,edge_index=snapshot
             #Move tensors to device
             x=x.to(self.device)
             label = y.to(self.device) 
             edge_index=edge_index.to(self.device)
-            edg_attr=edg_attr.to(self.device)
-            #forward
-            y_hat = self.model(x, edge_index[0],edg_attr[0])
             
-            #loss=self.loss(y_hat,label.float())
-            loss=self.loss(y_hat,label)
+            #forward
+            y_hat = self.model(x, edge_index[0])
+            
+            loss=self.loss(y_hat,label.float())
+            #loss=self.loss(y_hat,label)
             #calc gradient and backpropagation
             loss.backward()
             self.optimizer.step()
@@ -125,9 +125,11 @@ class Trainer():
                if param.grad==None:
                    raise RuntimeError(f"Gradient is None {name}" )
             self.optimizer.zero_grad()
+            """
+           
             for j in range(len(y_hat)):
-
                 self.writer.add_scalars('Training y-hat and label', {"y_hat":y_hat[j].argmax(),"label":label[j]}, (i*x.shape[0])+j)
+             """
             self.writer.add_scalars('train loss batch', {"loss":loss}, i)
             tq.set_description("train: Loss batch: {}".format(loss))
             avg_loss += loss
@@ -139,17 +141,19 @@ class Trainer():
         tq=tqdm(self.test_loader)
         with torch.no_grad():
             for i,snapshot in enumerate(tq):
-                x,y,edge_index,edg_attr=snapshot
+                x,y,edge_index,=snapshot
                 x=x.to(self.device)
                 edge_index=edge_index.to(self.device)
                 label = y.to(self.device) 
-                edg_attr=edg_attr.to(self.device) 
-                y_hat = self.model(x, edge_index[0],edg_attr[0]) 
-                #loss=self.loss(y_hat,label.float())
-                loss=self.loss(y_hat,label)
+                y_hat = self.model(x, edge_index[0]) 
+                loss=self.loss(y_hat,label.float())
+                #loss=self.loss(y_hat,label)
                 avg_loss += loss
+                """
+                
                 for j in range(len(y_hat)):
                     self.writer.add_scalars('Eval y_hat,label', {"y_hat":y_hat[j].argmax(),"label":label[j]}, (i*x.shape[0])+j)
+                """
                 self.writer.add_scalars('Eval loss batch', {"loss":loss}, i)
                 tq.set_description("Test Loss batch: {}".format(loss))
                
@@ -196,8 +200,8 @@ class Trainer():
 if __name__=="__main__":
     torch.manual_seed(100)
 
-    
-    name_exp = 'mediapipe'
+    name_exp="open_face"
+    #name_exp = 'mediapipe'
     #name_exp = 'dlib'
     #name_exp = 'minidata'
 

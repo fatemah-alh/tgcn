@@ -17,25 +17,25 @@ filter_idx_80: "/home/falhamdoosh/tgcn/data/PartA/idx_low_confidance_80.npy"
 
 ###Optimizer###
 weight_decay: 0.0001
-step_decay: 10
+step_decay: 30
 optimizer: 'Adam'
 
 ###Network###
 num_epoch: 100 
-batch_size: 32
+batch_size: 256
 continue_training: False   #If set True will continue training from pretrained model
 pretrain_model: ""       #Name of folder that contains the model resume training
 gpu: 1
 
 ###Model parameters###
-embed_dim: 128
+embed_dim: 64
 n_classes: 5
-num_features: 4
+num_features: 6
 output_features: 1
 TS: 137
 n_joints: 51
 train_ratio: 0.7
-lr: 0.01
+lr: 0.001
 LOG_DIR: "./log/"
 #n_layers: 3
 #dropout: 0.2

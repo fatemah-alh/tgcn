@@ -6,7 +6,6 @@ import torch
 from tqdm import tqdm
 from dataloader import DataLoader
 import yaml
-#%%
 """
 class TemporalGNN(torch.nn.Module):
     def __init__(self, node_features=4,output_features=1,num_nodes=51,embed_dim=32, periods=137):
@@ -47,7 +46,7 @@ class TemporalGNN(torch.nn.Module):
 
 """
 class TemporalGNNBatch(torch.nn.Module):
-    def __init__(self, node_features=4,output_features=1,num_nodes=51,embed_dim=32, periods=137,batch_size=32):
+    def __init__(self, node_features=6,output_features=1,num_nodes=51,embed_dim=64, periods=137,batch_size=32):
         super(TemporalGNNBatch, self).__init__()
         self.node_features = node_features
         self.embed_dim=embed_dim #64 ,128,..
@@ -62,7 +61,7 @@ class TemporalGNNBatch(torch.nn.Module):
         self.dropout = torch.nn.Dropout(0.2)
         self.linear_1= torch.nn.Linear(self.embed_dim, 32)
         self.linear_2=torch.nn.Linear(32, 1)#
-        self.linear_3=torch.nn.Linear(self.num_nodes, 2)# batch [32, 51] [32,1]
+        self.linear_3=torch.nn.Linear(self.num_nodes, 1)# batch [32, 51] [32,1]
         
 
 
@@ -83,21 +82,24 @@ class TemporalGNNBatch(torch.nn.Module):
         h=self.linear_2(h)
         h=h.view(-1,self.num_nodes)
         h=self.linear_3(h)
-        #h = F.relu(h) 
+        h = F.relu(h) 
+        
         #h=torch.sigmoid(h)
         #h=5.0 * torch.sigmoid(h)
-        #h=h.view(-1)
-        class_pred=torch.softmax(h, dim=1)#.argmax(dim=1)
+        h=h.view(-1)
+        #class_pred=torch.softmax(h, dim=1)#.argmax(dim=1)
+       # print(h.shape)
         
-        
-        return class_pred
+        return h
 
 if __name__=="__main__":
 
-    name_exp = 'mediapipe'
+    name_exp = 'open_face'
+    #name_exp = 'mediapipe'
     #name_exp = 'dlib'
     config_file=open("./config/"+name_exp+".yml", 'r')
     config = yaml.safe_load(config_file)
+
     data_path=config['data_path']
     labels_path=config['labels_path']
     edges_path=config['edges_path']
@@ -127,9 +129,9 @@ if __name__=="__main__":
 
     
 
-    loader=DataLoader(data_path,labels_path,edges_path,name_exp)
-    train_dataset=DataLoader(data_path,labels_path,edges_path,name_exp,idx_path=idx_train,mode="train")
-    test_dataset=DataLoader(data_path,labels_path,edges_path,name_exp,idx_path=idx_test,mode="test")
+    loader=DataLoader(data_path,labels_path,edges_path)
+    train_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_train)
+    test_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_test)
     test_loader = torch.utils.data.DataLoader(test_dataset, 
                                                    batch_size=batch_size, 
                                                    shuffle=False,
@@ -138,11 +140,11 @@ if __name__=="__main__":
     
     tq=tqdm(test_loader)
     for i in tq:
-        x,y,edge,attr=i
+        x,y,edge=i
         #print("assert data ",x,x.shapeedge[0].shape)
-        print("assert label ",y,y.shape)
+        #print("assert label ",y,y.shape)
         x=x.to(device)
-        attr=attr.to(device)
         edge=edge.to(device)
-        y_hat=model(x,edge[0],attr[0])
+        
+        y_hat=model(x,edge[0])
         
