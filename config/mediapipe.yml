@@ -1,11 +1,17 @@
 Description: ""
 name_exp: "mediapipe"
+3D: False
+video_path: "/home/falhamdoosh/tgcn/data/PartA/"
+csv_file: "/home/falhamdoosh/tgcn/data/PartA/samples.csv"
+labels_path: "/home/falhamdoosh/tgcn/data/PartA/lables.npy"
+landmarks_path: "/home/falhamdoosh/tgcn/data/PartA/Mediapipe/dataset_mediapipe_without_process.npy"
 data_path: "/home/falhamdoosh/tgcn/data/PartA/Mediapipe/dataset_mediapipe.npy"
-labels_path: "/home/falhamdoosh/tgcn/data/PartA/Mediapipe/label_mediapipe.npy"
-edges_path: "/home/falhamdoosh/tgcn/data/PartA/Mediapipe/edges.npy"
-idx_train: "/home/falhamdoosh/tgcn/data/PartA/Mediapipe/idx_train.npy"
-idx_test: "/home/falhamdoosh/tgcn/data/PartA/Mediapipe/idx_test.npy"
-
+edges_path: "/home/falhamdoosh/tgcn/data/PartA/Mediapipe/edges_mediapipe.npy"
+idx_train: "/home/falhamdoosh/tgcn/data/PartA/idx_train.npy"
+idx_test: "/home/falhamdoosh/tgcn/data/PartA/idx_test.npy"
+filter_idx_90: "/home/falhamdoosh/tgcn/data/PartA/idx_low_confidance_90.npy"
+filter_idx_80: "/home/falhamdoosh/tgcn/data/PartA/idx_low_confidance_80.npy"
+data_shape: (8700,486,4,137)
 ###Optimizer###
 weight_decay: 0.0001
 step_decay: 10

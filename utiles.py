@@ -25,6 +25,30 @@ import pickle
 import yaml
 from numpy.linalg import eig
 
+def get_file_names(csv_file):
+    """
+    Function to get a list of paths to videos to process. 
+    """
+    df = pd.read_csv(csv_file,sep='\t')
+    filesnames=(df['subject_name'] + '/' + df['sample_name']).to_numpy()
+    return filesnames
+
+
+def extract_dlib(filesnames,video_folder):
+    for i in tqdm(range (0,len(filesnames))):
+        extract_landmarks_from_video(video_folder,filesnames[i])
+
+def extract_mediaPipe(filesnames,video_folder):
+    mp_face_mesh = mp.solutions.face_mesh.FaceMesh(
+        static_image_mode=False,
+        max_num_faces=1,
+        min_detection_confidence=0.5,
+        min_tracking_confidence=0.5
+    )
+
+    for i in tqdm(range (0,len(filesnames))):
+        extract_landmarks_from_video_media_pipe(video_folder,filesnames[i],mp_face_mesh)
+
 def frontalize_landmarks_dlib(root,path_file,detector,predictor,frontalization_weights):
     path=root+"video/"+ path_file+".mp4"
     outputfile=root+"landmarks_frontalize/"+path_file+".npy"
@@ -145,86 +169,6 @@ def filter_neutral_subject(df):
     df=df[~mask]
     return indices_filtered
 
-def get_idx_train_test(path):
-    validation_subjects_id=["100914_m_39", "101114_w_37", "082315_w_60", "083114_w_55", 
-                            "083109_m_60", "072514_m_27", "080309_m_29", "112016_m_25", 
-                            "112310_m_20", "092813_w_24", "112809_w_23", "112909_w_20", 
-                            "071313_m_41", "101309_m_48", "101609_m_36", "091809_w_43", 
-                            "102214_w_36", "102316_w_50", "112009_w_43", "101814_m_58", 
-                            "101908_m_61", "102309_m_61", "112209_m_51", "112610_w_60", 
-                            "112914_w_51", "120514_w_56"]
-    df = pd.read_csv('/home/falhamdoosh/tgcn/data/PartA/samples.csv',sep='\t')
-    labels=df['subject_name'].to_numpy()
-    print(labels)
-   # labels_path=config['labels_path']
-    #label_file= open(labels_path,'rb')
-    #labels=pickle.load(label_file)
-    #labels=labels[0]
-   # print(labels[0])
-    idx_test=[]
-    idx_train=[]
-    for i in range(len(labels)):
-        test=False
-        for j in validation_subjects_id:
-            if labels[i].strip()==j:
-                test=True
-        if test:
-            idx_test.append(i)        
-        else:
-            idx_train.append(i)
-
-    print("Percent test",(len(idx_test)*100)/len(labels))
-    assert len(idx_test)+len(idx_train)==len(labels)
-
-    np.save(path+"idx_train.npy",idx_train)
-    np.save(path+"idx_test.npy",idx_test)
-    return idx_train,idx_test
-
-def split_test_train_balance(df,data,labels):
-
-    """
-    Split in train and test data according to Biovid indication to obtain balance.
-    inputs:
-            df: datafram of samples.csv
-            data:matrix of all landmarks of all video [num of samples,[num_frames,68 or 69 if centroid was added,2]]
-            labels: one dimension array of labels between 0 and 4 of size [ num of samples ] 
-    Return:
-            test_data,test_labels,train_data,train_labels
-    """
-    validation_subjects_id=["100914_m_39", "101114_w_37", "082315_w_60", "083114_w_55", 
-                            "083109_m_60", "072514_m_27", "080309_m_29", "112016_m_25", 
-                            "112310_m_20", "092813_w_24", "112809_w_23", "112909_w_20", 
-                            "071313_m_41", "101309_m_48", "101609_m_36", "091809_w_43", 
-                            "102214_w_36", "102316_w_50", "112009_w_43", "101814_m_58", 
-                            "101908_m_61", "102309_m_61", "112209_m_51", "112610_w_60", 
-                            "112914_w_51", "120514_w_56"]
-    mask = df['subject_name'].isin(validation_subjects_id)
-    indices_validation= df.loc[mask].index.tolist()
-    #df_test=df[mask]
-    #df_train=df[~mask]
-    test_data=data[indices_validation]
-    test_labels=labels[indices_validation]
-    train_data=data[~indices_validation]
-    train_labels=labels[~indices_validation]
-    assert len(train_data)==len(train_labels)
-    assert len(test_data)==len(test_labels)
-    return (test_data,test_labels,train_data,train_labels)
-
-def preprocess_data(data,standardization =True, minMaxNormalization=False):
-    """
-    This function perform data preproccessing:
-        normalize and standarize points, calculate velocities of points.
-    Inputs:
-        data: matrix of all landmarks of all video [num of samples,[num_frames,68 or 69 if centroid was added,2]] 
-        standardization: True if you want to standarize data points to zero mean and unitary std
-        minMaxNormalization: True if you want to apply min max normalization
-    """
-    preprocess_data=[]
-    for sample in range(len(data)):
-        for frame in sample:
-            pass
-
-    return data
 
 def min_max_normalization(sample):
     face_min_max_x = (sample[:,0] - np.min(sample[:,0])) / (np.max(sample[:,0]) - np.min(sample[:,0]))
@@ -239,16 +183,7 @@ def remove_rotation(sample):
     return rotated_points.transpose()
 def noise_centring(sample):
     return sample - sample[30]    
-def calc_velocity(sample):
-    velcetiy=[]
-    for i in range(1,len(sample)):
-        velcetiy.append(sample[i]-sample[i-1])
-    return velcetiy  
 
-def standardize(frame):
-     #print(np.mean(frame ,axis=0)) #first point [773.61752137 546.12179487]
-     #print(np.std(frame,axis=0))#[82.34992859 91.95303401]
-    return (frame - np.mean(frame ,axis=0)) /np.std(frame,axis=0)
 
 def angle_between(v1, v2):
     '''
@@ -289,11 +224,10 @@ def rotation_matrix_2d(theta):
     -------
     Array
         The 2D rotation matrix for the given angle theta
-
     '''
     return np.array([[math.cos(theta), math.sin(theta)], [-math.sin(theta), math.cos(theta)]])
 
-def get_mini_dataset(path):
+def get_mini_dataset(path="/home/falhamdoosh/tgcn/data/PartA/minidata/"):
 
     idx_train=np.random.randint(low=0,high=8600,size=20)
     idx_test=np.random.randint(low= 0,high= 8600,size=20)
@@ -320,37 +254,6 @@ def rotation_matrix_2d(theta):
     '''
     return np.array([[math.cos(theta), math.sin(theta)], [-math.sin(theta), math.cos(theta)]])
 
-def frobenius_norm(arr):
-    """
-    frame: array
-    """
-    
-    return arr/np.linalg.norm(arr,ord= 'fro')
-def angle_between(v1, v2):
-    '''
-    Function that return the angle between 2 vectors.
-    Angle is in radians.
-
-    Parameters
-    ----------
-    v1 : Vector
-        Coordinates of the vector v1
-    v2 : Vector
-        Coordinates of the vector v2
-
-    Returns
-    -------
-    Float
-        Angle between vectors v1 and v2 in radians
-
-    '''
-    if np.abs(v1).sum() < 1e-6 or np.abs(v2).sum() < 1e-6:
-        return 0
-    
-    unit_v1 = v1 / np.linalg.norm(v1)
-    unit_v2 = v2 / np.linalg.norm(v2)
-    dot_prod = np.dot(unit_v1, unit_v2)
-    return np.arccos(np.clip(dot_prod, -1.0, 1.0))
 
 def get_angle_degree(v1,v2):
     dY = v1[1] - v2[1]
@@ -371,7 +274,6 @@ def align_points(arr):
 
 def align_points_degree(arr):
     rotated_points=arr
-    
     leftEye=rotated_points[263]#arr[10]
     rightEye=rotated_points[33]#arr[152]
     
@@ -404,49 +306,65 @@ def align_points_2(arr):
     return rotated_points
 
 
-def process_data(landmarks_folder:str,filesnames:list,normalized_data:np.array,path_save:str):
+
+
+
+def split_data_test_train_balance(csv_file,data,labels):
+
     """
-    Iterate over all landmarks.npy for each sample, apply
-    1- make coordiates have zero mean and unitary std.
-    2- remove rotaione of the face, align points to be in frontal face position. 
-    3- Divise each frame by frobenius norm
-    4- calculate velocitie
-    create the data matrix that containes all samples [num_samples,num_frame,num_landmarks,num_featuers]
+    ####Not used####
+    Split in train and test data according to Biovid indication to obtain balance.
+    inputs:
+            df: datafram of samples.csv
+            data:matrix of all landmarks of all video [num of samples,[num_frames,68 or 69 if centroid was added,2]]
+            labels: one dimension array of labels between 0 and 4 of size [ num of samples ] 
+    Return:
+            test_data,test_labels,train_data,train_labels
     """
+    validation_subjects_id=["100914_m_39", "101114_w_37", "082315_w_60", "083114_w_55", 
+                            "083109_m_60", "072514_m_27", "080309_m_29", "112016_m_25", 
+                            "112310_m_20", "092813_w_24", "112809_w_23", "112909_w_20", 
+                            "071313_m_41", "101309_m_48", "101609_m_36", "091809_w_43", 
+                            "102214_w_36", "102316_w_50", "112009_w_43", "101814_m_58", 
+                            "101908_m_61", "102309_m_61", "112209_m_51", "112610_w_60", 
+                            "112914_w_51", "120514_w_56"]
+    df = pd.read_csv(csv_file,sep='\t')
+    mask = df['subject_name'].isin(validation_subjects_id)
+    idx_test= df.loc[mask].index.tolist()
+    test_data=data[idx_test]
+    test_labels=labels[idx_test]
+    train_data=data[~idx_test]
+    train_labels=labels[~idx_test]
+    assert len(train_data)==len(train_labels)
+    assert len(test_data)==len(test_labels)
+    return (test_data,test_labels,train_data,train_labels)
+
+           
+def rotate_z(landmarks):
+    angles = np.array([45, 90, 60])
+    angles_rad = np.radians(angles)
+    rotation_z = np.array([[np.cos(angles_rad[2]), -np.sin(angles_rad[2]), 0],
+                           [np.sin(angles_rad[2]), np.cos(angles_rad[2]), 0],
+                           [0, 0, 1]])
+
+    # Apply sequential rotations
+    rotated_points = np.dot(rotation_z, landmarks.T).T
+    return rotated_points
     
-    for i in tqdm(range (0,len(filesnames))):
-        path=landmarks_folder+filesnames[i]+".npy"
-        sample=np.load(path) #[138,468,2] 
-        for j in range(len(sample)): #[468,2]
-            sample[j]=preprocess_frame(sample[j])
-        velocity=calc_velocity(sample)
-        data=np.concatenate((sample[:-1,:,:], velocity), axis=2)
-        normalized_data[i][:data.shape[0]]= data
-    np.save(path_save+"dataset_mediapipe_without_process.npy",normalized_data)
-    return normalized_data
 
 
-
-def preprocess_frame(sample):
-    sample= standardize(sample)
-    sample=frobenius_norm(sample)
-    return sample
-
-def get_eigenvectors(arr):
+def get_eigenvectors(arr,ord=True):
     cova=np.cov(arr,rowvar=False)
     eigenvalues, eigenvectors = eig(cova)
-    
-    idx = eigenvalues.argsort()[::-1]   
-    #eigenvalues = eigenvalues[idx]
-    #eigenvectors = eigenvectors[:,idx]
-   
+    if ord:
+        idx = (eigenvalues).argsort()[::-1]   
+        eigenvalues = eigenvalues[idx]
+        eigenvectors = eigenvectors[:,idx]
     return eigenvectors
 def align_eigenvectors(eigenvectors,arr):
-    arr=np.dot(arr, eigenvectors.T) # 68*3 __ 3*3 
+    arr=np.dot(eigenvectors, arr.T).T # 68*3 __ 3*3 
 
     return arr
-
-
 
 
 def get_landmark_array(landmarks_dlib_obj):
@@ -514,6 +432,75 @@ def get_landmark_matrix(ls_coord):
     mid = len(ls_coord) // 2
     landmarks = np.array( [ ls_coord[:mid], ls_coord[mid:] ]    )
     return landmarks.T
+
+def my_random_generator(n_values, min_value, max_value, excluded_values=None):
+    """
+    fuction to generate list of random integers excluding values in list "excluded_values"
+    usage :
+    l = list(my_random_generator(100, 0, 8650, idx_train_data))
+    """
+    if excluded_values is None:
+        excluded_values = []
+
+    count = 0
+
+    while count < n_values:
+        value = np.random.randint(min_value, max_value)
+        while value in excluded_values:
+            value = np.random.randint(min_value, max_value)
+        yield value
+        count += 1
+        
+
+
+def rotate_x(landmarks,v="none"):
+    if v=="none":
+        right_eye = landmarks[36]
+        left_eye = landmarks[45]
+        v=left_eye - right_eye
+    
+    angle= angle_between( v,[1,0,0] )
+    
+    
+    rotation_x = np.array([[1, 0, 0],
+                           [0, math.cos(angle), -math.sin(angle)],
+                           [0, math.sin(angle), math.cos(angle)]])
+    rotated_points = np.dot(rotation_x, landmarks.T).T
+
+    return rotated_points
+
+def rotate_y(landmarks,v="none"):
+    if v=="none":
+        right_eye = landmarks[36]
+        left_eye = landmarks[45]
+        v=left_eye - right_eye
+    angle= angle_between(v,[0,1,0] )
+   
+   # angles = np.array([60,20, 60])
+   # angles= np.radians(angles)
+    rotation_y = np.array([[math.cos(angle), 0, math.sin(angle)],
+                           [0, 1, 0],
+                           [-math.sin(angle), 0, math.cos(angle)]])
+
+    rotated_points = np.dot(rotation_y, landmarks.T).T
+    return rotated_points
+
+def rotate_z(landmarks, v="none"):
+    if v=="none":
+        right_eye = landmarks[36]
+        left_eye = landmarks[45]
+        v=left_eye - right_eye
+        print("none")
+    
+    angle= angle_between(v,[0,0,1] )
+    
+    rotation_z = np.array([[math.cos(angle), -math.sin(angle), 0],
+                           [math.sin(angle), math.cos(angle), 0],
+                           [0, 0, 1]])
+
+    # Apply sequential rotations
+    rotated_points = np.dot(rotation_z, landmarks.T).T
+    return rotated_points
 
 
 

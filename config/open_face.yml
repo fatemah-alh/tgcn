@@ -1,14 +1,19 @@
 Description: ""
 name_exp: "dlib"
-3D: False
+3D : True
 video_path: "/home/falhamdoosh/tgcn/data/PartA/"
+landmarks_path : "/home/falhamdoosh/tgcn/data/PartA/3dlandmarks/"
 csv_file: "/home/falhamdoosh/tgcn/data/PartA/samples.csv"
+
 labels_path: "/home/falhamdoosh/tgcn/data/PartA/lables.npy"
 
-data_path: "/home/falhamdoosh/tgcn/data/PartA/dlib_student/dataset_data_biovid.npy"
-edges_path: "/home/falhamdoosh/tgcn/data/PartA/dlib_student/edge_index_51biovid.npy"
-idx_train: "/home/falhamdoosh/tgcn/data/PartA/dlib_student/idx_train.npy"
-idx_test: "/home/falhamdoosh/tgcn/data/PartA/dlib_student/idx_test.npy"
+data_path: "/home/falhamdoosh/tgcn/data/PartA/openFace/dataset_openFace.npy"
+edges_path: "/home/falhamdoosh/tgcn/data/PartA/openFace/edge_openFace.npy"
+idx_train: "/home/falhamdoosh/tgcn/data/PartA/idx_train_filterd.npy"
+idx_test: "/home/falhamdoosh/tgcn/data/PartA/idx_test_filterd.npy"
+
+filter_idx_90: "/home/falhamdoosh/tgcn/data/PartA/idx_low_confidance_90.npy"
+filter_idx_80: "/home/falhamdoosh/tgcn/data/PartA/idx_low_confidance_80.npy"
 
 ###Optimizer###
 weight_decay: 0.0001

@@ -11,3 +11,4 @@ train.py
 writer
 log
 __pycache__
+.vscode

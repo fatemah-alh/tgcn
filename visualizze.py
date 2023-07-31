@@ -75,3 +75,59 @@ for time_step in tqdm(range(137)):
 imageio.mimsave(path+'vis_landmarks_dlib.gif', figures, duration=50)
 
 # %%
+
+
+
+
+#%%
+figures=[]
+#writer = imageio.get_writer('test.mp4')
+origin=[0,0,0]
+vis="2d"
+vis_indix=False
+for time_step in tqdm(range(137)):
+    # Create a figure and axes for subplots
+    if vis=="2d":
+        fig, axs = plt.subplots(5, 4, figsize=(30, 30))
+    else:
+        fig, axs = plt.subplots(5, 4, figsize=(30, 30),subplot_kw=dict(projection='3d'))
+    
+    # Flatten the axes array
+    axs = axs.flatten()
+    for d in range(0,len(data_3d)):
+        
+        fram=data_3d[d,time_step,:,:]
+        fram[:,1]=-fram[:,1]
+        
+        
+        fram=preprocess_frame(fram)
+       
+        base_m = get_rotation_matrix(fram)
+        fram= np.matmul( base_m, fram.T ).T
+        
+        axs[d].set_title(f"VAS level: {label_data[d]}")
+        if vis_indix:
+            for index in range(len(fram)):
+                axs[d].annotate(index,(fram[index][0],fram[index][1]))
+        if vis=="2d":
+            axs[d].scatter(fram[:,0], fram[:,1], alpha=0.8)
+        else:
+            axs[d].scatter(fram[:,0], fram[:,1],fram[:,2], alpha=0.8)
+           # axs[d].quiver(origin[0],origin[1],origin[2], autovettori[0,0],autovettori[1,0],autovettori[2,0],color="r")
+            #axs[d].quiver(origin[0],origin[1],origin[2], autovettori[0,1],autovettori[1,1],autovettori[2,1],color="g")
+            #axs[d].quiver(origin[0],origin[1],origin[2], autovettori[0,2],autovettori[1,2],autovettori[2,2],color="b")
+            #axs[d].quiver(origin[0],origin[1],origin[2], n[0],n[1],n[2],color="fuchsia")
+            axs[d].quiver(origin[0],origin[1],origin[2],0,0,1,color="y")
+            axs[d].text(0,0,1,"z")
+            axs[d].quiver(origin[0],origin[1],origin[2], 0,1,0,color="y")
+            axs[d].text(0,1,0,"y")
+            axs[d].quiver(origin[0],origin[1],origin[2], 1,0,0,color="y")
+            axs[d].text(1,0,0,"x")
+            #axs[d].view_init(-30,60)
+        
+    fig.canvas.draw()
+    image = Image.frombytes('RGB', fig.canvas.get_width_height(), fig.canvas.tostring_rgb())
+    figures.append(image)
+
+#imageio.mimsave(path_vis+'vis_landmarks_3D_openface_absolut_eigenvectors_without_contur.gif', figures, duration=50)
+#%%

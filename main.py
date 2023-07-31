@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 import numpy as np
-from model import TemporalGNNBatch
+from TemporalGNNB import TemporalGNNBatch
 from dataloader import DataLoader
 from torch_geometric_temporal.signal import temporal_signal_split
 from tqdm import tqdm 

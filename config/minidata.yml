@@ -1,14 +1,13 @@
 Description: " train on small data set from 20 sample"
 name_exp: "dlib"
+3D : False
 
-#data_path: "/home/falhamdoosh/tgcn/data/PartA/Mediapipe/dataset_mediapipe_without_process.npy"
-labels_path: "/home/falhamdoosh/tgcn/data/PartA/Mediapipe/label_mediapipe.npy"
-#edges_path: "/home/falhamdoosh/tgcn/data/PartA/Mediapipe/edges.npy"
-data_path: "/home/falhamdoosh/tgcn/data/PartA/dlib_student/dataset_data_biovid.npy"
-#labels_path: "/home/falhamdoosh/tgcn/data/PartA/dlib_student/dataset_label_biovid.pkl"
-edges_path: "/home/falhamdoosh/tgcn/data/PartA/dlib_student/edge_index_51biovid.npy"
 video_path: "/home/falhamdoosh/tgcn/data/PartA/"
 csv_file: "/home/falhamdoosh/tgcn/data/PartA/samples.csv"
+labels_path: "/home/falhamdoosh/tgcn/data/PartA/label.npy"
+data_path: "/home/falhamdoosh/tgcn/data/PartA/openFace/dataset_openFace.npy"
+edges_path: "/home/falhamdoosh/tgcn/data/PartA/openFace/edge_openFace.npy"
+
 idx_train: "/home/falhamdoosh/tgcn/data/PartA/minidata/idx_train.npy"
 idx_test: "/home/falhamdoosh/tgcn/data/PartA/minidata/idx_test.npy"
 ###Optimizer###
