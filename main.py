@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 from models.TemporalGNNB import TemporalGNNBatch
+from models.aagcn import aagcn_network
 from dataloader import DataLoader
 from torch_geometric_temporal.signal import temporal_signal_split
 from tqdm import tqdm 
@@ -41,13 +42,12 @@ class Trainer():
         
         self.set_log_dir()
         self.set_device()
+        self.edge_index=torch.LongTensor(np.load(self.edges_path)).to(self.device)
         self.load_datasets()
         self.load_model()
         self.load_optimizer()
         self.load_loss()
         self.init_writer()
-
-        self.edge_index=np.load(self.edges_path).to(self.device)
 
     def set_log_dir(self):
         self.date=datetime.datetime.now().strftime("%m-%d-%H:%M")
@@ -78,11 +78,8 @@ class Trainer():
                                                    sampler=torch.utils.data.SequentialSampler(self.test_dataset),
                                                    drop_last=False)
     def load_model(self):
-        self.model = TemporalGNNBatch(node_features=self.num_features,
-                                      num_nodes=self.num_nodes,
-                                      embed_dim=self.embed_dim, 
-                                      periods=self.TS,
-                                      batch_size=self.batch_size)
+        self.model = aagcn_network(num_person=1, graph=self.edge_index,num_nodes=51, in_channels=6,drop_out=0.5, adaptive=False, attention=True)
+   
         
         if(self.continue_training):
                 path_pretrained_model=os.path.join(self.LOG_DIR,"{}/best_model.pkl".format(self.pretrain_model))
@@ -113,7 +110,7 @@ class Trainer():
             x=x.to(self.device)
             label = y.to(self.device) 
             #forward
-            y_hat = self.model(x, self.edge_index)
+            y_hat = self.model(x)
             
             loss=self.loss(y_hat,label.float())
             #loss=self.loss(y_hat,label)
@@ -145,7 +142,7 @@ class Trainer():
                 x,y=snapshot
                 x=x.to(self.device)
                 label = y.to(self.device) 
-                y_hat = self.model(x, self.edge_index) 
+                y_hat = self.model(x) 
                 loss=self.loss(y_hat,label.float())
                 #loss=self.loss(y_hat,label)
                 avg_loss += loss

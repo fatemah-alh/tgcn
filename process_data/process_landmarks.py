@@ -2,6 +2,9 @@
 import numpy as np
 import pandas as pd
 import yaml
+import sys
+
+sys.path.append('/home/falhamdoosh/tgcn/')
 from utiles import get_file_names
 from tqdm import tqdm 
 from scipy.spatial import Delaunay
@@ -114,9 +117,14 @@ def split_idx_train_test(idx_train_path,idx_test_path,csv_file,filter_90=None):
 def get_edges(landmarks,edges_path):
     tri = Delaunay(landmarks)
     edges = []
+    unique_edges=set()
     for simplex in tri.simplices:
         for i in range(3):
             edges.append((simplex[i], simplex[(i+1)%3]))
+            if((simplex[(i+1)%3],simplex[i]) in unique_edges ):
+                pass
+            else:
+                unique_edges.add((simplex[i], simplex[(i+1)%3]))
     edges_index=[[],[]]
     for e in edges:
         edges_index[0].append(e[0])
@@ -124,9 +132,9 @@ def get_edges(landmarks,edges_path):
     edges_index=torch.LongTensor(edges_index)
     print("number of index before adding symmetric edges:",edges_index.shape)
     
-    edges_index=to_undirected(edges_index)
-    edges_index_with_loops=add_self_loops(edges_index)
-    edges_index=edges_index_with_loops[0]
+    #edges_index=to_undirected(edges_index)
+    #edges_index_with_loops=add_self_loops(edges_index)
+    #edges_index=edges_index_with_loops[0]
     print("Contian self loops:",contains_self_loops(edges_index))
     print("Graph is now undircte:",is_undirected(edges_index))
     print("number of index after adding symmetric edges:",edges_index.shape)
@@ -231,10 +239,9 @@ def process_all_data(landmarks_folder:str,filesnames:list,normalized_data:np.arr
     np.save(path_save,normalized_data)
     return normalized_data
 
-
 path_vis="/home/falhamdoosh/tgcn/data/PartA/vis/" # path to save gif of visualizzation
 name_file = 'open_face' # name of conficuration file.
-config_file=open("./config/"+name_file+".yml", 'r')
+config_file=open("/home/falhamdoosh/tgcn//config/"+name_file+".yml", 'r')
 config = yaml.safe_load(config_file)
 labels_path=config['labels_path']
 idx_train= config['idx_train']
@@ -261,7 +268,7 @@ if name_file=="open_face":
 
 
 #%%   #Create the the dataset file with process
-process_all_data(landmarks_path,filesnames,normalized_data,data_path)
+#process_all_data(landmarks_path,filesnames,normalized_data,data_path)
 
 
 
@@ -277,7 +284,6 @@ labels=save_labels(csv_file,labels_path)
 
 #%%   #Create the edges array 
 data=np.load(data_path)
-labels_path
 print(data[0,0,:,:2].shape)
 edges_index=get_edges(data[0,0,:,:2],edges_path)
 
