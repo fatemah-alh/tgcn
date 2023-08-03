@@ -1,19 +1,20 @@
 Description: ""
 name_exp: "dlib"
 3D : True
-video_path: "/home/falhamdoosh/tgcn/data/PartA/"
-landmarks_path : "/home/falhamdoosh/tgcn/data/PartA/3dlandmarks/"
-csv_file: "/home/falhamdoosh/tgcn/data/PartA/samples.csv"
-data_shape: (8700, 51, 6, 137)
-labels_path: "/home/falhamdoosh/tgcn/data/PartA/lables.npy"
+parent_folder: "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
+video_path: "data/PartA/"
+landmarks_path : "data/PartA/3dlandmarks/"
+csv_file: "data/PartA/samples.csv"
 
-data_path: "/home/falhamdoosh/tgcn/data/PartA/openFace/dataset_openFace.npy"
-edges_path: "/home/falhamdoosh/tgcn/data/PartA/openFace/edge_openFace.npy"
-idx_train: "/home/falhamdoosh/tgcn/data/PartA/idx_train_filterd.npy"
-idx_test: "/home/falhamdoosh/tgcn/data/PartA/idx_test_filterd.npy"
+labels_path: "data/PartA/lables.npy"
 
-filter_idx_90: "/home/falhamdoosh/tgcn/data/PartA/idx_low_confidance_90.npy"
-filter_idx_80: "/home/falhamdoosh/tgcn/data/PartA/idx_low_confidance_80.npy"
+data_path: "data/PartA/openFace/dataset_openFace.npy"
+edges_path: "data/PartA/openFace/edge_openFace.npy"
+idx_train: "data/PartA/idx_train_filterd.npy"
+idx_test: "data/PartA/idx_test_filterd.npy"
+
+filter_idx_90: "data/PartA/idx_low_confidance_90.npy"
+filter_idx_80: "data/PartA/idx_low_confidance_80.npy"
 
 ###Optimizer###
 weight_decay: 0.0001
@@ -36,6 +37,6 @@ TS: 137
 n_joints: 51
 train_ratio: 0.7
 lr: 0.01
-LOG_DIR: "./log/"
+LOG_DIR: "log/"
 #n_layers: 3
 #dropout: 0.2

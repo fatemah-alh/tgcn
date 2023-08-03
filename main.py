@@ -15,9 +15,13 @@ from tensorboardX import SummaryWriter
 
 class Trainer():
     def __init__(self, config) -> None:
+        name_exp="open_face"
+   
+        parent_folder="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
+    
         self.config=config
         self.lr=config['lr']
-        self.LOG_DIR=config['LOG_DIR']
+        self.LOG_DIR=parent_folder+config['LOG_DIR']
         self.num_epoch=config['num_epoch']
         self.gpu=config['gpu']
         self.weight_decay=config['weight_decay']
@@ -29,13 +33,13 @@ class Trainer():
         self.output_features=config['output_features']
         self.TS=config['TS']
         self.continue_training=config['continue_training']
-        self.pretrain_model=config['pretrain_model']
+        self.pretrain_model=parent_folder+config['pretrain_model']
         #data set parametrs 
-        self.data_path=config['data_path']
-        self.labels_path=config['labels_path']
-        self.edges_path=config['edges_path']
-        self.idx_train=config['idx_train']
-        self.idx_test=config['idx_test']
+        self.data_path=parent_folder+config['data_path']
+        self.labels_path=parent_folder+config['labels_path']
+        self.edges_path=parent_folder+config['edges_path']
+        self.idx_train=parent_folder+config['idx_train']
+        self.idx_test=parent_folder+config['idx_test']
         self.train_ratio=config['train_ratio']
         self.batch_size=config['batch_size']
         self.num_nodes=config['n_joints']
@@ -201,7 +205,7 @@ if __name__=="__main__":
     #name_exp = 'mediapipe'
     #name_exp = 'dlib'
     #name_exp = 'minidata'
-
+    
     config_file=open("./config/"+name_exp+".yml", 'r')
     config = yaml.safe_load(config_file)
 

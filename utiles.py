@@ -11,18 +11,15 @@ import math
 
 import matplotlib.pyplot as plt
 import cv2
-from mlxtend.image import extract_face_landmarks
+#from mlxtend.image import extract_face_landmarks
 import numpy as np
-from scipy.spatial import Delaunay
+
 import pandas as pd
 from tqdm import tqdm 
-import torch
-import os,sys
-import dlib
+import os
 import mediapipe as mp
 import math
-import pickle
-import yaml
+
 from numpy.linalg import eig
 
 def get_file_names(csv_file):
@@ -33,11 +30,12 @@ def get_file_names(csv_file):
     filesnames=(df['subject_name'] + '/' + df['sample_name']).to_numpy()
     return filesnames
 
+"""
 
 def extract_dlib(filesnames,video_folder):
     for i in tqdm(range (0,len(filesnames))):
         extract_landmarks_from_video(video_folder,filesnames[i])
-
+"""
 def extract_mediaPipe(filesnames,video_folder):
     mp_face_mesh = mp.solutions.face_mesh.FaceMesh(
         static_image_mode=False,
@@ -75,15 +73,16 @@ def frontalize_landmarks_dlib(root,path_file,detector,predictor,frontalization_w
     return list_landmarks
       
 
+"""
 
 def extract_landmarks_from_video(root,path_file,centroid=True):
-    """
-    This function take in input:
-    root: Director where all videos are saved
-    path_file: a pathe insid videos folder to a video.mp4
-    Return:
-    list_landmarks:[num_frames,68,2]
-    """
+    
+   # This function take in input:
+  #  root: Director where all videos are saved
+   # path_file: a pathe insid videos folder to a video.mp4
+   # Return:
+   # list_landmarks:[num_frames,68,2]
+   
     #path='/home/falhamdoosh/tgcn/data/PartA/video/071309_w_21/071309_w_21-BL1-081.mp4'
     path=root+"video/"+ path_file+".mp4"
     outputfile=root+"landmarks/"+path_file+".npy"
@@ -109,7 +108,7 @@ def extract_landmarks_from_video(root,path_file,centroid=True):
     cap.release()
     np.save(outputfile,list_landmarks)
     return list_landmarks
-
+"""
 def extract_landmarks_from_video_media_pipe(root,path_file,mp_face_mesh,centroid=True):
     """
     This function take in input:

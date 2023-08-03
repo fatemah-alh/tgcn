@@ -1,15 +1,18 @@
 Description: " train on small data set from 20 sample"
+
 name_exp: "dlib"
-3D : False
+3D : True
+parent_folder: "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
+video_path: "data/PartA/"
+landmarks_path : "data/PartA/3dlandmarks/"
+csv_file: "data/PartA/samples.csv"
+labels_path: "data/PartA/lables.npy"
 
-video_path: "/home/falhamdoosh/tgcn/data/PartA/"
-csv_file: "/home/falhamdoosh/tgcn/data/PartA/samples.csv"
-labels_path: "/home/falhamdoosh/tgcn/data/PartA/lables.npy"
-data_path: "/home/falhamdoosh/tgcn/data/PartA/openFace/dataset_openFace.npy"
-edges_path: "/home/falhamdoosh/tgcn/data/PartA/openFace/edge_openFace.npy"
+data_path: "data/PartA/openFace/dataset_openFace.npy"
+edges_path: "data/PartA/openFace/edge_openFace.npy"
 
-idx_train: "/home/falhamdoosh/tgcn/data/PartA/minidata/idx_train.npy"
-idx_test: "/home/falhamdoosh/tgcn/data/PartA/minidata/idx_test.npy"
+idx_train: "data/PartA/minidata/idx_train.npy"
+idx_test: "data/PartA/minidata/idx_test.npy"
 ###Optimizer###
 
 weight_decay: 0.0001

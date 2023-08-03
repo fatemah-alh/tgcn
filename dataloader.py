@@ -82,17 +82,16 @@ class DataLoader(torch.utils.data.Dataset):
    
 if __name__=="__main__":
     name_exp="open_face"
-    #name_exp = 'mediapipe'
-    #name_exp = 'dlib'
-
-    config_file=open("./config/"+name_exp+".yml", 'r')
+   
+    parent_folder="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
+    config_file=open(parent_folder+"config/"+name_exp+".yml", 'r')
     config = yaml.safe_load(config_file)
-    data_path=config['data_path']
-    labels_path=config['labels_path']
-    edges_path=config['edges_path']
-    idx_train= config['idx_train']
-    idx_test=config['idx_test']
-    data_shape=config['data_shape']
+    data_path=parent_folder+config['data_path']
+    labels_path=parent_folder+config['labels_path']
+    edges_path=parent_folder+config['edges_path']
+    idx_train= parent_folder+config['idx_train']
+    idx_test=parent_folder+config['idx_test']
+    
     loader=DataLoader(data_path,labels_path,edges_path)
     train_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_train)
     test_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_test)

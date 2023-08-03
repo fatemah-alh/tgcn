@@ -3,8 +3,8 @@ import numpy as np
 import pandas as pd
 import yaml
 import sys
-
-sys.path.append('/home/falhamdoosh/tgcn/')
+parent_folder= "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
+sys.path.append(parent_folder)
 from utiles import get_file_names
 from tqdm import tqdm 
 from scipy.spatial import Delaunay
@@ -238,22 +238,24 @@ def process_all_data(landmarks_folder:str,filesnames:list,normalized_data:np.arr
         
     np.save(path_save,normalized_data)
     return normalized_data
-
-path_vis="/home/falhamdoosh/tgcn/data/PartA/vis/" # path to save gif of visualizzation
+name_exp = 'open_face'
+    
+config_file=open(parent_folder+"config/"+name_exp+".yml", 'r')
+path_vis=parent_folder+"/data/PartA/vis/" # path to save gif of visualizzation
 name_file = 'open_face' # name of conficuration file.
-config_file=open("/home/falhamdoosh/tgcn//config/"+name_file+".yml", 'r')
-config = yaml.safe_load(config_file)
-labels_path=config['labels_path']
-idx_train= config['idx_train']
-video_folder_path=config["video_path"]
-landmarks_path=config["landmarks_path"]
-csv_file=config["csv_file"]
-data_path=config["data_path"]
-edges_path=config["edges_path"]
-idx_train=config["idx_train"]
-idx_test=config["idx_test"]
 
-filter_idx_90=config["filter_idx_90"]
+config = yaml.safe_load(config_file)
+labels_path=parent_folder+config['labels_path']
+idx_train= parent_folder+config['idx_train']
+video_folder_path=parent_folder+config["video_path"]
+landmarks_path=parent_folder+config["landmarks_path"]
+csv_file=parent_folder+config["csv_file"]
+data_path=parent_folder+config["data_path"]
+edges_path=parent_folder+config["edges_path"]
+idx_train=parent_folder+config["idx_train"]
+idx_test=parent_folder+config["idx_test"]
+
+filter_idx_90=parent_folder+config["filter_idx_90"]
 #print frequencies of labels
 
 filesnames=get_file_names(csv_file)

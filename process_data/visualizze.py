@@ -1,18 +1,13 @@
 #%%
 import matplotlib.pyplot as plt
-import cv2
-from mlxtend.image import extract_face_landmarks
 import numpy as np
-from scipy.spatial import Delaunay
-import pandas as pd
 from tqdm import tqdm 
 import yaml
 from PIL import Image
 import imageio
-import os.path
 import sys
-
-sys.path.append('/home/falhamdoosh/tgcn/')
+parent_folder= "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
+sys.path.append(parent_folder)
 
 from dataloader import DataLoader
 
@@ -104,23 +99,16 @@ def visualize_sample(data,label_data,edges=[],time_steps=137,vis_edges=False,vis
     if save:
         imageio.mimsave(path_vis+'vis_landmarks_3D_openface_absolut_eigenvectors_without_contur.gif', figures, duration=50)
 
-path="/home/falhamdoosh/tgcn/data/PartA/vis/"
+path=parent_folder+"data/PartA/vis/"
 name_file = 'minidata'
-config_file=open("/home/falhamdoosh/tgcn//config/"+name_file+".yml", 'r')
+config_file=open(parent_folder+"config/"+name_file+".yml", 'r')
 config = yaml.safe_load(config_file)
-data_path=config['data_path']
-labels_path=config['labels_path']
-edges_path=config['edges_path']
-idx_train= config['idx_train']
-idx_test=config['idx_test']
+data_path=parent_folder+config['data_path']
+labels_path=parent_folder+config['labels_path']
+edges_path=parent_folder+config['edges_path']
+idx_train= parent_folder+config['idx_train']
+idx_test=parent_folder+config['idx_test']
 TS=config['TS']
-batch_size=config['batch_size']
-embed_dim=config['embed_dim']
-num_features=config['num_features']
-num_nodes=config['n_joints'] 
-gpu=config['gpu']
-name_exp=config['name_exp']
-eyes=[263,33]
 train_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_train,reshape_data=False,expand_dim=False,normalize_labels=False)
 #test_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_test,mode="test")
 data=np.zeros((20,137,51,6))
@@ -131,7 +119,7 @@ for i,sample in enumerate(train_dataset):
     labels.append(sample[1])
 print(data.shape,len(labels))
 #%%
-visualize_landmarks(data,labels,edges,time_steps=1,vis_index=True,vis_edges=True)
+#visualize_landmarks(data,labels,edges,time_steps=1,vis_index=True,vis_edges=True)
 # %%
-visualize_sample(data[0],labels[0],edges,time_steps=10,vis_index=True,vis_edges=False)
+visualize_sample(data[0],labels[0],edges,time_steps=1,vis_index=True,vis_edges=True)
 # %%

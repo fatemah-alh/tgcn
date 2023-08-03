@@ -431,17 +431,17 @@ class aagcn_network(nn.Module):
 if __name__=="__main__":
 
     name_exp = 'open_face'
-    #name_exp = 'mediapipe'
-    #name_exp = 'dlib'
-    config_file=open("./config/"+name_exp+".yml", 'r')
+    
+    parent_folder= "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
+    config_file=open(parent_folder+"config/"+name_exp+".yml", 'r')
     config = yaml.safe_load(config_file)
 
-    data_path=config['data_path']
-    labels_path=config['labels_path']
-    edges_path=config['edges_path']
+    data_path=parent_folder+config['data_path']
+    labels_path=parent_folder+config['labels_path']
+    edges_path=parent_folder+config['edges_path']
     
-    idx_train= config['idx_train']
-    idx_test=config['idx_test']
+    idx_train= parent_folder+config['idx_train']
+    idx_test=parent_folder+config['idx_test']
     TS=config['TS']
     batch_size=config['batch_size']
     embed_dim=config['embed_dim']
