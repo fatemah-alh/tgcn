@@ -3,6 +3,10 @@ import torch.nn.functional as F
 from torch_geometric_temporal.nn.recurrent import A3TGCN,A3TGCN2
 import torch
 from tqdm import tqdm
+import os.path
+import sys
+
+sys.path.append('/home/falhamdoosh/tgcn/')
 from dataloader import DataLoader
 import yaml
 
@@ -13,7 +17,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 from torch_geometric.utils.to_dense_adj import to_dense_adj
 import torch.nn.functional as F
-
+from torch.nn import GRU
 def conv_branch_init(conv, branches):
     weight = conv.weight
     n = weight.size(0)
@@ -52,11 +56,12 @@ class GraphAAGCN:
         self.A = self.get_spatial_graph(self.num_nodes)
 
     def get_spatial_graph(self, num_nodes):
-        self_mat = torch.eye(num_nodes)
+        self_mat = torch.eye(num_nodes).to(self.edge_index.device)
         inward_mat = torch.squeeze(to_dense_adj(self.edge_index))
         inward_mat_norm = F.normalize(inward_mat, dim=0, p=1)
         outward_mat = inward_mat.transpose(0, 1)
         outward_mat_norm = F.normalize(outward_mat, dim=0, p=1)
+       
         adj_mat = torch.stack((self_mat, inward_mat_norm, outward_mat_norm))
         return adj_mat
 
@@ -366,36 +371,29 @@ class AAGCN(nn.Module):
         y = self.relu(self.tcn1(self.gcn1(x)) + self.residual(x))
         return y
     
-class aagcn_network(nn.modules):
-    def __init__(self, num_class=60, num_point=25, num_person=2, graph=None, graph_args=dict(), in_channels=3,
-                 drop_out=0, adaptive=True, attention=True):
+class aagcn_network(nn.Module):
+    def __init__(self, num_person=1, graph=None,num_nodes=51, in_channels=6,drop_out=0.5, adaptive=False, attention=True):
         super(aagcn_network, self).__init__()
 
         if graph is None:
             raise ValueError()
-        else:
-            
-            self.graph = GraphAAGCN(graph,num_nodes)
+    
+        self.data_bn = nn.BatchNorm1d(num_person * in_channels * num_nodes)
+        self.l1 = AAGCN(in_channels, 64, graph, num_nodes=num_nodes, residual=False, adaptive=adaptive, attention=attention)
+        self.l2 = AAGCN(64, 64, graph, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
+        self.l3 = AAGCN(64, 64, graph, num_nodes=num_nodes, adaptive=adaptive, attention=attention)
+        self.l4 = AAGCN(64, 64, graph, num_nodes=num_nodes, adaptive=adaptive, attention=attention)
+        self.l5 = AAGCN(64, 128, graph, num_nodes=num_nodes,stride=2, adaptive=adaptive, attention=attention)
+        self.l6 = AAGCN(128, 128, graph, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
+        self.l7 = AAGCN(128, 128, graph, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
+        self.l8 = AAGCN(128, 256, graph, num_nodes=num_nodes,stride=2, adaptive=adaptive, attention=attention)
+        self.l9 = AAGCN(256, 256, graph, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
+        self.l10 = AAGCN(256, 256, graph, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
 
-        A = self.graph.A
-        self.num_class = num_class
+        self.gru=GRU(input_size=256,hidden_size=1,num_layers=1,batch_first=True)#what is the init hidden stat?
+        #self.fc = nn.Linear(256, num_class)
 
-        self.data_bn = nn.BatchNorm1d(num_person * in_channels * num_point)
-        self.l1 = AAGCN(3, 64, A, residual=False, adaptive=adaptive, attention=attention)
-        self.l2 = AAGCN(64, 64, A, adaptive=adaptive, attention=attention)
-        self.l3 = AAGCN(64, 64, A, adaptive=adaptive, attention=attention)
-        self.l4 = AAGCN(64, 64, A, adaptive=adaptive, attention=attention)
-        self.l5 = AAGCN(64, 128, A, stride=2, adaptive=adaptive, attention=attention)
-        self.l6 = AAGCN(128, 128, A, adaptive=adaptive, attention=attention)
-        self.l7 = AAGCN(128, 128, A, adaptive=adaptive, attention=attention)
-        self.l8 = AAGCN(128, 256, A, stride=2, adaptive=adaptive, attention=attention)
-        self.l9 = AAGCN(256, 256, A, adaptive=adaptive, attention=attention)
-        self.l10 = AAGCN(256, 256, A, adaptive=adaptive, attention=attention)
-
-
-        self.fc = nn.Linear(256, num_class)
-
-        nn.init.normal_(self.fc.weight, 0, math.sqrt(2. / num_class))
+        #nn.init.normal_(self.fc.weight, 0, math.sqrt(2. / num_class))#????
         bn_init(self.data_bn, 1)
         if drop_out:
             self.drop_out = nn.Dropout(drop_out)
@@ -403,7 +401,7 @@ class aagcn_network(nn.modules):
             self.drop_out = lambda x: x
     def forward(self, x):
         N, C, T, V, M = x.size()
-
+        
         x = x.permute(0, 4, 3, 1, 2).contiguous().view(N, M * V * C, T)
         x = self.data_bn(x)
         x = x.view(N, M, V, C, T).permute(0, 1, 3, 4, 2).contiguous().view(N * M, C, T, V)
@@ -424,8 +422,10 @@ class aagcn_network(nn.modules):
         x = x.view(N, M, c_new, -1)
         x = x.mean(3).mean(1)
         x = self.drop_out(x)
-
-        return self.fc(x)
+        #x=self.fc(x)
+        x=self.gru(x)
+        print(x.shape)
+        return x
 
 
 if __name__=="__main__":
@@ -439,6 +439,7 @@ if __name__=="__main__":
     data_path=config['data_path']
     labels_path=config['labels_path']
     edges_path=config['edges_path']
+    
     idx_train= config['idx_train']
     idx_test=config['idx_test']
     TS=config['TS']
@@ -447,11 +448,7 @@ if __name__=="__main__":
     num_features=config['num_features']
     num_nodes=config['n_joints'] 
     gpu=config['gpu']
-    model = TemporalGNNBatch(node_features=num_features,
-                                      num_nodes=num_nodes,
-                                      embed_dim=embed_dim, 
-                                      periods=TS,
-                                      batch_size=batch_size)
+    
     if torch.cuda.is_available():
         print("set cuda device")
         device="cuda"
@@ -459,7 +456,11 @@ if __name__=="__main__":
     else:
         device="cpu"
         print('Warning: Using CPU')
-    model.cuda()
+    
+    edges_index=torch.LongTensor(np.load(edges_path)).to(device)
+    print(edges_index.device)
+    model = aagcn_network(num_person=1, graph=edges_index,num_nodes=51, in_channels=6,drop_out=0.5, adaptive=False, attention=True)
+    model.to(device)
     print(model)
     
 
@@ -476,11 +477,10 @@ if __name__=="__main__":
     
     tq=tqdm(test_loader)
     for i in tq:
-        x,y,edge=i
+        x,y=i
         #print("assert data ",x,x.shapeedge[0].shape)
         #print("assert label ",y,y.shape)
         x=x.to(device)
-        edge=edge.to(device)
-        
-        y_hat=model(x,edge[0])
+        y_hat=model(x)
+        break
         

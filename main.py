@@ -38,6 +38,7 @@ class Trainer():
         self.train_ratio=config['train_ratio']
         self.batch_size=config['batch_size']
         self.num_nodes=config['n_joints']
+        
         self.set_log_dir()
         self.set_device()
         self.load_datasets()
@@ -45,6 +46,8 @@ class Trainer():
         self.load_optimizer()
         self.load_loss()
         self.init_writer()
+
+        self.edge_index=np.load(self.edges_path).to(self.device)
 
     def set_log_dir(self):
         self.date=datetime.datetime.now().strftime("%m-%d-%H:%M")
@@ -105,14 +108,12 @@ class Trainer():
         self.model.train()
         tq=tqdm(self.train_loader)
         for i,snapshot in enumerate(tq):
-            x,y,edge_index=snapshot
+            x,y=snapshot
             #Move tensors to device
             x=x.to(self.device)
             label = y.to(self.device) 
-            edge_index=edge_index.to(self.device)
-            
             #forward
-            y_hat = self.model(x, edge_index[0])
+            y_hat = self.model(x, self.edge_index)
             
             loss=self.loss(y_hat,label.float())
             #loss=self.loss(y_hat,label)
@@ -141,11 +142,10 @@ class Trainer():
         tq=tqdm(self.test_loader)
         with torch.no_grad():
             for i,snapshot in enumerate(tq):
-                x,y,edge_index,=snapshot
+                x,y=snapshot
                 x=x.to(self.device)
-                edge_index=edge_index.to(self.device)
                 label = y.to(self.device) 
-                y_hat = self.model(x, edge_index[0]) 
+                y_hat = self.model(x, self.edge_index) 
                 loss=self.loss(y_hat,label.float())
                 #loss=self.loss(y_hat,label)
                 avg_loss += loss

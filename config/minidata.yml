@@ -4,7 +4,7 @@ name_exp: "dlib"
 
 video_path: "/home/falhamdoosh/tgcn/data/PartA/"
 csv_file: "/home/falhamdoosh/tgcn/data/PartA/samples.csv"
-labels_path: "/home/falhamdoosh/tgcn/data/PartA/label.npy"
+labels_path: "/home/falhamdoosh/tgcn/data/PartA/lables.npy"
 data_path: "/home/falhamdoosh/tgcn/data/PartA/openFace/dataset_openFace.npy"
 edges_path: "/home/falhamdoosh/tgcn/data/PartA/openFace/edge_openFace.npy"
 
