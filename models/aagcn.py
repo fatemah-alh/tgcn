@@ -422,6 +422,7 @@ class aagcn_network(nn.Module):
         x = self.drop_out(x)
         #x=self.fc(x)
         x,h=self.gru(x)
+        x=x.view(-1)
         #print(x)
         return x
 

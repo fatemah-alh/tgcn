@@ -1,5 +1,5 @@
 import torch
-import torch.nn.functional as F
+
 import numpy as np
 
 from models.aagcn import aagcn_network
@@ -92,12 +92,10 @@ class Trainer():
         self.model.to(self.device)
 
     def load_optimizer(self):
-        #self.optimizer = torch.optim.SGD(list(self.model.parameters()),lr = self.lr,momentum = 0.9)
-        self.optimizer = torch.optim.Adam(list(self.model.parameters()), lr=self.lr)
+        self.optimizer = torch.optim.SGD(list(self.model.parameters()),lr = self.lr,momentum = 0.9,weight_decay=self.weight_decay)
+        #self.optimizer = torch.optim.Adam(list(self.model.parameters()), lr=self.lr,weight_decay=self.weight_decay,step_decay=self.step_decay)
         for var_name in self.optimizer.state_dict():
             print(var_name, '\t', self.optimizer.state_dict()[var_name])
-      
-        self.lr_scheduler = lr_scheduler.StepLR(self.optimizer,self.step_decay, self.weight_decay)
     def load_loss(self):
         #self.loss=torch.nn.CrossEntropyLoss().to(self.device)
         self.loss=torch.nn.MSELoss().to(self.device)

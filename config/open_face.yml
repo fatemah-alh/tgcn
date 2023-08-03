@@ -18,12 +18,12 @@ filter_idx_80: "data/PartA/idx_low_confidance_80.npy"
 
 ###Optimizer###
 weight_decay: 0.0001
-step_decay: 30
+step_decay: 10
 optimizer: 'Adam'
 
 ###Network###
 num_epoch: 50 
-batch_size: 16
+batch_size: 32
 continue_training: False   #If set True will continue training from pretrained model
 pretrain_model: ""       #Name of folder that contains the model resume training
 gpu: 1
