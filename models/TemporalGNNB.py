@@ -4,6 +4,9 @@ import torch.nn.functional as F
 from torch_geometric_temporal.nn.recurrent import A3TGCN,A3TGCN2
 import torch
 from tqdm import tqdm
+import sys
+parent_folder= "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
+sys.path.append(parent_folder)
 from dataloader import DataLoader
 import yaml
 """

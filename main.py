@@ -1,10 +1,9 @@
 import torch
 import torch.nn.functional as F
 import numpy as np
-from models.TemporalGNNB import TemporalGNNBatch
+
 from models.aagcn import aagcn_network
 from dataloader import DataLoader
-from torch_geometric_temporal.signal import temporal_signal_split
 from tqdm import tqdm 
 import torch.optim.lr_scheduler as lr_scheduler
 import datetime
@@ -205,8 +204,8 @@ if __name__=="__main__":
     #name_exp = 'mediapipe'
     #name_exp = 'dlib'
     #name_exp = 'minidata'
-    
-    config_file=open("./config/"+name_exp+".yml", 'r')
+    parent_folder="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
+    config_file=open(parent_folder+"/config/"+name_exp+".yml", 'r')
     config = yaml.safe_load(config_file)
 
     trainer=Trainer(config=config)

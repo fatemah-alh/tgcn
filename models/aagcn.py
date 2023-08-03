@@ -1,12 +1,10 @@
 import torch
 import torch.nn.functional as F
-from torch_geometric_temporal.nn.recurrent import A3TGCN,A3TGCN2
 import torch
 from tqdm import tqdm
-import os.path
 import sys
-
-sys.path.append('/home/falhamdoosh/tgcn/')
+parent_folder= "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
+sys.path.append(parent_folder)
 from dataloader import DataLoader
 import yaml
 
@@ -423,8 +421,8 @@ class aagcn_network(nn.Module):
         x = x.mean(3).mean(1)
         x = self.drop_out(x)
         #x=self.fc(x)
-        x=self.gru(x)
-        print(x.shape)
+        x,h=self.gru(x)
+        #print(x)
         return x
 
 
