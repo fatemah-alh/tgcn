@@ -399,31 +399,41 @@ class aagcn_network(nn.Module):
             self.drop_out = lambda x: x
     def forward(self, x):
         N, C, T, V, M = x.size()
-        
         x = x.permute(0, 4, 3, 1, 2).contiguous().view(N, M * V * C, T)
         x = self.data_bn(x)
-        x = x.view(N, M, V, C, T).permute(0, 1, 3, 4, 2).contiguous().view(N * M, C, T, V)
-
-        x = self.l1(x)
+        x = x.view(N, M, V, C, T).permute(0, 1, 3, 4, 2).contiguous().view(N * M, C, T, V) #[32, 6, 137, 51])
+        #print(x.shape)
+        x = self.l1(x)#torch.Size([32, 64, 137, 51])
+        #print(x.shape)
         x = self.l2(x)
         x = self.l3(x)
         x = self.l4(x)
-        x = self.l5(x)
+        x = self.l5(x)#([32, 128, 69, 51])
+        #print(x.shape)
         x = self.l6(x)
         x = self.l7(x)
-        x = self.l8(x)
+        x = self.l8(x)#([32, 256, 35, 51])
+        #print(x.shape)
         x = self.l9(x)
-        x = self.l10(x)
+        x = self.l10(x) #([32, 256, 35, 51]) 
 
+        #print(x.shape)
         # N*M,C,T,V
-        c_new = x.size(1)
-        x = x.view(N, M, c_new, -1)
-        x = x.mean(3).mean(1)
+        # quello che bisonga fare 
+        t_new=x.size(2)
+        c_new=x.size(1)
+
+        x=x.permute(0, 2, 1, 3).contiguous().view(N,t_new,c_new,V) #(32,35,256,51)
+
+        #print("permut",x.shape)
+        x = x.mean(3)#(32,35,256)
+        #print(x.shape)
         x = self.drop_out(x)
-        #x=self.fc(x)
         x,h=self.gru(x)
+        x=x[:,-1,:]
+        
         x=x.view(-1)
-        #print(x)
+        print(x)
         return x
 
 
@@ -474,8 +484,6 @@ if __name__=="__main__":
     tq=tqdm(test_loader)
     for i in tq:
         x,y=i
-        #print("assert data ",x,x.shapeedge[0].shape)
-        #print("assert label ",y,y.shape)
         x=x.to(device)
         y_hat=model(x)
         break

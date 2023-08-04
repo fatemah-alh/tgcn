@@ -9,6 +9,7 @@ parent_folder= "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
 sys.path.append(parent_folder)
 from dataloader import DataLoader
 import yaml
+
 """
 class TemporalGNN(torch.nn.Module):
     def __init__(self, node_features=4,output_features=1,num_nodes=51,embed_dim=32, periods=137):
@@ -44,10 +45,8 @@ class TemporalGNN(torch.nn.Module):
        # h=5.0 * torch.sigmoid(h)
         h=h.view(-1)
         return h
-
-
-
 """
+
 class TemporalGNNBatch(torch.nn.Module):
     def __init__(self, node_features=6,output_features=1,num_nodes=51,embed_dim=64, periods=137,batch_size=32):
         super(TemporalGNNBatch, self).__init__()

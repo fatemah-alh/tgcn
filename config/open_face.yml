@@ -19,7 +19,7 @@ filter_idx_80: "data/PartA/idx_low_confidance_80.npy"
 ###Optimizer###
 weight_decay: 0.0001
 step_decay: 10
-optimizer: 'Adam'
+optimizer: 'SGD'
 
 ###Network###
 num_epoch: 50 
@@ -30,13 +30,13 @@ gpu: 1
 
 ###Model parameters###
 embed_dim: 64
-n_classes: 5
+
 num_features: 6
 output_features: 1
 TS: 137
 n_joints: 51
 train_ratio: 0.7
-lr: 0.01
+lr: 0.001
 LOG_DIR: "log/"
 #n_layers: 3
 #dropout: 0.2

@@ -158,26 +158,21 @@ class Trainer():
         
         return avg_loss
     def calc_accuracy(self):
-        self.test_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,normalize_labels=False,
+        test_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,normalize_labels=False,
                                         idx_path=self.idx_test)
-        self.train_loader = torch.utils.data.DataLoader(self.train_dataset, 
-                                                batch_size=self.batch_size, 
-                                                shuffle=True,
-                                                drop_last=True)
-        self.test_loader = torch.utils.data.DataLoader(self.test_dataset, 
-                                                batch_size=self.batch_size, 
-                                                    shuffle=False,
-                                                   sampler=torch.utils.data.SequentialSampler(self.test_dataset),
-                                                   drop_last=False)
+        test_loader = torch.utils.data.DataLoader(test_dataset, 
+                                                  batch_size=self.batch_size, 
+                                                  shuffle=False,
+                                                  sampler=torch.utils.data.SequentialSampler(self.test_dataset),
+                                                  drop_last=False)
         if self.pretrain_model!="None":
-            
             path_pretrained_model=self.LOG_DIR+"{}/best_model.pkl".format(self.pretrain_model)
             self.model.load_state_dict(torch.load(path_pretrained_model))
             print("Pre trained model is loaded...")
         self.model.eval()
         count=0
         sample=0
-        tq=tqdm(self.test_loader)
+        tq=tqdm(test_loader)
         with torch.no_grad():
             for i,snapshot in enumerate(tq):
                 x,y=snapshot
@@ -185,8 +180,8 @@ class Trainer():
                 label = y.to(self.device) 
                 y_hat = self.model(x) 
                 print(y_hat)
-                y_hat=np.round( y_hat.cpu()*4)
-                print(y_hat)
+                y_hat=np.round(y_hat.cpu()*4)
+                
                 for k in range(0,len(label)):
                     sample=sample+1
                     if label[k] == y_hat[k]:
@@ -212,9 +207,10 @@ class Trainer():
                 print('Saved new checkpoint  ckpt_{epoch}.pkl , avr loss {l}'.format( epoch=epoch+1, l=avg_train_loss))
           
             avg_test_loss= self.eval()
-            self.writer.add_scalars("Loss training and evaluating",{'train_loss': avg_train_loss,'eval_loss': avg_test_loss}, epoch)
+            avg_accuracy=self.calc_accuracy()
+            self.writer.add_scalars("Loss training and evaluating",{'train_loss': avg_train_loss,'eval_loss': avg_test_loss,}, epoch)
 
-            result="Epoch {}, Train_loss: {} , eval loss {}  \n".format(epoch + 1,avg_train_loss,avg_test_loss)
+            result="Epoch {}, Train_loss: {} , eval loss: {} ,eval_accuracy:{} \n".format(epoch + 1,avg_train_loss,avg_test_loss,avg_accuracy)
             with open(os.path.join(self.log_dir, 'log.txt'), 'a') as f:
                 f.write(result)
             print(result)
@@ -228,7 +224,7 @@ class Trainer():
                 print('Best model in {dir}/best_model.pkl'.format(dir=self.log_dir))
                 #previous_best_avg_test_acc = avg_test_acc
                 previous_best_avg_loss=avg_test_loss
-            self.calc_accuracy()
+            
             #self.lr_scheduler.step()
 
 if __name__=="__main__":
