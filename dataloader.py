@@ -25,8 +25,7 @@ class DataLoader(torch.utils.data.Dataset):
         print("Loading Dataset")
         self.X=np.load(self.data_path)
         self._reshape_data()
-        self.edges_index=np.load(self.edges_index_path)
-        self.labels=np.load(self.labels_path)
+        self.labels=np.load(self.labels_path)#0,..,4
         #Normalize label between 0,1.
         if self.normalize_labels :
             self.labels=self.labels/np.max(self.labels)
@@ -37,13 +36,13 @@ class DataLoader(torch.utils.data.Dataset):
        
     def _reshape_data(self):
         if self.reshape_data:
-             #reshape (8700,137,51,6 ) to (8700, 6,137,51 )
+             #reshape (8700,137,51,6 ) to (8700, 6,137,51)
              reshaped_tensor = np.transpose(self.X, (0, 3, 1, 2))  # Transpose dimensions from 8700,137,469,4) to 8600, 469, 4, 137
              self.features= np.reshape(reshaped_tensor, self.data_shape)  # Reshape to desired shape 
         else:
             self.features=self.X
         if self.expand_dim:
-            self.features=np.expand_dims(self.features,axis=-1)
+            self.features=np.expand_dims(self.features,axis=-1)#unsqueeze, view
         
     def __len__(self):
         return self.features.shape[0]

@@ -50,7 +50,7 @@ class GraphAAGCN:
 
     def __init__(self, edge_index: list, num_nodes: int):
         self.num_nodes = num_nodes
-        self.edge_index = edge_index
+        self.edge_index = edge_index #261 #274 edges
         self.A = self.get_spatial_graph(self.num_nodes)
 
     def get_spatial_graph(self, num_nodes):
@@ -60,7 +60,7 @@ class GraphAAGCN:
         outward_mat = inward_mat.transpose(0, 1)
         outward_mat_norm = F.normalize(outward_mat, dim=0, p=1)
        
-        adj_mat = torch.stack((self_mat, inward_mat_norm, outward_mat_norm))
+        adj_mat = torch.stack((self_mat, inward_mat_norm, outward_mat_norm))#TODO 
         return adj_mat
 
 
@@ -376,7 +376,7 @@ class aagcn_network(nn.Module):
         if graph is None:
             raise ValueError()
     
-        self.data_bn = nn.BatchNorm1d(num_person * in_channels * num_nodes)
+        self.data_bn = nn.BatchNorm1d(num_person * in_channels * num_nodes)#TODO senza 
         self.l1 = AAGCN(in_channels, 64, graph, num_nodes=num_nodes, residual=False, adaptive=adaptive, attention=attention)
         self.l2 = AAGCN(64, 64, graph, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
         self.l3 = AAGCN(64, 64, graph, num_nodes=num_nodes, adaptive=adaptive, attention=attention)
@@ -461,9 +461,6 @@ if __name__=="__main__":
     model = aagcn_network(num_person=1, graph=edges_index,num_nodes=51, in_channels=6,drop_out=0.5, adaptive=False, attention=True)
     model.to(device)
     print(model)
-    
-
-    
 
     loader=DataLoader(data_path,labels_path,edges_path)
     train_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_train)

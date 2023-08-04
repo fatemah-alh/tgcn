@@ -233,7 +233,7 @@ def process_all_data(landmarks_folder:str,filesnames:list,normalized_data:np.arr
             frame=np.matmul( R_matrix, frame.T ).T
             processed_sample[j]=standardize(frame)
         velocity=calc_velocity(processed_sample)
-        data=np.concatenate((processed_sample[:-1,:,:], velocity), axis=2)
+        data=np.concatenate((processed_sample[:-1,:,:], velocity), axis=2) 
         normalized_data[i][:data.shape[0]]= data
         
     np.save(path_save,normalized_data)

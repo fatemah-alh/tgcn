@@ -25,7 +25,7 @@ optimizer: 'Adam'
 num_epoch: 50 
 batch_size: 32
 continue_training: False   #If set True will continue training from pretrained model
-pretrain_model: ""       #Name of folder that contains the model resume training
+pretrain_model: "None" #"08-03-12:18"       #Name of folder that contains the model resume training
 gpu: 1
 
 ###Model parameters###

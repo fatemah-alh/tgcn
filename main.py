@@ -21,6 +21,7 @@ class Trainer():
         self.config=config
         self.lr=config['lr']
         self.LOG_DIR=parent_folder+config['LOG_DIR']
+        print(self.LOG_DIR)
         self.num_epoch=config['num_epoch']
         self.gpu=config['gpu']
         self.weight_decay=config['weight_decay']
@@ -32,7 +33,7 @@ class Trainer():
         self.output_features=config['output_features']
         self.TS=config['TS']
         self.continue_training=config['continue_training']
-        self.pretrain_model=parent_folder+config['pretrain_model']
+        self.pretrain_model=config['pretrain_model']
         #data set parametrs 
         self.data_path=parent_folder+config['data_path']
         self.labels_path=parent_folder+config['labels_path']
@@ -125,10 +126,9 @@ class Trainer():
                    raise RuntimeError(f"Gradient is None {name}" )
             self.optimizer.zero_grad()
             """
-           
             for j in range(len(y_hat)):
                 self.writer.add_scalars('Training y-hat and label', {"y_hat":y_hat[j].argmax(),"label":label[j]}, (i*x.shape[0])+j)
-             """
+            """
             self.writer.add_scalars('train loss batch', {"loss":loss}, i)
             tq.set_description("train: Loss batch: {}".format(loss))
             avg_loss += loss
@@ -148,7 +148,6 @@ class Trainer():
                 #loss=self.loss(y_hat,label)
                 avg_loss += loss
                 """
-                
                 for j in range(len(y_hat)):
                     self.writer.add_scalars('Eval y_hat,label', {"y_hat":y_hat[j].argmax(),"label":label[j]}, (i*x.shape[0])+j)
                 """
@@ -156,8 +155,45 @@ class Trainer():
                 tq.set_description("Test Loss batch: {}".format(loss))
                
         avg_loss = avg_loss / (i+1)
+        
         return avg_loss
-    
+    def calc_accuracy(self):
+        self.test_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,normalize_labels=False,
+                                        idx_path=self.idx_test)
+        self.train_loader = torch.utils.data.DataLoader(self.train_dataset, 
+                                                batch_size=self.batch_size, 
+                                                shuffle=True,
+                                                drop_last=True)
+        self.test_loader = torch.utils.data.DataLoader(self.test_dataset, 
+                                                batch_size=self.batch_size, 
+                                                    shuffle=False,
+                                                   sampler=torch.utils.data.SequentialSampler(self.test_dataset),
+                                                   drop_last=False)
+        if self.pretrain_model!="None":
+            
+            path_pretrained_model=self.LOG_DIR+"{}/best_model.pkl".format(self.pretrain_model)
+            self.model.load_state_dict(torch.load(path_pretrained_model))
+            print("Pre trained model is loaded...")
+        self.model.eval()
+        count=0
+        sample=0
+        tq=tqdm(self.test_loader)
+        with torch.no_grad():
+            for i,snapshot in enumerate(tq):
+                x,y=snapshot
+                x=x.to(self.device)
+                label = y.to(self.device) 
+                y_hat = self.model(x) 
+                print(y_hat)
+                y_hat=np.round( y_hat.cpu()*4)
+                print(y_hat)
+                for k in range(0,len(label)):
+                    sample=sample+1
+                    if label[k] == y_hat[k]:
+                        count=count+1
+        print("accuracy",count/sample)
+       
+        return count/sample
     def run(self):
         #previous_best_avg_test_acc = 0.0
         previous_best_avg_loss=1000000
@@ -192,7 +228,7 @@ class Trainer():
                 print('Best model in {dir}/best_model.pkl'.format(dir=self.log_dir))
                 #previous_best_avg_test_acc = avg_test_acc
                 previous_best_avg_loss=avg_test_loss
-
+            self.calc_accuracy()
             #self.lr_scheduler.step()
 
 if __name__=="__main__":
@@ -208,3 +244,4 @@ if __name__=="__main__":
 
     trainer=Trainer(config=config)
     trainer.run()
+    trainer.calc_accuracy()
