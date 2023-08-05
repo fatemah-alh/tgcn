@@ -1,4 +1,4 @@
-Description: ""
+Description: "expirment with one adj matrix"
 name_exp: "dlib"
 3D : True
 parent_folder: "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
@@ -29,14 +29,13 @@ pretrain_model: "None" #"08-03-12:18"       #Name of folder that contains the mo
 gpu: 1
 
 ###Model parameters###
-embed_dim: 64
-
+embed_dim: 256
+num_subset: 1
 num_features: 6
 output_features: 1
 TS: 137
 n_joints: 51
-train_ratio: 0.7
-lr: 0.001
+lr: 0.01
 LOG_DIR: "log/"
-#n_layers: 3
+
 #dropout: 0.2

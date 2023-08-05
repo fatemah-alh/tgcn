@@ -40,10 +40,11 @@ class Trainer():
         self.edges_path=parent_folder+config['edges_path']
         self.idx_train=parent_folder+config['idx_train']
         self.idx_test=parent_folder+config['idx_test']
-        self.train_ratio=config['train_ratio']
         self.batch_size=config['batch_size']
         self.num_nodes=config['n_joints']
-        
+        self.optimizer_name=config['optimizer']
+        self.num_subset=config['num_subset']
+        self.num_features=config['num_features']
         self.set_log_dir()
         self.set_device()
         self.edge_index=torch.LongTensor(np.load(self.edges_path)).to(self.device)
@@ -82,26 +83,31 @@ class Trainer():
                                                    sampler=torch.utils.data.SequentialSampler(self.test_dataset),
                                                    drop_last=False)
     def load_model(self):
-        self.model = aagcn_network(num_person=1, graph=self.edge_index,num_nodes=51, in_channels=6,drop_out=0.5, adaptive=False, attention=True)
+        self.model = aagcn_network(num_person=1, graph=self.edge_index,num_nodes=self.num_nodes,num_subset=self.num_subset, in_channels=self.num_features,drop_out=0.5, adaptive=False, attention=True)
    
-        
+        """
         if(self.continue_training):
                 path_pretrained_model=os.path.join(self.LOG_DIR,"{}/best_model.pkl".format(self.pretrain_model))
                 self.model.load_state_dict(torch.load(path_pretrained_model))
                 print("Pre trained model is loaded...")
         print(self.model.parameters)
+        """
         self.model.to(self.device)
 
     def load_optimizer(self):
-        self.optimizer = torch.optim.SGD(list(self.model.parameters()),lr = self.lr,momentum = 0.9,weight_decay=self.weight_decay)
-        #self.optimizer = torch.optim.Adam(list(self.model.parameters()), lr=self.lr,weight_decay=self.weight_decay,step_decay=self.step_decay)
+        if self.optimizer_name=="SGD":
+            self.optimizer = torch.optim.SGD(list(self.model.parameters()),lr = self.lr,momentum = 0.9,weight_decay=self.weight_decay)
+        elif self.optimizer_name=="adam":
+            self.optimizer = torch.optim.Adam(list(self.model.parameters()), lr=self.lr,weight_decay=self.weight_decay)
+        """
         for var_name in self.optimizer.state_dict():
             print(var_name, '\t', self.optimizer.state_dict()[var_name])
+        """
     def load_loss(self):
         #self.loss=torch.nn.CrossEntropyLoss().to(self.device)
         self.loss=torch.nn.MSELoss().to(self.device)
         #self.loss=torch.nn.L1Loss().to(self.device)
-        #torch.mean((y_hat-label)**2)
+        
     def train(self):
         avg_loss = 0.0
         self.model.train()
@@ -113,22 +119,17 @@ class Trainer():
             label = y.to(self.device) 
             #forward
             y_hat = self.model(x)
-            
             loss=self.loss(y_hat,label.float())
-            #loss=self.loss(y_hat,label)
+            
             #calc gradient and backpropagation
             loss.backward()
             self.optimizer.step()
             #check gradient, if some tensors has been detached from CG
             for name, param in self.model.named_parameters():
-               #print(name, param.grad)
                if param.grad==None:
                    raise RuntimeError(f"Gradient is None {name}" )
             self.optimizer.zero_grad()
-            """
-            for j in range(len(y_hat)):
-                self.writer.add_scalars('Training y-hat and label', {"y_hat":y_hat[j].argmax(),"label":label[j]}, (i*x.shape[0])+j)
-            """
+            
             self.writer.add_scalars('train loss batch', {"loss":loss}, i)
             tq.set_description("train: Loss batch: {}".format(loss))
             avg_loss += loss
@@ -145,12 +146,7 @@ class Trainer():
                 label = y.to(self.device) 
                 y_hat = self.model(x) 
                 loss=self.loss(y_hat,label.float())
-                #loss=self.loss(y_hat,label)
                 avg_loss += loss
-                """
-                for j in range(len(y_hat)):
-                    self.writer.add_scalars('Eval y_hat,label', {"y_hat":y_hat[j].argmax(),"label":label[j]}, (i*x.shape[0])+j)
-                """
                 self.writer.add_scalars('Eval loss batch', {"loss":loss}, i)
                 tq.set_description("Test Loss batch: {}".format(loss))
                
@@ -179,9 +175,7 @@ class Trainer():
                 x=x.to(self.device)
                 label = y.to(self.device) 
                 y_hat = self.model(x) 
-                print(y_hat)
                 y_hat=np.round(y_hat.cpu()*4)
-                
                 for k in range(0,len(label)):
                     sample=sample+1
                     if label[k] == y_hat[k]:

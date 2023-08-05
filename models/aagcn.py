@@ -14,6 +14,7 @@ import numpy as np
 import torch.nn as nn
 from torch.autograd import Variable
 from torch_geometric.utils.to_dense_adj import to_dense_adj
+from torch_geometric.utils import add_self_loops,to_undirected
 import torch.nn.functional as F
 from torch.nn import GRU
 def conv_branch_init(conv, branches):
@@ -48,19 +49,47 @@ class GraphAAGCN:
             * **A** (PyTorch Float Tensor) - Three layer normalized adjacency matrix
     """
 
-    def __init__(self, edge_index: list, num_nodes: int):
+    def __init__(self, edge_index: list, num_nodes: int,num_subset:int):
         self.num_nodes = num_nodes
         self.edge_index = edge_index #261 #274 edges
-        self.A = self.get_spatial_graph(self.num_nodes)
+        self.num_subset=num_subset
+        self.A = self.get_spatial_graph()
 
-    def get_spatial_graph(self, num_nodes):
-        self_mat = torch.eye(num_nodes).to(self.edge_index.device)
+    def get_spatial_graph(self):
+        
+        if self.num_subset==3:
+            return self.get_three_adj()
+        elif self.num_subset==2:
+            return self.get_two_adj()
+        elif self.num_subset==1:
+            return self.get_one_adj()
+        else:
+            return ValueError("Not supported subset")
+    def get_one_adj(self):
+        #edges_index=torch.LongTensor(self.edge_index)
+        edges_index=to_undirected(self.edge_index)
+        edges_index_with_loops=add_self_loops(edges_index)
+        edges_index=edges_index_with_loops[0]
+        adj_mat=torch.squeeze(to_dense_adj(edges_index))
+        adj_mat=torch.unsqueeze(adj_mat, dim=0)
+        print(adj_mat.shape)
+        return adj_mat
+    def get_two_adj(self):
+        self_mat = torch.eye(self.num_nodes).to(self.edge_index.device)
+        #edges_index=torch.LongTensor(self.edge_index)
+        edges_index=to_undirected(self.edge_index)
+        adj_1=torch.squeeze(to_dense_adj(edges_index))
+        adj_mat = torch.stack((self_mat,adj_1))
+        print(adj_mat.shape)
+        return adj_mat
+    def get_three_adj(self):
+        self_mat = torch.eye(self.num_nodes).to(self.edge_index.device)
         inward_mat = torch.squeeze(to_dense_adj(self.edge_index))
         inward_mat_norm = F.normalize(inward_mat, dim=0, p=1)
         outward_mat = inward_mat.transpose(0, 1)
         outward_mat_norm = F.normalize(outward_mat, dim=0, p=1)
-       
-        adj_mat = torch.stack((self_mat, inward_mat_norm, outward_mat_norm))#TODO 
+        adj_mat = torch.stack((self_mat, inward_mat_norm, outward_mat_norm)) 
+        print(adj_mat.shape)
         return adj_mat
 
 
@@ -324,6 +353,7 @@ class AAGCN(nn.Module):
         out_channels: int,
         edge_index: torch.LongTensor,
         num_nodes: int,
+        num_subset: int=3,
         stride: int = 1,
         residual: bool = True,
         adaptive: bool = True,
@@ -333,13 +363,13 @@ class AAGCN(nn.Module):
         self.edge_index = edge_index
         self.num_nodes = num_nodes
 
-        self.graph = GraphAAGCN(self.edge_index, self.num_nodes)
+        self.graph = GraphAAGCN(self.edge_index, self.num_nodes,num_subset=num_subset)
         self.A = self.graph.A
 
         self.gcn1 = UnitGCN(
-            in_channels, out_channels, self.A, adaptive=adaptive, attention=attention
+            in_channels, out_channels, self.A,num_subset=num_subset, adaptive=adaptive, attention=attention
         )
-        self.tcn1 = UnitTCN(out_channels, out_channels, stride=stride)
+        self.tcn1 = UnitTCN(out_channels, out_channels, stride=stride,)
         self.relu = nn.ReLU(inplace=True)
         self.attention = attention
 
@@ -370,28 +400,25 @@ class AAGCN(nn.Module):
         return y
     
 class aagcn_network(nn.Module):
-    def __init__(self, num_person=1, graph=None,num_nodes=51, in_channels=6,drop_out=0.5, adaptive=False, attention=True):
+    def __init__(self, num_person=1, graph=None,num_nodes=51, in_channels=6,drop_out=0.5, adaptive=False, attention=True,num_subset=3):
         super(aagcn_network, self).__init__()
-
+        #graph:edges_index
         if graph is None:
-            raise ValueError()
+            raise ValueError("No edges_index is found!")
     
         self.data_bn = nn.BatchNorm1d(num_person * in_channels * num_nodes)#TODO senza 
-        self.l1 = AAGCN(in_channels, 64, graph, num_nodes=num_nodes, residual=False, adaptive=adaptive, attention=attention)
-        self.l2 = AAGCN(64, 64, graph, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
-        self.l3 = AAGCN(64, 64, graph, num_nodes=num_nodes, adaptive=adaptive, attention=attention)
-        self.l4 = AAGCN(64, 64, graph, num_nodes=num_nodes, adaptive=adaptive, attention=attention)
-        self.l5 = AAGCN(64, 128, graph, num_nodes=num_nodes,stride=2, adaptive=adaptive, attention=attention)
-        self.l6 = AAGCN(128, 128, graph, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
-        self.l7 = AAGCN(128, 128, graph, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
-        self.l8 = AAGCN(128, 256, graph, num_nodes=num_nodes,stride=2, adaptive=adaptive, attention=attention)
-        self.l9 = AAGCN(256, 256, graph, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
-        self.l10 = AAGCN(256, 256, graph, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
+        self.l1 = AAGCN(in_channels, 64, graph, num_subset=num_subset,num_nodes=num_nodes, residual=False, adaptive=adaptive, attention=attention)
+        self.l2 = AAGCN(64, 64, graph,num_subset=num_subset, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
+        self.l3 = AAGCN(64, 64, graph,num_subset=num_subset, num_nodes=num_nodes, stride=2,adaptive=adaptive, attention=attention)
+        self.l4 = AAGCN(64, 64, graph,num_subset=num_subset, num_nodes=num_nodes, adaptive=adaptive, attention=attention)
+        self.l5 = AAGCN(64, 128, graph,num_subset=num_subset, num_nodes=num_nodes,stride=2, adaptive=adaptive, attention=attention)
+        self.l6 = AAGCN(128, 128, graph,num_subset=num_subset, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
+        self.l7 = AAGCN(128, 128, graph,num_subset=num_subset, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
+        self.l8 = AAGCN(128, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=2, adaptive=adaptive, attention=attention)
+        self.l9 = AAGCN(256, 256, graph,num_subset=num_subset, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
+        self.l10 = AAGCN(256, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=2,adaptive=adaptive, attention=attention)
 
-        self.gru=GRU(input_size=256,hidden_size=1,num_layers=1,batch_first=True)#what is the init hidden stat?
-        #self.fc = nn.Linear(256, num_class)
-
-        #nn.init.normal_(self.fc.weight, 0, math.sqrt(2. / num_class))#????
+        self.gru=GRU(input_size=256,hidden_size=1,num_layers=2,batch_first=True)
         bn_init(self.data_bn, 1)
         if drop_out:
             self.drop_out = nn.Dropout(drop_out)
@@ -430,10 +457,13 @@ class aagcn_network(nn.Module):
         #print(x.shape)
         x = self.drop_out(x)
         x,h=self.gru(x)
+        #x = self.drop_out(x)
+       # print(x.shape)
         x=x[:,-1,:]
         
         x=x.view(-1)
-        print(x)
+        
+       # print(x)
         return x
 
 
@@ -468,7 +498,7 @@ if __name__=="__main__":
     
     edges_index=torch.LongTensor(np.load(edges_path)).to(device)
     print(edges_index.device)
-    model = aagcn_network(num_person=1, graph=edges_index,num_nodes=51, in_channels=6,drop_out=0.5, adaptive=False, attention=True)
+    model = aagcn_network(num_person=1, graph=edges_index,num_nodes=51, in_channels=6,drop_out=0.5, adaptive=False, attention=True,num_subset=1)
     model.to(device)
     print(model)
 
