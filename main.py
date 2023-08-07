@@ -45,6 +45,7 @@ class Trainer():
         self.optimizer_name=config['optimizer']
         self.num_subset=config['num_subset']
         self.num_features=config['num_features']
+        self.adaptive=config['adaptive']
         self.set_log_dir()
         self.set_device()
         self.edge_index=torch.LongTensor(np.load(self.edges_path)).to(self.device)
@@ -83,7 +84,7 @@ class Trainer():
                                                    sampler=torch.utils.data.SequentialSampler(self.test_dataset),
                                                    drop_last=False)
     def load_model(self):
-        self.model = aagcn_network(num_person=1, graph=self.edge_index,num_nodes=self.num_nodes,num_subset=self.num_subset, in_channels=self.num_features,drop_out=0.5, adaptive=False, attention=True)
+        self.model = aagcn_network(num_person=1, graph=self.edge_index,num_nodes=self.num_nodes,num_subset=self.num_subset, in_channels=self.num_features,drop_out=0.5, adaptive=self.adaptive, attention=True)
    
         """
         if(self.continue_training):
@@ -106,10 +107,11 @@ class Trainer():
     def load_loss(self):
         #self.loss=torch.nn.CrossEntropyLoss().to(self.device)
         self.loss=torch.nn.MSELoss().to(self.device)
-        #self.loss=torch.nn.L1Loss().to(self.device)
+        self.MAE=torch.nn.L1Loss().to(self.device)
         
     def train(self):
         avg_loss = 0.0
+        MAE=0.0
         self.model.train()
         tq=tqdm(self.train_loader)
         for i,snapshot in enumerate(tq):
@@ -120,7 +122,7 @@ class Trainer():
             #forward
             y_hat = self.model(x)
             loss=self.loss(y_hat,label.float())
-            
+            MAE_batch=self.MAE(y_hat,label.float())
             #calc gradient and backpropagation
             loss.backward()
             self.optimizer.step()
@@ -131,13 +133,15 @@ class Trainer():
             self.optimizer.zero_grad()
             
             self.writer.add_scalars('train loss batch', {"loss":loss}, i)
-            tq.set_description("train: Loss batch: {}".format(loss))
+            tq.set_description("train: Loss batch: {},MAE:{}".format(loss,MAE_batch))
             avg_loss += loss
-        return avg_loss/(i+1)
+            MAE += MAE_batch
+        return avg_loss/(i+1),MAE/(i+1)
 
     def eval(self):
         self.model.eval()
         avg_loss = 0.0
+        MAE=0.0
         tq=tqdm(self.test_loader)
         with torch.no_grad():
             for i,snapshot in enumerate(tq):
@@ -146,41 +150,60 @@ class Trainer():
                 label = y.to(self.device) 
                 y_hat = self.model(x) 
                 loss=self.loss(y_hat,label.float())
+                MAE_batch=self.MAE(y_hat,label.float())
                 avg_loss += loss
                 self.writer.add_scalars('Eval loss batch', {"loss":loss}, i)
                 tq.set_description("Test Loss batch: {}".format(loss))
-               
+                MAE += MAE_batch
         avg_loss = avg_loss / (i+1)
+        MAE=MAE/(i+1)
         
-        return avg_loss
-    def calc_accuracy(self):
+        return avg_loss,MAE
+    def calc_accuracy(self,path_model=None):
         test_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,normalize_labels=False,
                                         idx_path=self.idx_test)
         test_loader = torch.utils.data.DataLoader(test_dataset, 
                                                   batch_size=self.batch_size, 
                                                   shuffle=False,
-                                                  sampler=torch.utils.data.SequentialSampler(self.test_dataset),
+                                                  sampler=torch.utils.data.SequentialSampler(test_dataset),
+        
                                                   drop_last=False)
-        if self.pretrain_model!="None":
+        if path_model!=None:
+            self.model.load_state_dict(torch.load(path_model))
+            print("Pre trained model is loaded...")
+        elif self.pretrain_model!="None":
             path_pretrained_model=self.LOG_DIR+"{}/best_model.pkl".format(self.pretrain_model)
             self.model.load_state_dict(torch.load(path_pretrained_model))
             print("Pre trained model is loaded...")
         self.model.eval()
         count=0
         sample=0
+        min=100
+        max=0
         tq=tqdm(test_loader)
         with torch.no_grad():
             for i,snapshot in enumerate(tq):
                 x,y=snapshot
                 x=x.to(self.device)
-                label = y.to(self.device) 
+                label = y.to(self.device)
+                #print(label) 
                 y_hat = self.model(x) 
+                #print(y_hat)
+                min_found=np.min(y_hat.tolist())
+                max_found=np.max(y_hat.tolist())
+                if  min_found< min:
+                    min=min_found
+                if max_found>max:
+                    max=max_found
+
                 y_hat=np.round(y_hat.cpu()*4)
+                
                 for k in range(0,len(label)):
                     sample=sample+1
                     if label[k] == y_hat[k]:
                         count=count+1
         print("accuracy",count/sample)
+        print("max value:",max,"min value:",min)
        
         return count/sample
     def run(self):
@@ -194,17 +217,17 @@ class Trainer():
             f.write(" Parametrs:\n {}".format(str_par))
             
         for epoch in range(self.num_epoch):
-            avg_train_loss=self.train()
+            avg_train_loss,MAE_train=self.train()
         
             if (epoch%5==0):
                 torch.save(self.model.state_dict(), os.path.join(self.log_dir, "ckpt_%d.pkl" % (epoch + 1)))
                 print('Saved new checkpoint  ckpt_{epoch}.pkl , avr loss {l}'.format( epoch=epoch+1, l=avg_train_loss))
           
-            avg_test_loss= self.eval()
+            avg_test_loss,MAE_test= self.eval()
             avg_accuracy=self.calc_accuracy()
             self.writer.add_scalars("Loss training and evaluating",{'train_loss': avg_train_loss,'eval_loss': avg_test_loss,}, epoch)
 
-            result="Epoch {}, Train_loss: {} , eval loss: {} ,eval_accuracy:{} \n".format(epoch + 1,avg_train_loss,avg_test_loss,avg_accuracy)
+            result="Epoch {}, Train_loss: {} , MAE_train:{},eval loss: {},MAE_eval{} ,eval_accuracy:{} \n".format(epoch + 1,avg_train_loss,MAE_train,avg_test_loss,MAE_test,avg_accuracy)
             with open(os.path.join(self.log_dir, 'log.txt'), 'a') as f:
                 f.write(result)
             print(result)

@@ -1,6 +1,6 @@
-Description: "expirment with one adj matrix"
+Description: "expirment with 2 adj matrix,5 blocks, and just 4 features:x,y,vx,vy,adabtive false"
 name_exp: "dlib"
-3D : True
+
 parent_folder: "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
 video_path: "data/PartA/"
 landmarks_path : "data/PartA/3dlandmarks/"
@@ -22,19 +22,21 @@ step_decay: 10
 optimizer: 'SGD'
 
 ###Network###
-num_epoch: 50 
+num_epoch: 200 
 batch_size: 32
 continue_training: False   #If set True will continue training from pretrained model
-pretrain_model: "None" #"08-03-12:18"       #Name of folder that contains the model resume training
+pretrain_model: "None" #"08-05-17:36" # #"08-03-12:18"       #Name of folder that contains the model resume training
 gpu: 1
+
 
 ###Model parameters###
 embed_dim: 256
-num_subset: 1
-num_features: 6
+num_subset: 2
+num_features: 4
 output_features: 1
 TS: 137
 n_joints: 51
+adaptive: False
 lr: 0.01
 LOG_DIR: "log/"
 

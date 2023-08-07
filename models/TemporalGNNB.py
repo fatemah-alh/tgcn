@@ -47,9 +47,9 @@ class TemporalGNN(torch.nn.Module):
         return h
 """
 
-class TemporalGNNBatch(torch.nn.Module):
-    def __init__(self, node_features=6,output_features=1,num_nodes=51,embed_dim=64, periods=137,batch_size=32):
-        super(TemporalGNNBatch, self).__init__()
+class A3TGCN2_network(torch.nn.Module):
+    def __init__(self, node_features=4,output_features=1,num_nodes=51,embed_dim=64, periods=137,batch_size=32):
+        super(A3TGCN2_network, self).__init__()
         self.node_features = node_features
         self.embed_dim=embed_dim #64 ,128,..
         self.periods=periods
@@ -78,6 +78,7 @@ class TemporalGNNBatch(torch.nn.Module):
         else:
             h = self.tgnn(x, edge_index) #batch,
         h = F.relu(h)
+        print(h.shape)
         h=self.dropout(h)
         h = self.linear_1(h)
         h = F.relu(h)
@@ -113,7 +114,7 @@ if __name__=="__main__":
     num_features=config['num_features']
     num_nodes=config['n_joints'] 
     gpu=config['gpu']
-    model = TemporalGNNBatch(node_features=num_features,
+    model = A3TGCN2_network(node_features=num_features,
                                       num_nodes=num_nodes,
                                       embed_dim=embed_dim, 
                                       periods=TS,
@@ -131,7 +132,7 @@ if __name__=="__main__":
 
     
 
-    loader=DataLoader(data_path,labels_path,edges_path)
+  
     train_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_train)
     test_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_test)
     test_loader = torch.utils.data.DataLoader(test_dataset, 

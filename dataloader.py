@@ -18,7 +18,7 @@ class DataLoader(torch.utils.data.Dataset):
         self.reshape_data=reshape_data
         self._read_data()
         
-        #self.get_shapes()
+        self.get_shapes()
         print(self.features.shape)
         
     def _read_data(self):
@@ -38,7 +38,10 @@ class DataLoader(torch.utils.data.Dataset):
         if self.reshape_data:
              #reshape (8700,137,51,6 ) to (8700, 6,137,51)
              reshaped_tensor = np.transpose(self.X, (0, 3, 1, 2))  # Transpose dimensions from 8700,137,469,4) to 8600, 469, 4, 137
-             self.features= np.reshape(reshaped_tensor, self.data_shape)  # Reshape to desired shape 
+             self.features= torch.tensor(np.reshape(reshaped_tensor, self.data_shape))  # Reshape to desired shape 
+             #self.features=self.features[:,:2,:,:]
+             self.features = torch.cat( ( self.features[:,:2,:,:], self.features[:,3:5,:,:] ),dim=1 )
+
         else:
             self.features=self.X
         if self.expand_dim:
@@ -47,12 +50,12 @@ class DataLoader(torch.utils.data.Dataset):
     def __len__(self):
         return self.features.shape[0]
     def get_shapes(self):
-        print("featuers: ",self.features.shape, "labels:", self.labels.shape,"edges:",self.edges_index.shape)
+        print("featuers: ",self.features.shape, "labels:", self.labels.shape)
         print("assert featuers:",self.features[0][0],np.max(self.features[0]))
         print("assert X:",self.X[0][0],np.max(self.X),np.min(self.X))
         print("assert label",self.labels,np.unique(self.labels))
-        print("assert edges",self.edges_index)
-        return self.features.shape, self.edges_index.shape
+        
+        return self.features.shape
 
     def __getitem__(self, index):
         x = self.features[index]
