@@ -3,6 +3,7 @@ import torch
 import numpy as np
 
 from models.aagcn import aagcn_network
+from models.a3tgcn import A3TGCN2_network
 from dataloader import DataLoader
 from tqdm import tqdm 
 import torch.optim.lr_scheduler as lr_scheduler
@@ -16,11 +17,11 @@ class Trainer():
     def __init__(self, config) -> None:
         name_exp="open_face"
    
-        parent_folder="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
+        self.parent_folder="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
     
         self.config=config
         self.lr=config['lr']
-        self.LOG_DIR=parent_folder+config['LOG_DIR']
+        self.LOG_DIR=self.parent_folder+config['LOG_DIR']
         print(self.LOG_DIR)
         self.num_epoch=config['num_epoch']
         self.gpu=config['gpu']
@@ -34,12 +35,13 @@ class Trainer():
         self.TS=config['TS']
         self.continue_training=config['continue_training']
         self.pretrain_model=config['pretrain_model']
+        self.model_name=config['model_name']
         #data set parametrs 
-        self.data_path=parent_folder+config['data_path']
-        self.labels_path=parent_folder+config['labels_path']
-        self.edges_path=parent_folder+config['edges_path']
-        self.idx_train=parent_folder+config['idx_train']
-        self.idx_test=parent_folder+config['idx_test']
+        self.data_path=self.parent_folder+config['data_path']
+        self.labels_path=self.parent_folder+config['labels_path']
+        self.edges_path=self.parent_folder+config['edges_path']
+        self.idx_train=self.parent_folder+config['idx_train']
+        self.idx_test=self.parent_folder+config['idx_test']
         self.batch_size=config['batch_size']
         self.num_nodes=config['n_joints']
         self.optimizer_name=config['optimizer']
@@ -68,12 +70,12 @@ class Trainer():
             self.device="cpu"
             print('Warning: Using CPU')
     def init_writer(self):
-        writer_path='./writer/' + self.name_exp+self.date
+        writer_path=self.parent_folder+'writer/' + self.name_exp+self.date
         os.makedirs(writer_path,exist_ok=True)
         self.writer = SummaryWriter(writer_path)
     def load_datasets(self):
-        self.train_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,normalize_labels=True,idx_path=self.idx_train)
-        self.test_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,normalize_labels=True,idx_path=self.idx_test)
+        self.train_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,idx_path=self.idx_train,model_name=self.model_name)
+        self.test_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,idx_path=self.idx_test,model_name=self.model_name)
         self.train_loader = torch.utils.data.DataLoader(self.train_dataset, 
                                                    batch_size=self.batch_size, 
                                                    shuffle=True,
@@ -84,8 +86,12 @@ class Trainer():
                                                    sampler=torch.utils.data.SequentialSampler(self.test_dataset),
                                                    drop_last=False)
     def load_model(self):
-        self.model = aagcn_network(num_person=1, graph=self.edge_index,num_nodes=self.num_nodes,num_subset=self.num_subset, in_channels=self.num_features,drop_out=0.5, adaptive=self.adaptive, attention=True)
-   
+        if self.model_name=="aagcn":
+            self.model = aagcn_network( graph=self.edge_index ,num_person=1,num_nodes=self.num_nodes,num_subset=self.num_subset, in_channels=self.num_features,drop_out=0.5, adaptive=self.adaptive, attention=True)
+        elif self.model_name=="a3tgcn":
+            self.model=A3TGCN2_network(edge_index=self.edge_index,node_features=self.num_features,num_nodes=self.num_nodes,periods=self.TS,batch_size=self.batch_size)
+        else:
+            raise ValueError("No model with such name ", self.model_name )
         """
         if(self.continue_training):
                 path_pretrained_model=os.path.join(self.LOG_DIR,"{}/best_model.pkl".format(self.pretrain_model))
@@ -97,9 +103,10 @@ class Trainer():
 
     def load_optimizer(self):
         if self.optimizer_name=="SGD":
-            self.optimizer = torch.optim.SGD(list(self.model.parameters()),lr = self.lr,momentum = 0.9,weight_decay=self.weight_decay)
+            self.optimizer = torch.optim.SGD(list(self.model.parameters()),lr = self.lr,momentum = 0.9,)
         elif self.optimizer_name=="adam":
-            self.optimizer = torch.optim.Adam(list(self.model.parameters()), lr=self.lr,weight_decay=self.weight_decay)
+            self.optimizer = torch.optim.Adam(list(self.model.parameters()), lr=self.lr)
+        self.scheduler=lr_scheduler.StepLR(self.optimizer, self.step_decay,self.weight_decay,verbose=True)
         """
         for var_name in self.optimizer.state_dict():
             print(var_name, '\t', self.optimizer.state_dict()[var_name])
@@ -160,8 +167,7 @@ class Trainer():
         
         return avg_loss,MAE
     def calc_accuracy(self,path_model=None):
-        test_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,normalize_labels=False,
-                                        idx_path=self.idx_test)
+        test_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,normalize_labels=False,idx_path=self.idx_test,model_name=self.model_name)
         test_loader = torch.utils.data.DataLoader(test_dataset, 
                                                   batch_size=self.batch_size, 
                                                   shuffle=False,
@@ -227,7 +233,7 @@ class Trainer():
             avg_accuracy=self.calc_accuracy()
             self.writer.add_scalars("Loss training and evaluating",{'train_loss': avg_train_loss,'eval_loss': avg_test_loss,}, epoch)
 
-            result="Epoch {}, Train_loss: {} , MAE_train:{},eval loss: {},MAE_eval{} ,eval_accuracy:{} \n".format(epoch + 1,avg_train_loss,MAE_train,avg_test_loss,MAE_test,avg_accuracy)
+            result="Epoch {}, Train_loss: {} , MAE_train:{},eval loss: {},MAE_eval{} ,eval_accuracy:{},lr:{} \n".format(epoch + 1,avg_train_loss,MAE_train,avg_test_loss,MAE_test,avg_accuracy,self.optimizer.param_groups[0]['lr'])
             with open(os.path.join(self.log_dir, 'log.txt'), 'a') as f:
                 f.write(result)
             print(result)
@@ -241,8 +247,9 @@ class Trainer():
                 print('Best model in {dir}/best_model.pkl'.format(dir=self.log_dir))
                 #previous_best_avg_test_acc = avg_test_acc
                 previous_best_avg_loss=avg_test_loss
+            self.scheduler.step()
             
-            #self.lr_scheduler.step()
+            
 
 if __name__=="__main__":
     torch.manual_seed(100)
@@ -257,4 +264,4 @@ if __name__=="__main__":
 
     trainer=Trainer(config=config)
     trainer.run()
-    trainer.calc_accuracy()
+    #trainer.calc_accuracy()

@@ -79,6 +79,10 @@ def save_labels(csv_file,label_data):
     return labels
 
 def split_idx_train_test(idx_train_path,idx_test_path,csv_file,filter_90=None):
+    low_expressiv_ids=["082315_w_60", "082414_m_64", "082909_m_47","083009_w_42", "083013_w_47", 
+                        "083109_m_60", "083114_w_55", "091914_m_46", "092009_m_54","092014_m_56", 
+                        "092509_w_51", "092714_m_64", "100514_w_51", "100914_m_39", "101114_w_37", 
+                        "101209_w_61", "101809_m_59", "101916_m_40", "111313_m_64", "120614_w_61"]
     validation_subjects_id=["100914_m_39", "101114_w_37", "082315_w_60", "083114_w_55", 
                             "083109_m_60", "072514_m_27", "080309_m_29", "112016_m_25", 
                             "112310_m_20", "092813_w_24", "112809_w_23", "112909_w_20", 
@@ -87,17 +91,21 @@ def split_idx_train_test(idx_train_path,idx_test_path,csv_file,filter_90=None):
                             "101908_m_61", "102309_m_61", "112209_m_51", "112610_w_60", 
                             "112914_w_51", "120514_w_56"]
     df = pd.read_csv(csv_file,sep='\t')
-
+    
+    mask = df['subject_name'].isin(low_expressiv_ids)
+    idx_low= df.loc[mask].index.tolist()
+    print(len(idx_low))
     if(filter_90!=None):
         idx_filter_90=np.load(filter_90)
     else:
         idx_filter_90=[]
     subject_name=df['subject_name'].to_numpy()
+
     idx_test=[]
     idx_train=[]
     for i in range(len(subject_name)):
         test=False
-        if i not in idx_filter_90:
+        if i not in idx_filter_90 and i not in idx_low:
             for j in validation_subjects_id:
                 if subject_name[i].strip()==j:
                     test=True
@@ -108,7 +116,7 @@ def split_idx_train_test(idx_train_path,idx_test_path,csv_file,filter_90=None):
 
     print("Percent test",len(idx_test)/(len(idx_test)+len(idx_train)))
     print("len test: ", len(idx_test),"len train:",len(idx_train),"total:",len(idx_test)+len(idx_train))
-    assert len(idx_test)+len(idx_train)==len(subject_name)-len(idx_filter_90)
+    #assert len(idx_test)+len(idx_train)==len(subject_name)-len(idx_filter_90)-len(idx_low)
 
     np.save(idx_train_path,idx_train)
     np.save(idx_test_path,idx_test)
@@ -280,7 +288,7 @@ labels=save_labels(csv_file,labels_path)
 
 
 #%%   #Split to train set and test 
-#split_idx_train_test(idx_train,idx_test,csv_file,filter_idx_90)
+split_idx_train_test(idx_train,idx_test,csv_file,filter_idx_90)
 
 
 

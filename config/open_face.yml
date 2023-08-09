@@ -1,4 +1,5 @@
-Description: "expirment with 2 adj matrix,5 blocks, and just 4 features:x,y,vx,vy,adabtive false"
+Description: "expirment with 2 adj matrix,3 blocks,stride=3 and just 4
+ features:x,y,vx,vy,adabtive false, using A3GCN instead of GRU, with batch normaliz"
 name_exp: "dlib"
 
 parent_folder: "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
@@ -10,15 +11,15 @@ labels_path: "data/PartA/lables.npy"
 
 data_path: "data/PartA/openFace/dataset_openFace.npy"
 edges_path: "data/PartA/openFace/edge_openFace.npy"
-idx_train: "data/PartA/idx_train_filterd.npy"
-idx_test: "data/PartA/idx_test_filterd.npy"
+idx_train: "data/PartA/idx_train_filterd_low_react.npy"
+idx_test: "data/PartA/idx_test_filterd_low_react.npy"
 
 filter_idx_90: "data/PartA/idx_low_confidance_90.npy"
 filter_idx_80: "data/PartA/idx_low_confidance_80.npy"
 
 ###Optimizer###
-weight_decay: 0.0001
-step_decay: 10
+weight_decay: 0.5
+step_decay: 30
 optimizer: 'SGD'
 
 ###Network###
@@ -30,6 +31,7 @@ gpu: 1
 
 
 ###Model parameters###
+model_name: "aagcn" #"a3tgcn" #  #a3tgcn
 embed_dim: 256
 num_subset: 2
 num_features: 4
@@ -39,5 +41,3 @@ n_joints: 51
 adaptive: False
 lr: 0.01
 LOG_DIR: "log/"
-
-#dropout: 0.2

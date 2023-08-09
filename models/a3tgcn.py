@@ -1,8 +1,9 @@
 #%%
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric_temporal.nn.recurrent import A3TGCN,A3TGCN2
-import torch
+import numpy as np
 from tqdm import tqdm
 import sys
 parent_folder= "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
@@ -47,51 +48,43 @@ class TemporalGNN(torch.nn.Module):
         return h
 """
 
-class A3TGCN2_network(torch.nn.Module):
-    def __init__(self, node_features=4,output_features=1,num_nodes=51,embed_dim=64, periods=137,batch_size=32):
+class A3TGCN2_network(nn.Module):
+    def __init__(self,edge_index, node_features=4,output_features=1,num_nodes=51, periods=137,batch_size=32):
         super(A3TGCN2_network, self).__init__()
         self.node_features = node_features
-        self.embed_dim=embed_dim #64 ,128,..
+       
         self.periods=periods
         self.output_features=output_features
         self.num_nodes=num_nodes
         self.batch_size=batch_size
-        self.tgnn = A3TGCN2(in_channels=self.node_features,
-                           out_channels=self.embed_dim,
-                           periods=self.periods,
-                           batch_size=self.batch_size)
-        self.dropout = torch.nn.Dropout(0.2)
-        self.linear_1= torch.nn.Linear(self.embed_dim, 32)
-        self.linear_2=torch.nn.Linear(32, 1)#
-        self.linear_3=torch.nn.Linear(self.num_nodes, 1)# batch [32, 51] [32,1]
+        self.edge_index=edge_index
+        self.tgnn1 = A3TGCN2(in_channels=self.node_features,out_channels=256,periods=self.periods,batch_size=self.batch_size)
+        self.dropout = torch.nn.Dropout(0.5)
+        self.linear1= torch.nn.Linear(256, 128)
+        self.linear3=torch.nn.Linear(128, 1)#
+        self.linear4=torch.nn.Linear(self.num_nodes, 1)# batch [32, 51] [32,1]
         
 
 
-    def forward(self, x, edge_index,edge_attr=None):
+    def forward(self, x):
         """
         x = Node features for T time steps [B,51,4,137]
         edge_index = Graph edge indices [2,num_edges]
         """
         
-        if edge_attr!=None:
-            h = self.tgnn(x, edge_index,edge_attr)
-        else:
-            h = self.tgnn(x, edge_index) #batch,
-        h = F.relu(h)
-        print(h.shape)
-        h=self.dropout(h)
-        h = self.linear_1(h)
-        h = F.relu(h)
-        h=self.linear_2(h)
-        h=h.view(-1,self.num_nodes)
-        h=self.linear_3(h)
-        h = F.relu(h) 
         
-        #h=torch.sigmoid(h)
-        #h=5.0 * torch.sigmoid(h)
+        h = self.tgnn1(x, self.edge_index) #torch.Size([32, 51, 256]) eliminate temporal dimension
+        h = F.relu(h)
+        h=self.dropout(h)
+        h = self.linear1(h)#[32, 51, 128]
+        h = F.relu(h)
+        h=self.linear3(h)#[32, 51, 1]
+        
+        h=h.view(-1,self.num_nodes)#[32, 51]
+        h=self.linear4(h)
+        h = F.relu(h) 
         h=h.view(-1)
-        #class_pred=torch.softmax(h, dim=1)#.argmax(dim=1)
-       # print(h.shape)
+       
         
         return h
 
@@ -114,11 +107,8 @@ if __name__=="__main__":
     num_features=config['num_features']
     num_nodes=config['n_joints'] 
     gpu=config['gpu']
-    model = A3TGCN2_network(node_features=num_features,
-                                      num_nodes=num_nodes,
-                                      embed_dim=embed_dim, 
-                                      periods=TS,
-                                      batch_size=batch_size)
+    model_name=config['model_name']
+    
     if torch.cuda.is_available():
         print("set cuda device")
         device="cuda"
@@ -126,15 +116,17 @@ if __name__=="__main__":
     else:
         device="cpu"
         print('Warning: Using CPU')
+    edge_index=torch.LongTensor(np.load(edges_path)).to(device)
+    model = A3TGCN2_network(edge_index,node_features=num_features,num_nodes=num_nodes,periods=TS,batch_size=batch_size)
     model.cuda()
     print(model)
     
 
     
 
-  
-    train_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_train)
-    test_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_test)
+     #[Num_sample,Num_nodes,Num_features, Timsetep][8700,51,6,137]
+    train_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_train,model_name=model_name)
+    test_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_test,model_name=model_name)
     test_loader = torch.utils.data.DataLoader(test_dataset, 
                                                    batch_size=batch_size, 
                                                    shuffle=False,
@@ -143,11 +135,8 @@ if __name__=="__main__":
     
     tq=tqdm(test_loader)
     for i in tq:
-        x,y,edge=i
-        #print("assert data ",x,x.shapeedge[0].shape)
-        #print("assert label ",y,y.shape)
+        x,y=i
         x=x.to(device)
-        edge=edge.to(device)
-        
-        y_hat=model(x,edge[0])
+        y_hat=model(x)
+        break
         

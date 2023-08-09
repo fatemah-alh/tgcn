@@ -5,7 +5,7 @@ import torch
 import yaml
 
 class DataLoader(torch.utils.data.Dataset):
-    def __init__(self, data_path,labels_path,edges_index_path,data_shape=(8700, 6,137,51 ),normalize_labels=True,idx_path=None,reshape_data=True,expand_dim=True):
+    def __init__(self, data_path,labels_path,edges_index_path,data_shape=[(0, 3, 1, 2),(8700, 6,137,51)],normalize_labels=True,idx_path=None,reshape_data=True,expand_dim=True,model_name="aagcn",augmentation=True):
         super(DataLoader, self).__init__()
 
         self.data_path = data_path
@@ -13,17 +13,29 @@ class DataLoader(torch.utils.data.Dataset):
         self.edges_index_path=edges_index_path
         self.idx_path=idx_path
         self.normalize_labels=normalize_labels
-        self.data_shape=data_shape
         self.expand_dim=expand_dim
+        self.model_name=model_name
         self.reshape_data=reshape_data
+        self.augmentation=augmentation
+        if self.model_name=="a3tgcn":
+            self.data_shape=[(0, 2, 3, 1),(8700,51,4,137)]
+            self.expand_dim=False
+        elif self.model_name=="aagcn":
+            self.data_shape=[(0, 3, 1, 2),(8700, 4,137,51)]
+        else:
+            self.data_shape=data_shape
         self._read_data()
         
-        self.get_shapes()
+        #self.get_shapes()
         print(self.features.shape)
         
     def _read_data(self):
-        print("Loading Dataset")
-        self.X=np.load(self.data_path)
+        print("Loading Dataset")#(8700,137,51,6 )
+        self.X=np.load(self.data_path) #
+        
+        #self.X=self.X[:,:,:,:2]
+        self.X=np.concatenate( (self.X[:,:,:,:2],self.X[:,:,:,3:5]),axis=3)
+        print(self.X.shape)
         self._reshape_data()
         self.labels=np.load(self.labels_path)#0,..,4
         #Normalize label between 0,1.
@@ -36,12 +48,12 @@ class DataLoader(torch.utils.data.Dataset):
        
     def _reshape_data(self):
         if self.reshape_data:
-             #reshape (8700,137,51,6 ) to (8700, 6,137,51)
-             reshaped_tensor = np.transpose(self.X, (0, 3, 1, 2))  # Transpose dimensions from 8700,137,469,4) to 8600, 469, 4, 137
-             self.features= torch.tensor(np.reshape(reshaped_tensor, self.data_shape))  # Reshape to desired shape 
-             #self.features=self.features[:,:2,:,:]
-             self.features = torch.cat( ( self.features[:,:2,:,:], self.features[:,3:5,:,:] ),dim=1 )
-
+             
+             #reshape (8700,137,51,6 ) to (8700, 6,137,51)aagcn (0, 3, 1, 2)
+             #reshape (8700,137,51,6 ) to(8700,51,6,137) a3gcn(0, 2, 3, 1)
+             reshaped_tensor = np.transpose(self.X, self.data_shape[0])  # Transpose dimensions from 8700,137,469,4) to 8600, 469, 4, 137
+             self.features= torch.tensor(np.reshape(reshaped_tensor, self.data_shape[1]))  # Reshape to desired shape 
+             
         else:
             self.features=self.X
         if self.expand_dim:
@@ -51,14 +63,17 @@ class DataLoader(torch.utils.data.Dataset):
         return self.features.shape[0]
     def get_shapes(self):
         print("featuers: ",self.features.shape, "labels:", self.labels.shape)
-        print("assert featuers:",self.features[0][0],np.max(self.features[0]))
-        print("assert X:",self.X[0][0],np.max(self.X),np.min(self.X))
-        print("assert label",self.labels,np.unique(self.labels))
+        print("assert featuers:",self.features[0][0])
+        print("assert X:",self.X[0][0])
+        print("assert label",np.unique(self.labels))
         
         return self.features.shape
 
     def __getitem__(self, index):
+
         x = self.features[index]
+        if self.augmentation:
+            pass
         y=self.labels[index]
         return x, y
     

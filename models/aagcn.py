@@ -17,6 +17,7 @@ from torch_geometric.utils.to_dense_adj import to_dense_adj
 from torch_geometric.utils import add_self_loops,to_undirected
 import torch.nn.functional as F
 from torch.nn import GRU
+from torch_geometric_temporal.nn.recurrent import A3TGCN2
 def conv_branch_init(conv, branches):
     weight = conv.weight
     n = weight.size(0)
@@ -133,6 +134,8 @@ class UnitTCN(nn.Module):
         nn.init.constant_(conv.bias, 0)
 
     def forward(self, x):
+        #print(x.shape)
+        #print(self.conv(x).shape)
         x = self.bn(self.conv(x))
         return x
 
@@ -400,24 +403,25 @@ class AAGCN(nn.Module):
         return y
     
 class aagcn_network(nn.Module):
-    def __init__(self, num_person=1, graph=None,num_nodes=51, in_channels=6,drop_out=0.5, adaptive=False, attention=True,num_subset=3):
+    def __init__(self, num_person=1, graph=None,num_nodes=51, in_channels=4,drop_out=0.5, adaptive=False, attention=True,num_subset=3):
         super(aagcn_network, self).__init__()
         #graph:edges_index
         if graph is None:
             raise ValueError("No edges_index is found!")
-    
+        self.edge_index=graph
         self.data_bn = nn.BatchNorm1d(num_person * in_channels * num_nodes)#TODO senza 
         self.l1 = AAGCN(in_channels, 64, graph, num_subset=num_subset,num_nodes=num_nodes, residual=False, adaptive=adaptive, attention=attention)
         #self.l2 = AAGCN(64, 64, graph,num_subset=num_subset, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
-        self.l3 = AAGCN(64, 64, graph,num_subset=num_subset, num_nodes=num_nodes, stride=2,adaptive=adaptive, attention=attention)
+        #self.l3 = AAGCN(64, 64, graph,num_subset=num_subset, num_nodes=num_nodes, stride=3,adaptive=adaptive, attention=attention)
         #self.l4 = AAGCN(64, 64, graph,num_subset=num_subset, num_nodes=num_nodes, adaptive=adaptive, attention=attention)
-        self.l5 = AAGCN(64, 128, graph,num_subset=num_subset, num_nodes=num_nodes,stride=2, adaptive=adaptive, attention=attention)
+        self.l5 = AAGCN(64, 128, graph,num_subset=num_subset, num_nodes=num_nodes,stride=3, adaptive=adaptive, attention=attention)
         #self.l6 = AAGCN(128, 128, graph,num_subset=num_subset, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
         #self.l7 = AAGCN(128, 128, graph,num_subset=num_subset, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
-        self.l8 = AAGCN(128, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=2, adaptive=adaptive, attention=attention)
+        self.l8 = AAGCN(128, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=3, adaptive=adaptive, attention=attention)
         #self.l9 = AAGCN(256, 256, graph,num_subset=num_subset, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
-        self.l10 = AAGCN(256, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=2,adaptive=adaptive, attention=attention)
-
+        #self.l10 = AAGCN(256, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=2,adaptive=adaptive, attention=attention)
+        #self.tgnn1 = A3TGCN2(in_channels=256,out_channels=64,periods=16,batch_size=32)
+        #self.linear=torch.nn.Linear(64, 1)
         self.gru=GRU(input_size=256,hidden_size=1,num_layers=2,batch_first=True)
         bn_init(self.data_bn, 1)
         if drop_out:
@@ -427,43 +431,45 @@ class aagcn_network(nn.Module):
     def forward(self, x):
         N, C, T, V, M = x.size()
         x = x.permute(0, 4, 3, 1, 2).contiguous().view(N, M * V * C, T)
+        #print(x.shape)
         x = self.data_bn(x)
         x = x.view(N, M, V, C, T).permute(0, 1, 3, 4, 2).contiguous().view(N * M, C, T, V) #[32, 6, 137, 51])
         #print(x.shape)
         x = self.l1(x)#torch.Size([32, 64, 137, 51])
+        
         #print(x.shape)
        # x = self.l2(x)
-        x = self.l3(x)
+        #x = self.l3(x)
        # x = self.l4(x)
         x = self.l5(x)#([32, 128, 69, 51])
+        
         #print(x.shape)
        # x = self.l6(x)
         #x = self.l7(x)
-        x = self.l8(x)#([32, 256, 35, 51])
-        #print(x.shape)
+        x = self.l8(x)#([32, 256, 35, 51])# [32, 256, 16, 51]) to [B,51,256,16]
+       # print(x.shape)
        # x = self.l9(x)
-        x = self.l10(x) #([32, 256, 35, 51]) 
-
-        #print(x.shape)
-        # N*M,C,T,V
-        # quello che bisonga fare 
+       # x = self.l10(x) #([32, 256, 35, 51])
+        """
+        x = self.drop_out(x) 
+        x=x.permute(0, 3, 1, 2).contiguous().view(N,V,256,16) #(32,35,256,51)
+        x=self.tgnn1(x,self.edge_index) #32,51,256
+        x=x.mean(1)
+        x=self.linear(x)
+       # print(x.shape)
+       
+        """
+        
         t_new=x.size(2)
         c_new=x.size(1)
-
         x=x.permute(0, 2, 1, 3).contiguous().view(N,t_new,c_new,V) #(32,35,256,51)
-
-        #print("permut",x.shape)
         x = x.mean(3)#(32,35,256)
-        #print(x.shape)
         x = self.drop_out(x)
         x,h=self.gru(x)
-        #x = self.drop_out(x)
-       # print(x.shape)
         x=x[:,-1,:]
         
         x=x.view(-1)
-        
-       # print(x)
+       # print(x.shape)
         return x
 
 
@@ -498,7 +504,7 @@ if __name__=="__main__":
     
     edges_index=torch.LongTensor(np.load(edges_path)).to(device)
     print(edges_index.device)
-    model = aagcn_network(num_person=1, graph=edges_index,num_nodes=51, in_channels=6,drop_out=0.5, adaptive=False, attention=True,num_subset=1)
+    model = aagcn_network(num_person=1, graph=edges_index,num_nodes=51, in_channels=4,drop_out=0.5, adaptive=False, attention=True,num_subset=2)
     model.to(device)
     print(model)
 
