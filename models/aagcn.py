@@ -415,14 +415,14 @@ class aagcn_network(nn.Module):
         #self.l3 = AAGCN(64, 64, graph,num_subset=num_subset, num_nodes=num_nodes, stride=3,adaptive=adaptive, attention=attention)
         #self.l4 = AAGCN(64, 64, graph,num_subset=num_subset, num_nodes=num_nodes, adaptive=adaptive, attention=attention)
         self.l5 = AAGCN(64, 128, graph,num_subset=num_subset, num_nodes=num_nodes,stride=3, adaptive=adaptive, attention=attention)
-        #self.l6 = AAGCN(128, 128, graph,num_subset=num_subset, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
+        self.l6 = AAGCN(128, 128, graph,num_subset=num_subset, num_nodes=num_nodes,stride=3,adaptive=adaptive, attention=attention)
         #self.l7 = AAGCN(128, 128, graph,num_subset=num_subset, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
-        self.l8 = AAGCN(128, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=3, adaptive=adaptive, attention=attention)
+        #self.l8 = AAGCN(128, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=3, adaptive=adaptive, attention=attention)
         #self.l9 = AAGCN(256, 256, graph,num_subset=num_subset, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
         #self.l10 = AAGCN(256, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=2,adaptive=adaptive, attention=attention)
         #self.tgnn1 = A3TGCN2(in_channels=256,out_channels=64,periods=16,batch_size=32)
         #self.linear=torch.nn.Linear(64, 1)
-        self.gru=GRU(input_size=256,hidden_size=1,num_layers=2,batch_first=True)
+        self.gru=GRU(input_size=128,hidden_size=1,num_layers=2,batch_first=True)
         bn_init(self.data_bn, 1)
         if drop_out:
             self.drop_out = nn.Dropout(drop_out)
@@ -444,9 +444,9 @@ class aagcn_network(nn.Module):
         x = self.l5(x)#([32, 128, 69, 51])
         
         #print(x.shape)
-       # x = self.l6(x)
+        x = self.l6(x)
         #x = self.l7(x)
-        x = self.l8(x)#([32, 256, 35, 51])# [32, 256, 16, 51]) to [B,51,256,16]
+        #x = self.l8(x)#([32, 256, 35, 51])# [32, 256, 16, 51]) to [B,51,256,16]
        # print(x.shape)
        # x = self.l9(x)
        # x = self.l10(x) #([32, 256, 35, 51])

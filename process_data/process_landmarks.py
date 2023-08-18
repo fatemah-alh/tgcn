@@ -13,6 +13,8 @@ from PIL import Image
 import imageio
 import torch
 from torch_geometric.utils import add_self_loops,is_undirected,to_undirected,contains_self_loops
+from sklearn.preprocessing import MinMaxScaler
+
 """
 This file should be run after the run of the file "extract_3DLandmarks_openFace.py"
 it will process the data in landmarks folder and create a uninqe dataset file in numpy format
@@ -77,6 +79,32 @@ def save_labels(csv_file,label_data):
     labels=df['class_id'].values
     np.save(label_data,labels)
     return labels
+
+def plot_histogram(values):
+    q25, q75 = np.percentile(values, [25, 75])
+    bin_width = 2 * (q75 - q25) * len(values) ** (-1/3)
+    print(np.max(values),np.min(values),bin_width)
+    bins = round((values.max() - values.min()) / bin_width)
+    plt.hist(values,range=(np.min(values),np.max(values)),bins=bins)
+
+def standarization_train(data_train,num_features,calc_std=True):
+    means=[]
+    stds=[]
+    for i in range(0,num_features):
+        mean=np.mean(data_train[:,:,:,i])
+        std=np.std(data_train[:,:,:,i])
+        
+        data_train[:,:,:,i]=(data_train[:,:,:,i]-mean)
+        if calc_std:
+           data_train[:,:,:,i]= data_train[:,:,:,i]/std
+
+        means.append(mean)
+        stds.append(std)
+    return data_train,means,stds
+def standarization_test(data_test,num_features,means,stds):
+    for i in range(0,num_features):
+        data_test[:,:,:,i]=(data_test[:,:,:,i]-means[i])/stds[i]
+    return data_test
 
 def split_idx_train_test(idx_train_path,idx_test_path,csv_file,filter_90=None):
     low_expressiv_ids=["082315_w_60", "082414_m_64", "082909_m_47","083009_w_42", "083013_w_47", 
@@ -160,6 +188,11 @@ def frobenius_norm(arr):
     if norm!=0:
         arr/norm
     return arr
+def calc_centroid(frame):
+    mean=np.mean(frame ,axis=0)
+    print()
+    return mean
+
 def standardize(frame):
     return (frame - np.mean(frame ,axis=0)) /np.std(frame,axis=0)
 def center_coordinate(frame):
@@ -236,16 +269,26 @@ def process_all_data(landmarks_folder:str,filesnames:list,normalized_data:np.arr
         sample=np.load(path) #[138,68,3] 
         processed_sample=np.zeros((138,51,3))
         for j in range(len(sample)): 
+
+            
+            
             frame=preprocess_frame_for_rotation(sample[j])
             R_matrix=get_rotation_matrix(frame)
             frame=np.matmul( R_matrix, frame.T ).T
             processed_sample[j]=standardize(frame)
+            #fram=delete_contour(sample[j])
+            #processed_sample[j]=flip_y_coordiante(fram)
+            
+            
         velocity=calc_velocity(processed_sample)
         data=np.concatenate((processed_sample[:-1,:,:], velocity), axis=2) 
         normalized_data[i][:data.shape[0]]= data
-        
+    print(normalized_data[:,:,:,0].shape,np.max(normalized_data[:,:,:,0]),np.min(normalized_data[:,:,:,0]),np.max(normalized_data[:,:,:,1]),np.min(normalized_data[:,:,:,1]),np.max(normalized_data[:,:,:,2]),np.min(normalized_data[:,:,:,2]))
+            
     np.save(path_save,normalized_data)
     return normalized_data
+
+
 name_exp = 'open_face'
     
 config_file=open(parent_folder+"config/"+name_exp+".yml", 'r')
@@ -275,30 +318,84 @@ if name_file=="mediapipe":
 if name_file=="open_face":
     normalized_data = np.zeros((8700, 137, 51, 6), dtype=np.float32)
 
-
+#%%
 
 #%%   #Create the the dataset file with process
-#process_all_data(landmarks_path,filesnames,normalized_data,data_path)
-
-
-
+#normalized_data=process_all_data(landmarks_path,filesnames,normalized_data,data_path)
+print(normalized_data[:,:,:,0].shape,np.max(normalized_data[:,:,:,0]),np.min(normalized_data[:,:,:,0]),np.max(normalized_data[:,:,:,1]),np.min(normalized_data[:,:,:,1]),np.max(normalized_data[:,:,:,2]),np.min(normalized_data[:,:,:,2]))
+    
 #%%   # create label file
-labels=save_labels(csv_file,labels_path)
-
+#labels=save_labels(csv_file,labels_path)
+labels=np.load(labels_path)
+print(labels)
 
 
 #%%   #Split to train set and test 
-split_idx_train_test(idx_train,idx_test,csv_file,filter_idx_90)
-
-
+#split_idx_train_test(idx_train,idx_test,csv_file,filter_idx_90)
 
 #%%   #Create the edges array 
 data=np.load(data_path)
-print(data[0,0,:,:2].shape)
+idx_train_=np.load(idx_train)
+idx_test_=np.load(idx_test)
+#%%
+np.isnan(data).any()
+#%%
+#data=np.nan_to_num(data)
+#%%
+print(data[idx_test_,:,:,0].shape,np.max(data[idx_test_,:,:,0]),np.min(data[idx_test_,:,:,0]),np.max(data[idx_test_,:,:,1]),np.min(data[idx_test_,:,:,1]),np.max(data[idx_test_,:,:,2]),np.min(data[idx_test_,:,:,2]),np.max(data[idx_test_,:,:,3]),np.min(data[idx_test_,:,:,3]),np.max(data[idx_test_,:,:,4]),np.min(data[idx_test_,:,:,4]),np.max(data[idx_test_,:,:,5]),np.min(data[idx_test_,:,:,5]))
+print(data[idx_train_,:,:,0].shape,np.max(data[idx_train_,:,:,0]),np.min(data[idx_train_,:,:,0]),np.max(data[idx_train_,:,:,1]),np.min(data[idx_train_,:,:,1]),np.max(data[idx_train_,:,:,2]),np.min(data[idx_train_,:,:,2]),np.max(data[idx_train_,:,:,3]),np.min(data[idx_train_,:,:,3]),np.max(data[idx_train_,:,:,4]),np.min(data[idx_train_,:,:,4]),np.max(data[idx_train_,:,:,5]),np.min(data[idx_train_,:,:,5]))
+     
+#%%
+print(np.mean(data[idx_test_,:,:,0]),np.mean(data[idx_test_,:,:,1]),np.mean(data[idx_test_,:,:,2]),np.mean(data[idx_test_,:,:,3]),np.mean(data[idx_test_,:,:,4]),np.mean(data[idx_test_,:,:,5]))
+print(np.mean(data[idx_train_,:,:,0]),np.mean(data[idx_train_,:,:,1]),np.mean(data[idx_train_,:,:,2]),np.mean(data[idx_train_,:,:,3]),np.mean(data[idx_train_,:,:,4]),np.mean(data[idx_train_,:,:,5]))
+#%%
+
+#%%
+data_train=data[idx_train_,:,:,:]
+data_test=data[idx_test_,:,:,:]
+#%%
+standard_data,means,stds=standarization_train(data_train,6)
+print(means,stds)
+#%%
+standard_data_test=standarization_test(data_test,6,means,stds)
+#%%
+#%%
+data[idx_train_,:,:,:]=standard_data
+data[idx_test_,:,:,:]=standard_data_test
+#%%
+#np.save("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/openFace/dataset_openFace_standarized.npy",data)
+#%%
+#%%
+x_values=standard_data_test[:,:,:,0].flatten()
+
+plot_histogram(x_values)
+
+
+#%%
 edges_index=get_edges(data[0,0,:,:2],edges_path)
 
 
+#%%
+edges_index=np.load(edges_path)
 
 #%% #visualize
-visualize_landmarks(data,labels,edges_index,vis_edges=True)
+visualize_landmarks(standard_data[100:400],labels,edges_index,vis_edges=True,time_steps=10)
 
+#%%
+
+def split_all_partecipant(idx_train_path,idx_test_path,csv_file):
+    low_expressiv_ids=["082315_w_60", "082414_m_64", "082909_m_47","083009_w_42", "083013_w_47", 
+                        "083109_m_60", "083114_w_55", "091914_m_46", "092009_m_54","092014_m_56", 
+                        "092509_w_51", "092714_m_64", "100514_w_51", "100914_m_39", "101114_w_37", 
+                        "101209_w_61", "101809_m_59", "101916_m_40", "111313_m_64", "120614_w_61"]
+    df = pd.read_csv(csv_file,sep='\t')
+    
+    mask = df['subject_name'].isin(low_expressiv_ids)
+    idx_low= df.loc[mask].index.tolist()
+    print(len(idx_low))
+    subject_name=df['subject_name'].to_numpy()
+    print(subject_name.shape)
+    idx_test=[]
+    idx_train=[]
+    pass
+split_all_partecipant(idx_train,idx_test,csv_file)

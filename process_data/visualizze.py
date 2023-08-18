@@ -6,6 +6,7 @@ import yaml
 from PIL import Image
 import imageio
 import sys
+from process_landmarks import get_rotation_matrix 
 parent_folder= "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
 sys.path.append(parent_folder)
 
@@ -118,8 +119,9 @@ for i,sample in enumerate(train_dataset):
     data[i]=sample[0]
     labels.append(sample[1])
 print(data.shape,len(labels))
+
 #%%
-#visualize_landmarks(data,labels,edges,time_steps=1,vis_index=True,vis_edges=True)
+visualize_landmarks(data,labels,edges,time_steps=100,vis_index=False,vis_edges=False)
 # %%
-visualize_sample(data[0],labels[0],edges,time_steps=1,vis_index=True,vis_edges=True)
+#visualize_sample(data[0],labels[0],edges,time_steps=1,vis_index=True,vis_edges=True)
 # %%
