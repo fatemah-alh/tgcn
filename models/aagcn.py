@@ -68,24 +68,24 @@ class GraphAAGCN:
             return ValueError("Not supported subset")
     def get_one_adj(self):
         #edges_index=torch.LongTensor(self.edge_index)
-        edges_index=to_undirected(self.edge_index)
+        edges_index=to_undirected(self.edge_index,num_nodes=self.num_nodes)
         edges_index_with_loops=add_self_loops(edges_index)
         edges_index=edges_index_with_loops[0]
-        adj_mat=torch.squeeze(to_dense_adj(edges_index))
+        adj_mat=torch.squeeze(to_dense_adj(edges_index,max_num_nodes=self.num_nodes))
         adj_mat=torch.unsqueeze(adj_mat, dim=0)
         print(adj_mat.shape)
         return adj_mat
     def get_two_adj(self):
         self_mat = torch.eye(self.num_nodes).to(self.edge_index.device)
         #edges_index=torch.LongTensor(self.edge_index)
-        edges_index=to_undirected(self.edge_index)
-        adj_1=torch.squeeze(to_dense_adj(edges_index))
+        edges_index=to_undirected(self.edge_index,num_nodes=self.num_nodes)
+        adj_1=torch.squeeze(to_dense_adj(edges_index,max_num_nodes=self.num_nodes))
         adj_mat = torch.stack((self_mat,adj_1))
         print(adj_mat.shape)
         return adj_mat
     def get_three_adj(self):
         self_mat = torch.eye(self.num_nodes).to(self.edge_index.device)
-        inward_mat = torch.squeeze(to_dense_adj(self.edge_index))
+        inward_mat = torch.squeeze(to_dense_adj(self.edge_index,max_num_nodes=self.num_nodes))
         inward_mat_norm = F.normalize(inward_mat, dim=0, p=1)
         outward_mat = inward_mat.transpose(0, 1)
         outward_mat_norm = F.normalize(outward_mat, dim=0, p=1)

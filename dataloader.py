@@ -4,8 +4,19 @@ from tqdm import tqdm
 import torch
 import yaml
 
+def frobenius_norm(arr):
+        """
+        frame: array
+        """
+        norm=np.linalg.norm(arr,ord= 'fro')
+       # print(norm,np.min(arr),np.max(arr))
+        if norm!=0:
+            arr/norm
+       # print(norm,np.min(arr),np.max(arr))
+        return arr
+
 class DataLoader(torch.utils.data.Dataset):
-    def __init__(self, data_path,labels_path,edges_index_path,data_shape=[(0, 3, 1, 2),(8700, 6,137,51)],normalize_labels=True,idx_path=None,reshape_data=True,expand_dim=True,model_name="aagcn",num_features=6,augmentation=False):
+    def __init__(self, data_path,labels_path,edges_index_path,data_shape=[(0, 3, 1, 2),(8700, 6,137,51)],normalize_labels=True,idx_path=None,reshape_data=True,expand_dim=True,model_name="aagcn",num_features=6,num_nodes=51,augmentation=False):
         super(DataLoader, self).__init__()
 
         self.data_path = data_path
@@ -19,16 +30,16 @@ class DataLoader(torch.utils.data.Dataset):
         self.augmentation=augmentation
         self.num_features=num_features
         if self.model_name=="a3tgcn":
-            self.data_shape=[(0, 2, 3, 1),(8700,51,num_features,137)]
+            self.data_shape=[(0, 2, 3, 1),(8700,num_nodes,num_features,137)]
             self.expand_dim=False
         elif self.model_name=="aagcn":
-            self.data_shape=[(0, 3, 1, 2),(8700, num_features,137,51)]
+            self.data_shape=[(0, 3, 1, 2),(8700, num_features,137,num_nodes)]
         else:
             self.data_shape=data_shape
         self._read_data()
         
         #self.get_shapes()
-        print(self.features.shape)
+       # print(self.features.shape)
         
     def _read_data(self):
         print("Loading Dataset")#(8700,137,51,6 )
@@ -39,7 +50,9 @@ class DataLoader(torch.utils.data.Dataset):
         elif self.num_features==2:
             self.X=self.X[:,:,:,:2]
         print(self.X.shape)
+        self.pre_processing()
         self._reshape_data()
+        print("Contains Nan values",np.isnan(self.features).any())
         self.labels=np.load(self.labels_path)#0,..,4
         #Normalize label between 0,1.
         if self.normalize_labels :
@@ -65,8 +78,12 @@ class DataLoader(torch.utils.data.Dataset):
     def __len__(self):
         return self.features.shape[0]
     def pre_processing(self):
-        
-        pass
+        print("pre_process data ...")
+        for i in tqdm(range (0,len(self.X))):
+            for j in range(len(self.X[i])):
+                self.X[i,j,:,:self.num_features//2]=frobenius_norm(self.X[i,j,:,:self.num_features//2])
+                #print(self.X[i,j,:,:self.num_features//2].shape)
+    
     def get_shapes(self):
         print("featuers: ",self.features.shape, "labels:", self.labels.shape)
         print("assert featuers:",self.features[0][0])
@@ -78,8 +95,6 @@ class DataLoader(torch.utils.data.Dataset):
     def __getitem__(self, index):
 
         x = self.features[index]
-        if self.augmentation:
-            pass
         y=self.labels[index]
         return x, y
     
@@ -98,7 +113,7 @@ class DataLoader(torch.utils.data.Dataset):
         self.labels[indices_4] = 1
         print(len(self.labels))
         print("number of samples with 4 class ",len(indices_4))
-
+    
 
 
         

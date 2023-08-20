@@ -79,8 +79,8 @@ class Trainer():
         os.makedirs(writer_path,exist_ok=True)
         self.writer = SummaryWriter(writer_path)
     def load_datasets(self):
-        self.train_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,idx_path=self.idx_train,model_name=self.model_name,num_features= self.num_features)
-        self.test_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,idx_path=self.idx_test,model_name=self.model_name,num_features= self.num_features)
+        self.train_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,idx_path=self.idx_train,model_name=self.model_name,num_features= self.num_features,num_nodes=self.num_nodes)
+        self.test_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,idx_path=self.idx_test,model_name=self.model_name,num_features= self.num_features,num_nodes=self.num_nodes)
         self.train_loader = torch.utils.data.DataLoader(self.train_dataset, 
                                                    batch_size=self.batch_size, 
                                                    shuffle=True,
@@ -169,14 +169,12 @@ class Trainer():
                 MAE += MAE_batch
         avg_loss = avg_loss / (i+1)
         MAE=MAE/(i+1)
-        
         return avg_loss,MAE
     
     def calc_accuracy(self,path_model=None):
-        
         targests=[]
         predicted=[]
-        test_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,normalize_labels=False,idx_path=self.idx_test,model_name=self.model_name,num_features= self.num_features)
+        test_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,normalize_labels=False,idx_path=self.idx_test,model_name=self.model_name,num_features= self.num_features,num_nodes=self.num_nodes)
         test_loader = torch.utils.data.DataLoader(test_dataset, 
                                                   batch_size=self.batch_size, 
                                                   shuffle=False,
@@ -229,7 +227,8 @@ class Trainer():
         cm=confusion_matrix( targests,predicted,labels=[0,1,2,3,4])
         print(cm)
         self.cm.append(cm)
-        print(100*cm.diagonal()/cm.sum(1))
+        accuracy_class=100*cm.diagonal()/cm.sum(1)
+        print(accuracy_class)
         
         """
         sns.heatmap(cm,annot=True)
@@ -238,8 +237,7 @@ class Trainer():
         plt.title('Confusion Matrix',fontsize=17)
         plt.show()
         """
-        
-        return count/sample
+        return count/sample,cm,accuracy_class,[max,min]
     def run(self):
         previous_best_avg_test_acc = 0.0
         #previous_best_avg_loss=1000000
@@ -253,12 +251,12 @@ class Trainer():
         for epoch in range(self.num_epoch):
             avg_train_loss,MAE_train=self.train()
         
-            if (epoch%5==0):
+            if ((epoch+1)%5==0):
                 torch.save(self.model.state_dict(), os.path.join(self.log_dir, "ckpt_%d.pkl" % (epoch + 1)))
                 print('Saved new checkpoint  ckpt_{epoch}.pkl , avr loss {l}'.format( epoch=epoch+1, l=avg_train_loss))
           
             avg_test_loss,MAE_test= self.eval()
-            avg_accuracy=self.calc_accuracy()
+            avg_accuracy,_,_,_=self.calc_accuracy()
             self.writer.add_scalars("Loss training and evaluating",{'train_loss': avg_train_loss,'eval_loss': avg_test_loss,}, epoch)
 
             result="Epoch {}, Train_loss: {} ,eval loss: {} ,eval_accuracy:{},lr:{} \n".format(epoch + 1,avg_train_loss,avg_test_loss,avg_accuracy,self.optimizer.param_groups[0]['lr'])
@@ -269,16 +267,22 @@ class Trainer():
 
         
             if avg_accuracy > previous_best_avg_test_acc:
-                with open(os.path.join(self.log_dir, 'log.txt'), 'a') as f:
+                with open(self.log_dir+'/log.txt', 'a') as f:
                     f.write("saved_a new best_model\n ")
-                torch.save(self.model.state_dict(), os.path.join(self.log_dir, "best_model.pkl"))
+                torch.save(self.model.state_dict(),self.log_dir+"/best_model.pkl")
                 print('Best model in {dir}/best_model.pkl'.format(dir=self.log_dir))
                 #previous_best_avg_test_acc = avg_test_acc
                 previous_best_avg_test_acc=avg_accuracy
             self.scheduler.step()
-        np.save(self.log_dir+"cm.npy",trainer.cm)    
-            
-            
+        
+        np.save(self.log_dir+"/cm.npy",self.cm)    
+        avg_accuracy,cm,accuracy_class,max_min= self.calc_accuracy(self.log_dir+"/best_model.pkl")
+        with open(self.log_dir+'/log.txt', 'a') as f:
+                    f.write("results_best_model:\n Avg_Accuracy: {}\n max_min_value{}\n cm:{}\n class_accuracy".format(avg_accuracy,max_min,cm,accuracy_class))
+        avg_accuracy,cm,accuracy_class,max_min= self.calc_accuracy(self.log_dir+"/ckpt_{}.pkl".format(self.num_epoch))
+        with open(self.log_dir+'/log.txt', 'a') as f:
+                    f.write("results_best_model:\n Avg_Accuracy: {}\n max_min_value{}\n cm:{}\n class_accuracy".format(avg_accuracy,max_min,cm,accuracy_class))
+               
 
 if __name__=="__main__":
     torch.manual_seed(100)
@@ -292,8 +296,8 @@ if __name__=="__main__":
     config = yaml.safe_load(config_file)
 
     trainer=Trainer(config=config)
-    #trainer.run()
+    trainer.run()
     
-    trainer.calc_accuracy("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/08-16-15:53/ckpt_476.pkl")
+    #trainer.calc_accuracy()
 # %%
 

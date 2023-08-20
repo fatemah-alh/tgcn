@@ -1,16 +1,18 @@
 #%%
 import matplotlib.pyplot as plt
+from sklearn.metrics import  ConfusionMatrixDisplay
 import numpy as np
 from tqdm import tqdm 
 import yaml
 from PIL import Image
 import imageio
 import sys
-from process_landmarks import get_rotation_matrix 
+from dataloader import DataLoader
+
 parent_folder= "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
 sys.path.append(parent_folder)
 
-from dataloader import DataLoader
+#from dataloader import DataLoader
 
 def visualize_landmarks(data,label_data,edges=[],time_steps=137,vis_edges=False,vis="2d",vis_index=False,save=False,path_vis=None):
     """
@@ -100,6 +102,20 @@ def visualize_sample(data,label_data,edges=[],time_steps=137,vis_edges=False,vis
     if save:
         imageio.mimsave(path_vis+'vis_landmarks_3D_openface_absolut_eigenvectors_without_contur.gif', figures, duration=50)
 
+
+def visualize_cm(confusion_matrices,path_vis=None,time_steps=None):
+    figures= [] # for storing the generated images
+    for i,cm_k in enumerate(confusion_matrices):
+        fig, ax = plt.subplots()
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm_k)
+        disp.plot(ax=ax)
+        ax.set_title("Epoche: {}".format(i))
+        fig.canvas.draw()
+        image = Image.frombytes('RGB', fig.canvas.get_width_height(), fig.canvas.tostring_rgb())
+        figures.append(image)
+        
+    imageio.mimsave(path_vis+'cm.gif', figures, duration=100)
+
 path=parent_folder+"data/PartA/vis/"
 name_file = 'minidata'
 config_file=open(parent_folder+"config/"+name_file+".yml", 'r')
@@ -110,9 +126,10 @@ edges_path=parent_folder+config['edges_path']
 idx_train= parent_folder+config['idx_train']
 idx_test=parent_folder+config['idx_test']
 TS=config['TS']
+confusion_matrices=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/08-19-17:51/cm.npy")
 train_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_train,reshape_data=False,expand_dim=False,normalize_labels=False)
 #test_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_test,mode="test")
-data=np.zeros((20,137,51,6))
+data=np.zeros((20,137,52,6))
 labels=[]
 edges=np.load(edges_path)
 for i,sample in enumerate(train_dataset):
@@ -121,7 +138,10 @@ for i,sample in enumerate(train_dataset):
 print(data.shape,len(labels))
 
 #%%
-visualize_landmarks(data,labels,edges,time_steps=100,vis_index=False,vis_edges=False)
+#visualize_landmarks(data,labels,edges,time_steps=2,vis_index=False,vis_edges=True)
 # %%
 #visualize_sample(data[0],labels[0],edges,time_steps=1,vis_index=True,vis_edges=True)
 # %%
+
+#visualize_cm(confusion_matrices,path)
+
