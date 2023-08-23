@@ -49,8 +49,8 @@ class DataLoader(torch.utils.data.Dataset):
             self.X=np.concatenate( (self.X[:,:,:,:2],self.X[:,:,:,3:5]),axis=3)
         elif self.num_features==2:
             self.X=self.X[:,:,:,:2]
-        print(self.X.shape)
-        self.pre_processing()
+        
+       # self.pre_processing()
         self._reshape_data()
         print("Contains Nan values",np.isnan(self.features).any())
         self.labels=np.load(self.labels_path)#0,..,4
@@ -61,6 +61,7 @@ class DataLoader(torch.utils.data.Dataset):
         if self.idx_path!=None:
             self.split_data()
         print("Data is loaded!")
+        print(self.features.shape)
        
     def _reshape_data(self):
         if self.reshape_data:

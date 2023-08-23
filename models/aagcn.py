@@ -372,7 +372,7 @@ class AAGCN(nn.Module):
         self.gcn1 = UnitGCN(
             in_channels, out_channels, self.A,num_subset=num_subset, adaptive=adaptive, attention=attention
         )
-        self.tcn1 = UnitTCN(out_channels, out_channels, stride=stride,)
+        self.tcn1 = UnitTCN(out_channels, out_channels, stride=stride,kernel_size=9)
         self.relu = nn.ReLU(inplace=True)
         self.attention = attention
 
@@ -384,7 +384,7 @@ class AAGCN(nn.Module):
 
         else:
             self.residual = UnitTCN(
-                in_channels, out_channels, kernel_size=1, stride=stride
+                in_channels, out_channels, kernel_size=1, stride=stride #debug kernel size. 
             )
 
     def forward(self, x):
@@ -403,12 +403,13 @@ class AAGCN(nn.Module):
         return y
     
 class aagcn_network(nn.Module):
-    def __init__(self, num_person=1, graph=None,num_nodes=51, in_channels=4,drop_out=0.5, adaptive=False, attention=True,num_subset=3):
+    def __init__(self, num_person=1, graph=None,num_nodes=51, in_channels=4,drop_out=0.5, adaptive=False, attention=True,num_subset=3,embed=False):
         super(aagcn_network, self).__init__()
         #graph:edges_index
         if graph is None:
             raise ValueError("No edges_index is found!")
         self.edge_index=graph
+        self.embed=embed
         self.data_bn = nn.BatchNorm1d(num_person * in_channels * num_nodes)#TODO senza 
         self.l1 = AAGCN(in_channels, 64, graph, num_subset=num_subset,num_nodes=num_nodes, residual=False, adaptive=adaptive, attention=attention)
         #self.l2 = AAGCN(64, 64, graph,num_subset=num_subset, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
@@ -422,7 +423,7 @@ class aagcn_network(nn.Module):
         #self.l10 = AAGCN(256, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=2,adaptive=adaptive, attention=attention)
         #self.tgnn1 = A3TGCN2(in_channels=256,out_channels=64,periods=16,batch_size=32)
         #self.linear=torch.nn.Linear(64, 1)
-        self.gru=GRU(input_size=128,hidden_size=1,num_layers=2,batch_first=True)
+        self.gru=GRU(input_size=128*51,hidden_size=1,num_layers=2,batch_first=True)
         bn_init(self.data_bn, 1)
         if drop_out:
             self.drop_out = nn.Dropout(drop_out)
@@ -433,21 +434,21 @@ class aagcn_network(nn.Module):
         x = x.permute(0, 4, 3, 1, 2).contiguous().view(N, M * V * C, T)
         #print(x.shape)
         x = self.data_bn(x)
-        x = x.view(N, M, V, C, T).permute(0, 1, 3, 4, 2).contiguous().view(N * M, C, T, V) #[32, 6, 137, 51])
+        x = x.view(N, M, V, C, T).permute(0, 1, 3, 4, 2).contiguous().view(N * M, C, T, V) #[32, 4, 137, 51])
         #print(x.shape)
         x = self.l1(x)#torch.Size([32, 64, 137, 51])
-        
         #print(x.shape)
        # x = self.l2(x)
         #x = self.l3(x)
        # x = self.l4(x)
-        x = self.l5(x)#([32, 128, 69, 51])
+        x = self.l5(x)#([32, 128, 48, 51])
         
         #print(x.shape)
         x = self.l6(x)
+        #print(x.shape)
         #x = self.l7(x)
-        #x = self.l8(x)#([32, 256, 35, 51])# [32, 256, 16, 51]) to [B,51,256,16]
-       # print(x.shape)
+        #x = self.l8(x)#([32, 256, 35, 51])# [32, 128, 16, 51]) to [B,51,256,16]
+        
        # x = self.l9(x)
        # x = self.l10(x) #([32, 256, 35, 51])
         """
@@ -463,14 +464,19 @@ class aagcn_network(nn.Module):
         t_new=x.size(2)
         c_new=x.size(1)
         x=x.permute(0, 2, 1, 3).contiguous().view(N,t_new,c_new,V) #(32,35,256,51)
-        x = x.mean(3)#(32,35,256)
+        x=x.view(N,t_new,-1)
+        #x = x.mean(3)#(32,35,128) #32,16,128
+        embed_vectors=x
+        
         x = self.drop_out(x)
         x,h=self.gru(x)
         x=x[:,-1,:]
         
         x=x.view(-1)
-       # print(x.shape)
-        return x
+        if self.embed:
+            return x,embed_vectors
+        else:
+            return x
 
 
 if __name__=="__main__":
@@ -504,11 +510,11 @@ if __name__=="__main__":
     
     edges_index=torch.LongTensor(np.load(edges_path)).to(device)
     print(edges_index.device)
-    model = aagcn_network(num_person=1, graph=edges_index,num_nodes=51, in_channels=4,drop_out=0.5, adaptive=False, attention=True,num_subset=2)
+    model = aagcn_network(num_person=1, graph=edges_index,num_nodes=51, in_channels=6,drop_out=0.5, adaptive=False, attention=True,num_subset=2)
     model.to(device)
     print(model)
 
-    loader=DataLoader(data_path,labels_path,edges_path)
+   
     train_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_train)
     test_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_test)
     test_loader = torch.utils.data.DataLoader(test_dataset, 
@@ -522,5 +528,5 @@ if __name__=="__main__":
         x,y=i
         x=x.to(device)
         y_hat=model(x)
-        break
+        
         

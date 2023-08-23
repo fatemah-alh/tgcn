@@ -1,6 +1,6 @@
 #%%
 import torch
-
+import wandb
 import numpy as np
 from itertools import chain
 from models.aagcn import aagcn_network
@@ -16,6 +16,8 @@ from sklearn.metrics import confusion_matrix
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib
+
+#wandb.login() #just  for first run
 #matplotlib.use('GTK3Cairo')
 
 class Trainer():
@@ -39,7 +41,7 @@ class Trainer():
         self.output_features=config['output_features']
         self.TS=config['TS']
         self.continue_training=config['continue_training']
-        self.pretrain_model=config['pretrain_model']
+        self.pretrain_model=self.LOG_DIR+config['pretrain_model']
         self.model_name=config['model_name']
         #data set parametrs 
         self.data_path=self.parent_folder+config['data_path']
@@ -90,6 +92,7 @@ class Trainer():
                                                    shuffle=False,
                                                    sampler=torch.utils.data.SequentialSampler(self.test_dataset),
                                                    drop_last=False)
+       
     def load_model(self):
         if self.model_name=="aagcn":
             self.model = aagcn_network( graph=self.edge_index ,num_person=1,num_nodes=self.num_nodes,num_subset=self.num_subset, in_channels=self.num_features,drop_out=0.5, adaptive=self.adaptive, attention=True)
@@ -97,14 +100,13 @@ class Trainer():
             self.model=A3TGCN2_network(edge_index=self.edge_index,node_features=self.num_features,num_nodes=self.num_nodes,periods=self.TS,batch_size=self.batch_size)
         else:
             raise ValueError("No model with such name ", self.model_name )
-        """
+        
         if(self.continue_training):
-                path_pretrained_model=os.path.join(self.LOG_DIR,"{}/best_model.pkl".format(self.pretrain_model))
-                self.model.load_state_dict(torch.load(path_pretrained_model))
-                print("Pre trained model is loaded...")
-        print(self.model.parameters)
-        """
+            self.load_pretraind(self.pretrain_model)
         self.model.to(self.device)
+    def load_pretraind(self,path):
+         self.model.load_state_dict(torch.load(path))
+         print("Pre trained model is loaded...")
 
     def load_optimizer(self):
         if self.optimizer_name=="SGD":
@@ -127,10 +129,10 @@ class Trainer():
         self.model.train()
         tq=tqdm(self.train_loader)
         for i,snapshot in enumerate(tq):
-            x,y=snapshot
+            x,label=snapshot
             #Move tensors to device
             x=x.to(self.device)
-            label = y.to(self.device) 
+            label = label.to(self.device) 
             #forward
             y_hat = self.model(x)
             loss=self.loss(y_hat,label.float())
@@ -149,6 +151,14 @@ class Trainer():
             avg_loss += loss
             MAE += MAE_batch
         return avg_loss/(i+1),MAE/(i+1)
+    def get_min_max(self,x,min,max):
+        m_found=np.min(x)
+        ma_found=np.max(x)
+        if  m_found< min:
+            min=m_found
+        if ma_found>max:
+            max=ma_found
+        return min,max
 
     def eval(self):
         self.model.eval()
@@ -157,9 +167,9 @@ class Trainer():
         tq=tqdm(self.test_loader)
         with torch.no_grad():
             for i,snapshot in enumerate(tq):
-                x,y=snapshot
+                x,label=snapshot
                 x=x.to(self.device)
-                label = y.to(self.device) 
+                label = label.to(self.device) 
                 y_hat = self.model(x) 
                 loss=self.loss(y_hat,label.float())
                 MAE_batch=self.MAE(y_hat,label.float())
@@ -174,71 +184,84 @@ class Trainer():
     def calc_accuracy(self,path_model=None):
         targests=[]
         predicted=[]
-        test_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,normalize_labels=False,idx_path=self.idx_test,model_name=self.model_name,num_features= self.num_features,num_nodes=self.num_nodes)
-        test_loader = torch.utils.data.DataLoader(test_dataset, 
-                                                  batch_size=self.batch_size, 
-                                                  shuffle=False,
-                                                  sampler=torch.utils.data.SequentialSampler(test_dataset),
-        
-                                                  drop_last=False)
         if path_model!=None:
-            self.model.load_state_dict(torch.load(path_model))
-            print("Pre trained model is loaded...")
-        elif self.pretrain_model!="None":
-            path_pretrained_model=self.LOG_DIR+"{}/best_model.pkl".format(self.pretrain_model)
-            self.model.load_state_dict(torch.load(path_pretrained_model))
-            print("Pre trained model is loaded...")
+            self.load_pretraind(path_model)
         self.model.eval()
         count=0
         sample=0
-        min=100
-        max=0
-        tq=tqdm(test_loader)
+        min_found=100
+        max_found=0
+        tq=tqdm(self.test_loader)
         with torch.no_grad():
             for i,snapshot in enumerate(tq):
-                x,y=snapshot
+                x,label=snapshot
                 x=x.to(self.device)
-                label = y.to(self.device)
-               
-                targests.append(y.tolist())
                 
-                y_hat = self.model(x).tolist()
-                
-                min_found=np.min(y_hat)
-                max_found=np.max(y_hat)
-                if  min_found< min:
-                    min=min_found
-                if max_found>max:
-                    max=max_found
+                y_hat = self.model(x)
+                y_hat=y_hat.cpu().numpy()
+                min_found,max_found=self.get_min_max(y_hat,min_found,max_found)
                 y_hat=[x * 4 for x in y_hat]
-                
-                y_hat=np.round(y_hat)
-                predicted.append(y_hat.tolist())
+                y_hat=np.round(y_hat).tolist()
+                predicted.append(y_hat)
+                label=[x * 4 for x in label]
+                targests.append(label)
                 for k in range(0,len(label)):
                     sample=sample+1
                     if label[k] == y_hat[k]:
                         count=count+1
-        print("accuracy",count/sample)
-        print("max value:",max,"min value:",min)
         
         targests=list(chain.from_iterable(targests))#np.array(targests).flatten()
         predicted=list(chain.from_iterable(predicted)) #np.array(predicted).flatten()
-       
         cm=confusion_matrix( targests,predicted,labels=[0,1,2,3,4])
-        print(cm)
         self.cm.append(cm)
         accuracy_class=100*cm.diagonal()/cm.sum(1)
-        print(accuracy_class)
-        
-        """
-        sns.heatmap(cm,annot=True)
-        plt.ylabel('Prediction',fontsize=13)
-        plt.xlabel('Actual',fontsize=13)
-        plt.title('Confusion Matrix',fontsize=17)
-        plt.show()
-        """
-        return count/sample,cm,accuracy_class,[max,min]
+
+        print("accuracy",count/sample)
+        print("max value:",max_found,"min value:",min_found)
+        print(cm,accuracy_class)
+        return count/sample,cm,accuracy_class,[max_found,min_found]
+    def get_embedding(self,path=None):
+        self.model_embed= aagcn_network( graph=self.edge_index ,num_person=1,num_nodes=self.num_nodes,num_subset=self.num_subset, in_channels=self.num_features,drop_out=0.5, adaptive=self.adaptive, attention=True,embed=True)
+        if path==None:
+            self.model_embed.load_state_dict(self.model.state_dict())
+        else:
+            self.model_embed.load_state_dict(torch.load(path))
+        self.model_embed.to(self.device)
+        self.model_embed.eval()
+        class_embed_all=[]
+        predicted_class_all=[]
+        embed_all=[]
+        tq=tqdm(self.test_loader)
+        with torch.no_grad():
+            for i,snapshot in enumerate(tq):
+                x,label=snapshot
+                x=x.to(self.device)
+                y_hat,embed_vectors = self.model_embed(x)
+                y_hat=y_hat.tolist()
+                label=[x * 4 for x in label]
+                y_hat=[x * 4 for x in y_hat]
+                y_hat=np.round(y_hat).tolist()
+                bs,t_step,dim_emb=embed_vectors.shape
+                #try with y_hat instead of true predicted
+                class_embed=np.repeat(label,t_step)
+                predictes=np.repeat(y_hat,t_step)
+                predicted_class_all.append(predictes)
+                class_embed_all.append(class_embed)
+                embed_vectors=embed_vectors.view(-1,dim_emb).cpu().numpy()
+                embed_all.append(embed_vectors)
+                assert class_embed.shape[0]==embed_vectors.shape[0]
+            class_embed_all=np.concatenate(class_embed_all)
+            embed_all=np.concatenate(embed_all)
+            predicted_class_all=np.concatenate(predicted_class_all)
+            print(class_embed_all)
+        return embed_all,class_embed_all,predicted_class_all
+
     def run(self):
+        wandb.init(project="First_Run")
+        wandb.config = self.config
+        wandb.watch(self.model,self.loss,log="all",log_freq=10)
+       
+
         previous_best_avg_test_acc = 0.0
         #previous_best_avg_loss=1000000
         with open(os.path.join(self.log_dir, 'log.txt'), 'a') as f:
@@ -263,7 +286,7 @@ class Trainer():
             with open(os.path.join(self.log_dir, 'log.txt'), 'a') as f:
                 f.write(result)
             print(result)
-            
+            wandb.log({"epoche": epoch, "train_loss":avg_train_loss,"test_loss":avg_test_loss,"test_accuracy":avg_accuracy})
 
         
             if avg_accuracy > previous_best_avg_test_acc:
@@ -271,18 +294,20 @@ class Trainer():
                     f.write("saved_a new best_model\n ")
                 torch.save(self.model.state_dict(),self.log_dir+"/best_model.pkl")
                 print('Best model in {dir}/best_model.pkl'.format(dir=self.log_dir))
-                #previous_best_avg_test_acc = avg_test_acc
                 previous_best_avg_test_acc=avg_accuracy
             self.scheduler.step()
         
         np.save(self.log_dir+"/cm.npy",self.cm)    
         avg_accuracy,cm,accuracy_class,max_min= self.calc_accuracy(self.log_dir+"/best_model.pkl")
+        wandb.log({"cm_matrix_best_model":cm,"class_accuracy_best_model":accuracy_class,"Max_min_best_model":max_min})
         with open(self.log_dir+'/log.txt', 'a') as f:
-                    f.write("results_best_model:\n Avg_Accuracy: {}\n max_min_value{}\n cm:{}\n class_accuracy".format(avg_accuracy,max_min,cm,accuracy_class))
+                    f.write("results_best_model:\n Avg_Accuracy: {}\n max_min_value{}\n cm:{}\n class_accuracy{}".format(avg_accuracy,max_min,cm,accuracy_class))
         avg_accuracy,cm,accuracy_class,max_min= self.calc_accuracy(self.log_dir+"/ckpt_{}.pkl".format(self.num_epoch))
         with open(self.log_dir+'/log.txt', 'a') as f:
-                    f.write("results_best_model:\n Avg_Accuracy: {}\n max_min_value{}\n cm:{}\n class_accuracy".format(avg_accuracy,max_min,cm,accuracy_class))
-               
+                    f.write("results_last_epoche:\n Avg_Accuracy: {}\n max_min_value{}\n cm:{}\n class_accuracy{}".format(avg_accuracy,max_min,cm,accuracy_class))
+        wandb.log({"cm_matrix_last_epoche":cm,"class_accuracy_last_epoche":accuracy_class,"Max_min_last_epoch":max_min})
+        self.model.to_onnx()
+        wandb.save("model.onnx")
 
 if __name__=="__main__":
     torch.manual_seed(100)

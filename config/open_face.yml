@@ -1,25 +1,26 @@
 Description: "expirment with 2 adj matrix,3 blocks,stride=3 and 4 features,
 adabtive false, 128 la dim of embedding. 
-preprocessd data, with centroid,frobinus just for x,y, without divide by std"
+preprocessd data,
+new split which contain all subjects"
+
 name_exp : "dlib"
 
 parent_folder: "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
 video_path: "data/PartA/"
 landmarks_path : "data/PartA/3dlandmarks/"
 csv_file: "data/PartA/samples.csv"
-
 labels_path: "data/PartA/lables.npy"
 
-data_path: "data/PartA/openFace/dataset_openFace_centroid.npy"
-edges_path: "data/PartA/openFace/edge_openFace.npy"
-idx_train: "data/PartA/idx_train_filterd_low_react.npy"
-idx_test: "data/PartA/idx_test_filterd_low_react.npy"
+data_path: "data/PartA/openFace/dataset_openFace.npy" 
+idx_train: "data/PartA/idx_train_filterd.npy"
+idx_test: "data/PartA/idx_test_filterd.npy"
 
+edges_path: "data/PartA/openFace/edge_openFace.npy"
 filter_idx_90: "data/PartA/idx_low_confidance_90.npy"
 filter_idx_80: "data/PartA/idx_low_confidance_80.npy"
 
 ###Optimizer###
-weight_decay: 0.7
+weight_decay: 0.8
 step_decay: 30
 optimizer: 'SGD'
 
@@ -30,15 +31,15 @@ continue_training: False   #If set True will continue training from pretrained m
 pretrain_model: "None" #"08-05-17:36" # #"08-03-12:18"       #Name of folder that contains the model resume training
 gpu: 0
 
-
 ###Model parameters###
-model_name: "aagcn" #"a3tgcn" #  #a3tgcn
+model_name: "aagcn" #"a3tgcn" #
 embed_dim: 128
 num_subset: 2
 num_features: 4
 output_features: 1
 TS: 137
-n_joints: 52
+n_joints: 51
 adaptive: False
 lr: 0.01
 LOG_DIR: "log/"
+

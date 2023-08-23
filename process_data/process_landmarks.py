@@ -80,13 +80,15 @@ def save_labels(csv_file,label_data):
     np.save(label_data,labels)
     return labels
 
-def plot_histogram(values):
+def plot_histogram(values,title="Histogram"):
     q25, q75 = np.percentile(values, [25, 75])
     bin_width = 2 * (q75 - q25) * len(values) ** (-1/3)
-    print(np.max(values),np.min(values),bin_width)
+    #print(np.max(values),np.min(values))
     bins = round((values.max() - values.min()) / bin_width)
-    plt.hist(values,range=(np.min(values),np.max(values)),bins=bins)
-
+    fig,ax=plt.subplots()
+    ax.hist(values,range=(np.min(values),np.max(values)),bins=bins)
+    ax.set_title(title)
+    plt.show()
 def standarization_train(data_train,num_features,calc_std=True):
     means=[]
     stds=[]
@@ -262,7 +264,6 @@ def process_all_data(landmarks_folder:str,filesnames:list,normalized_data:np.arr
     5- calculate velocitie
     create the data matrix that containes all samples [num_samples,num_frame,num_landmarks,num_featuers]
     """
-    
     for i in tqdm(range (0,len(filesnames))):
         path=landmarks_folder+filesnames[i]+"/"+filesnames[i].split("/")[1]+".npy"
         sample=np.load(path) #[138,68,3] 
@@ -278,6 +279,47 @@ def process_all_data(landmarks_folder:str,filesnames:list,normalized_data:np.arr
     #normalized_data=np.nan_to_num(normalized_data)        
     np.save(path_save,normalized_data)
     return normalized_data
+
+def split_all_partecipant(csv_file):
+    low_expressiv_ids=["082315_w_60", "082414_m_64", "082909_m_47","083009_w_42", "083013_w_47", 
+                        "083109_m_60", "083114_w_55", "091914_m_46", "092009_m_54","092014_m_56", 
+                        "092509_w_51", "092714_m_64", "100514_w_51", "100914_m_39", "101114_w_37", 
+                        "101209_w_61", "101809_m_59", "101916_m_40", "111313_m_64", "120614_w_61"]
+    df = pd.read_csv(csv_file,sep='\t')
+    mask = df['subject_name'].isin(low_expressiv_ids)
+    idx_low= df.loc[mask].index.tolist()
+    idx_filter_90=np.load(filter_idx_90)
+    subject_name=df['subject_name'].to_numpy()
+    print(subject_name.shape,idx_filter_90.shape,len(idx_low))
+    slices=[]
+    for i in range(0,len(subject_name)//20):
+        j=i*20
+        slices.append(j)
+    print(slices)
+
+    idx_test=[]
+    idx_train=[]
+    for i in slices:
+        for x in range(i,i+14):
+            print(x)
+            idx_train.append(x)
+        for y in range(i+14,i+20):
+            print(y)
+            idx_test.append(y)
+
+    filtered_train=[]
+    filter_test=[]
+    for dd in idx_train:
+        if dd not in idx_filter_90 and dd not in idx_low:
+            filtered_train.append(dd)
+    print(len(filtered_train))
+
+    for dd in idx_test:
+        if dd not in idx_filter_90 and dd not in idx_low:
+            filter_test.append(dd)
+    print(len(idx_test)-len(filter_test))
+    np.save("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/idx_train_all_subject.npy",filtered_train)
+    np.save("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/idx_test_all_subject.npy",filter_test)
 
 
 name_exp = 'open_face'
@@ -296,7 +338,6 @@ data_path=parent_folder+config["data_path"]
 edges_path=parent_folder+config["edges_path"]
 idx_train=parent_folder+config["idx_train"]
 idx_test=parent_folder+config["idx_test"]
-
 filter_idx_90=parent_folder+config["filter_idx_90"]
 #print frequencies of labels
 
@@ -353,9 +394,51 @@ data[idx_test_,:,:,:]=standard_data_test
 """
 #%%
 #%%
-x_values=data[idx_train_,:,:,1].flatten()
+data_centroids=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/openFace/dataset_openFace_centroid.npy")
+idx_train_=np.load(idx_train)
+idx_test_=np.load(idx_test)
+#%%
+x_values=data_centroids[idx_test_,:,:51,0].flatten()
+y_values=data_centroids[idx_test_,:,:51,1].flatten()
+print(x_values.shape,y_values.shape)
+#%%
+x_values_train=data_centroids[idx_train_,:,:51,0].flatten()
+y_values_train=data_centroids[idx_train_,:,:51,1].flatten()
+print(x_values_train.shape,y_values_train.shape,idx_train_.shape,idx_test_.shape)
+#%%
+plot_histogram(x_values,"Histogram of x values for test set after traslation")
+#%%
+plot_histogram(y_values,"Histogram of y values for test set after traslation")
+#%%
+plot_histogram(x_values_train,"Histogram of x values for train set after traslation")
+#%%
+plot_histogram(y_values_train,"Histogram of y values for train set after traslation")
 
-#plot_histogram(x_values)
+
+#%%
+#Calcola centroid:
+data_centroids=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/openFace/dataset_openFace_raw.npy")
+idx_train_=np.load(idx_train)
+idx_test_=np.load(idx_test)
+#%%
+x_centroids=[]
+y_centroids=[]
+x_centroids_train=[]
+y_centroids_train=[]
+for i in range(0,len(idx_test_)):
+    for j in range(0,137):
+        x_mean=np.mean(data_centroids[idx_test_[i],j,:,0])
+        y_mean=np.mean(data_centroids[idx_test_[i],j,:,1])
+        x_centroids.append(x_mean)
+        y_centroids.append(y_mean)
+
+#%%
+x_centroids
+#%%
+plot_histogram(np.array(x_centroids),"Histogram of x  centroids values for test set")
+#%%
+plot_histogram(np.array(y_centroids),"Histogram of y  centroids values for test set")
+
 
 
 #%%
@@ -368,24 +451,7 @@ edges_index=np.load(edges_path)
 #visualize_landmarks(data[100:400],labels,edges_index,vis_edges=True,time_steps=10)
 
 #%%
-
-def split_all_partecipant(idx_train_path,idx_test_path,csv_file):
-    low_expressiv_ids=["082315_w_60", "082414_m_64", "082909_m_47","083009_w_42", "083013_w_47", 
-                        "083109_m_60", "083114_w_55", "091914_m_46", "092009_m_54","092014_m_56", 
-                        "092509_w_51", "092714_m_64", "100514_w_51", "100914_m_39", "101114_w_37", 
-                        "101209_w_61", "101809_m_59", "101916_m_40", "111313_m_64", "120614_w_61"]
-    df = pd.read_csv(csv_file,sep='\t')
-    
-    mask = df['subject_name'].isin(low_expressiv_ids)
-    idx_low= df.loc[mask].index.tolist()
-    print(len(idx_low))
-    subject_name=df['subject_name'].to_numpy()
-    print(subject_name.shape)
-    idx_test=[]
-    idx_train=[]
-    pass
 #split_all_partecipant(idx_train,idx_test,csv_file)
 
-def min_max_normalize(frame):
 
-    pass
+
