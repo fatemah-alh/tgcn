@@ -12,3 +12,4 @@ writer
 log
 __pycache__
 .vscode
+wandb

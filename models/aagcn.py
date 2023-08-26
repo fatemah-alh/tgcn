@@ -108,7 +108,7 @@ class UnitTCN(nn.Module):
     """
 
     def __init__(
-        self, in_channels: int, out_channels: int, kernel_size: int = 9, stride: int = 1
+        self, in_channels: int, out_channels: int, kernel_size: int = 9, stride: int = 1,bn :bool=True
     ):
         super(UnitTCN, self).__init__()
         pad = int((kernel_size - 1) / 2)
@@ -117,13 +117,14 @@ class UnitTCN(nn.Module):
             out_channels,
             kernel_size=(kernel_size, 1),
             padding=(pad, 0),
-            stride=(stride, 1),
-        )
+            stride=(stride, 1))
 
-        self.bn = nn.BatchNorm2d(out_channels)
+        self.do_bn=bn
         self.relu = nn.ReLU(inplace=True)
         self._conv_init(self.conv)
-        self._bn_init(self.bn, 1)
+        if self.do_bn:
+            self.bn = nn.BatchNorm2d(out_channels)
+            self._bn_init(self.bn, 1)
 
     def _bn_init(self, bn, scale):
         nn.init.constant_(bn.weight, scale)
@@ -136,7 +137,9 @@ class UnitTCN(nn.Module):
     def forward(self, x):
         #print(x.shape)
         #print(self.conv(x).shape)
-        x = self.bn(self.conv(x))
+        x=self.conv(x)
+        if self.do_bn:
+            x = self.bn(x)
         return x
 
 
@@ -168,6 +171,8 @@ class UnitGCN(nn.Module):
         num_subset: int = 3,
         adaptive: bool = True,
         attention: bool = True,
+        kernel_size: int = 9,
+        bn:bool=True
     ):
         super(UnitGCN, self).__init__()
         self.inter_c = out_channels // coff_embedding
@@ -178,8 +183,9 @@ class UnitGCN(nn.Module):
         self.num_jpts = A.shape[-1]
         self.attention = attention
         self.adaptive = adaptive
-
+        self.kernel_size=kernel_size
         self.conv_d = nn.ModuleList()
+        self.do_bn=bn
 
         for i in range(self.num_subset):
             self.conv_d.append(nn.Conv2d(in_channels, out_channels, 1))
@@ -199,13 +205,14 @@ class UnitGCN(nn.Module):
         else:
             self.down = lambda x: x
 
-        self.bn = nn.BatchNorm2d(out_channels)
+       
         self.soft = nn.Softmax(-2)
         self.tan = nn.Tanh()
         self.sigmoid = nn.Sigmoid()
         self.relu = nn.ReLU(inplace=True)
-
-        self._init_conv_bn()
+        if self.do_bn:
+            self.bn = nn.BatchNorm2d(out_channels)
+            self._init_conv_bn()
 
     def _bn_init(self, bn, scale):
         nn.init.constant_(bn.weight, scale)
@@ -236,14 +243,15 @@ class UnitGCN(nn.Module):
 
     def _init_attention_layers(self):
         # temporal attention
-        self.conv_ta = nn.Conv1d(self.out_c, 1, 9, padding=4)
+        pad_t = int((self.kernel_size - 1) / 2)
+        self.conv_ta = nn.Conv1d(self.out_c, 1, self.kernel_size, padding=pad_t)
         nn.init.constant_(self.conv_ta.weight, 0)
         nn.init.constant_(self.conv_ta.bias, 0)
 
         # s attention
         ker_jpt = self.num_jpts - 1 if not self.num_jpts % 2 else self.num_jpts
         pad = (ker_jpt - 1) // 2
-        self.conv_sa = nn.Conv1d(self.out_c, 1, ker_jpt, padding=pad)
+        self.conv_sa = nn.Conv1d(self.out_c, 1, ker_jpt, padding=pad) 
         nn.init.xavier_normal_(self.conv_sa.weight)
         nn.init.constant_(self.conv_sa.bias, 0)
 
@@ -266,22 +274,34 @@ class UnitGCN(nn.Module):
             self.conv_b.append(nn.Conv2d(self.in_c, self.inter_c, 1))
 
     def _attentive_forward(self, y):
+        #y_shape=(N, C: self.out_c, T, V)
         # spatial attention
+       # print(y.shape)
         se = y.mean(-2)  # N C V
-        se1 = self.sigmoid(self.conv_sa(se))
-        y = y * se1.unsqueeze(-2) + y
+      #  print(se.shape)
+       # print(self.conv_sa(se).shape)
+        se1 = self.sigmoid(self.conv_sa(se)) # l'importanza di ogni nodo 
+      #  print(se1.shape)
+        y = y * se1.unsqueeze(-2) + y # moltiplica l'input per il vettore di pesi o attention se1.
+       # print(y.shape)
 
         # temporal attention
         se = y.mean(-1)
+      #  print(se.shape)
+       # print(self.conv_ta(se).shape)
         se1 = self.sigmoid(self.conv_ta(se))
+       # print(se1.shape)
         y = y * se1.unsqueeze(-1) + y
-
+       # print(y.shape)
         # channel attention
         se = y.mean(-1).mean(-1)
+       # print(se.shape)
         se1 = self.relu(self.fc1c(se))
+       # print(se1.shape)
         se2 = self.sigmoid(self.fc2c(se1))
+       # print(se2.shape)
         y = y * se2.unsqueeze(-1).unsqueeze(-1) + y
-
+       # print(y.shape)
         return y
 
     def _adaptive_forward(self, x, y):
@@ -296,8 +316,8 @@ class UnitGCN(nn.Module):
                 .view(N, V, self.inter_c * T)
             )
             A2 = self.conv_b[i](x).view(N, self.inter_c * T, V)
-            A1 = self.tan(torch.matmul(A1, A2) / A1.size(-1))  # N V V
-            A1 = A[i] + A1 * self.alpha
+            A1 = self.tan(torch.matmul(A1, A2) / A1.size(-1))  # N V V # The C matrix
+            A1 = A[i] + A1 * self.alpha 
             A2 = x.view(N, C * T, V)
             z = self.conv_d[i](torch.matmul(A2, A1).view(N, C, T, V))
             y = z + y if y is not None else z
@@ -308,7 +328,7 @@ class UnitGCN(nn.Module):
         N, C, T, V = x.size()
         for i in range(self.num_subset):
             A1 = self.A[i]
-            A2 = x.view(N, C * T, V)
+            A2 = x.view(N, C * T, V) 
             z = self.conv_d[i](torch.matmul(A2, A1).view(N, C, T, V))
             y = z + y if y is not None else z
         return y
@@ -321,9 +341,10 @@ class UnitGCN(nn.Module):
             y = self._adaptive_forward(x, y)
         else:
             y = self._non_adaptive_forward(x, y)
-        y = self.bn(y)
+        if self.do_bn:
+            y = self.bn(y)
         y += self.down(x)
-        y = self.relu(y)
+        y = self.relu(y) # (N, self.out_c, T, V)
         if self.attention:
             y = self._attentive_forward(y)
         return y
@@ -361,6 +382,8 @@ class AAGCN(nn.Module):
         residual: bool = True,
         adaptive: bool = True,
         attention: bool = True,
+        kernel_size:int= 9,
+        bn:bool=True
     ):
         super(AAGCN, self).__init__()
         self.edge_index = edge_index
@@ -370,9 +393,9 @@ class AAGCN(nn.Module):
         self.A = self.graph.A
 
         self.gcn1 = UnitGCN(
-            in_channels, out_channels, self.A,num_subset=num_subset, adaptive=adaptive, attention=attention
+            in_channels, out_channels, self.A,num_subset=num_subset, adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn
         )
-        self.tcn1 = UnitTCN(out_channels, out_channels, stride=stride,kernel_size=9)
+        self.tcn1 = UnitTCN(out_channels, out_channels, stride=stride,kernel_size=kernel_size,bn=bn)
         self.relu = nn.ReLU(inplace=True)
         self.attention = attention
 
@@ -384,7 +407,7 @@ class AAGCN(nn.Module):
 
         else:
             self.residual = UnitTCN(
-                in_channels, out_channels, kernel_size=1, stride=stride #debug kernel size. 
+                in_channels, out_channels, kernel_size=1, stride=stride  
             )
 
     def forward(self, x):
@@ -403,7 +426,7 @@ class AAGCN(nn.Module):
         return y
     
 class aagcn_network(nn.Module):
-    def __init__(self, num_person=1, graph=None,num_nodes=51, in_channels=4,drop_out=0.5, adaptive=False, attention=True,num_subset=3,embed=False):
+    def __init__(self, num_person=1, graph=None,num_nodes=51, in_channels=4,drop_out=0.2, adaptive=False, attention=True,num_subset=3,embed=False,kernel_size=13,hidden_size=1,bn=True):
         super(aagcn_network, self).__init__()
         #graph:edges_index
         if graph is None:
@@ -411,19 +434,19 @@ class aagcn_network(nn.Module):
         self.edge_index=graph
         self.embed=embed
         self.data_bn = nn.BatchNorm1d(num_person * in_channels * num_nodes)#TODO senza 
-        self.l1 = AAGCN(in_channels, 64, graph, num_subset=num_subset,num_nodes=num_nodes, residual=False, adaptive=adaptive, attention=attention)
+        self.l1 = AAGCN(in_channels, 64, graph, num_subset=num_subset,num_nodes=num_nodes, residual=False, adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn)
         #self.l2 = AAGCN(64, 64, graph,num_subset=num_subset, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
         #self.l3 = AAGCN(64, 64, graph,num_subset=num_subset, num_nodes=num_nodes, stride=3,adaptive=adaptive, attention=attention)
         #self.l4 = AAGCN(64, 64, graph,num_subset=num_subset, num_nodes=num_nodes, adaptive=adaptive, attention=attention)
-        self.l5 = AAGCN(64, 128, graph,num_subset=num_subset, num_nodes=num_nodes,stride=3, adaptive=adaptive, attention=attention)
-        self.l6 = AAGCN(128, 128, graph,num_subset=num_subset, num_nodes=num_nodes,stride=3,adaptive=adaptive, attention=attention)
-        #self.l7 = AAGCN(128, 128, graph,num_subset=num_subset, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
+        self.l5 = AAGCN(64, 128, graph,num_subset=num_subset, num_nodes=num_nodes,stride=3, adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn)
+        self.l6 = AAGCN(128,128, graph,num_subset=num_subset, num_nodes=num_nodes,stride=3,adaptive=adaptive, attention=attention,kernel_size=7,bn=bn)
+        #self.l7 = AAGCN(128, 64, graph,num_subset=num_subset, num_nodes=num_nodes,adaptive=adaptive, attention=attention,kernel_size=3)
         #self.l8 = AAGCN(128, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=3, adaptive=adaptive, attention=attention)
         #self.l9 = AAGCN(256, 256, graph,num_subset=num_subset, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
         #self.l10 = AAGCN(256, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=2,adaptive=adaptive, attention=attention)
         #self.tgnn1 = A3TGCN2(in_channels=256,out_channels=64,periods=16,batch_size=32)
         #self.linear=torch.nn.Linear(64, 1)
-        self.gru=GRU(input_size=128*51,hidden_size=1,num_layers=2,batch_first=True)
+        self.gru=GRU(input_size=64*num_nodes, hidden_size=hidden_size,num_layers=2,batch_first=True)
         bn_init(self.data_bn, 1)
         if drop_out:
             self.drop_out = nn.Dropout(drop_out)
@@ -446,7 +469,7 @@ class aagcn_network(nn.Module):
         #print(x.shape)
         x = self.l6(x)
         #print(x.shape)
-        #x = self.l7(x)
+       # x = self.l7(x)
         #x = self.l8(x)#([32, 256, 35, 51])# [32, 128, 16, 51]) to [B,51,256,16]
         
        # x = self.l9(x)
@@ -463,15 +486,18 @@ class aagcn_network(nn.Module):
         
         t_new=x.size(2)
         c_new=x.size(1)
-        x=x.permute(0, 2, 1, 3).contiguous().view(N,t_new,c_new,V) #(32,35,256,51)
+        x=x.permute(0, 2, 1, 3).contiguous().view(N,t_new,c_new,V) #(32,35,128,51)
         x=x.view(N,t_new,-1)
         #x = x.mean(3)#(32,35,128) #32,16,128
         embed_vectors=x
         
         x = self.drop_out(x)
-        x,h=self.gru(x)
+        x,h=self.gru(x) #([batch_size:32, sequence_lenths:16, 1])
+        x=F.relu(x)
+        #print(x.shape,h.shape)
+        #Take the last output. 
         x=x[:,-1,:]
-        
+        #print(x.shape)
         x=x.view(-1)
         if self.embed:
             return x,embed_vectors
@@ -510,13 +536,13 @@ if __name__=="__main__":
     
     edges_index=torch.LongTensor(np.load(edges_path)).to(device)
     print(edges_index.device)
-    model = aagcn_network(num_person=1, graph=edges_index,num_nodes=51, in_channels=6,drop_out=0.5, adaptive=False, attention=True,num_subset=2)
+    model = aagcn_network(num_person=1, graph=edges_index,num_nodes=num_nodes, in_channels=num_features,drop_out=0.5, adaptive=False, attention=True,num_subset=2)
     model.to(device)
     print(model)
 
    
-    train_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_train)
-    test_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_test)
+    train_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_train,num_features= num_features,num_nodes=num_nodes)
+    test_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_test,num_features= num_features,num_nodes=num_nodes)
     test_loader = torch.utils.data.DataLoader(test_dataset, 
                                                    batch_size=batch_size, 
                                                    shuffle=False,
@@ -528,5 +554,6 @@ if __name__=="__main__":
         x,y=i
         x=x.to(device)
         y_hat=model(x)
+        break
         
         

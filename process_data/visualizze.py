@@ -7,10 +7,13 @@ import yaml
 from PIL import Image
 import imageio
 import sys
-from dataloader import DataLoader
 
 parent_folder= "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
 sys.path.append(parent_folder)
+
+from dataloader import DataLoader
+import wandb
+
 
 #from dataloader import DataLoader
 
@@ -116,7 +119,9 @@ def visualize_cm(confusion_matrices,path_vis=None,time_steps=None):
         
     imageio.mimsave(path_vis+'cm.gif', figures, duration=100)
 
-path=parent_folder+"data/PartA/vis/"
+         
+#%%
+path=parent_folder+"/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/08-23-16:47/"
 name_file = 'minidata'
 config_file=open(parent_folder+"config/"+name_file+".yml", 'r')
 config = yaml.safe_load(config_file)
@@ -126,7 +131,6 @@ edges_path=parent_folder+config['edges_path']
 idx_train= parent_folder+config['idx_train']
 idx_test=parent_folder+config['idx_test']
 TS=config['TS']
-confusion_matrices=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/08-19-17:51/cm.npy")
 train_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_train,reshape_data=False,expand_dim=False,normalize_labels=False)
 #test_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_test,mode="test")
 data=np.zeros((20,137,52,6))
@@ -143,5 +147,32 @@ print(data.shape,len(labels))
 #visualize_sample(data[0],labels[0],edges,time_steps=1,vis_index=True,vis_edges=True)
 # %%
 
-#visualize_cm(confusion_matrices,path)
+wandb.init()
+def visualize_one_cm(cm,path_vis=None,time_steps=None,title="Confusion_matrix"):
 
+    fig, ax = plt.subplots()
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+    disp.plot(ax=ax)
+    ax.set_title(title)
+    fig.canvas.draw()
+    image = Image.frombytes('RGB', fig.canvas.get_width_height(), fig.canvas.tostring_rgb())
+    image_wand = wandb.Image(image, caption=title)
+    wandb.log({title: image_wand})
+
+ #%%   
+path="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/08-23-20:18/"
+confusion_matrices=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/08-23-20:18/cm.npy")
+#%%
+confusion_matrices[70]
+#%%
+
+cm =np.array([[  0, 198,  92,  79,  23],
+                  [  0, 205,  83,  85,  14],
+                  [  0, 161,  96, 108,  29],
+                  [  0, 134,  85, 120,  39],
+                  [  0,  82,  75, 124,  82]])
+
+
+visualize_one_cm(cm,title="128,2gru,15+7")
+
+# %%

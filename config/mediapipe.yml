@@ -1,17 +1,23 @@
 Description: ""
 name_exp: "mediapipe"
-3D: False
-video_path: "/home/falhamdoosh/tgcn/data/PartA/"
-csv_file: "/home/falhamdoosh/tgcn/data/PartA/samples.csv"
-labels_path: "/home/falhamdoosh/tgcn/data/PartA/lables.npy"
-landmarks_path: "/home/falhamdoosh/tgcn/data/PartA/Mediapipe/dataset_mediapipe_without_process.npy"
-data_path: "/home/falhamdoosh/tgcn/data/PartA/Mediapipe/dataset_mediapipe.npy"
-edges_path: "/home/falhamdoosh/tgcn/data/PartA/Mediapipe/edges_mediapipe.npy"
-idx_train: "/home/falhamdoosh/tgcn/data/PartA/idx_train.npy"
-idx_test: "/home/falhamdoosh/tgcn/data/PartA/idx_test.npy"
-filter_idx_90: "/home/falhamdoosh/tgcn/data/PartA/idx_low_confidance_90.npy"
-filter_idx_80: "/home/falhamdoosh/tgcn/data/PartA/idx_low_confidance_80.npy"
-data_shape: (8700,486,4,137)
+
+parent_folder: "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
+video_path: "data/PartA/"
+csv_file: "data/PartA/samples.csv"
+labels_path: "data/PartA/lables.npy"
+
+landmarks_path: "PartA/Mediapipe/dataset_mediapipe_without_process.npy"
+
+data_path: "data/PartA/Mediapipe/dataset_mediapipe.npy"
+
+edges_path: "data/PartA/Mediapipe/edges_mediapipe.npy"
+
+idx_train: "data/PartA/idx_train_filterd_low_react.npy"
+idx_test: "data/PartA/idx_test_filterd_low_react.npy"
+
+filter_idx_90: "data/PartA/idx_low_confidance_90.npy"
+filter_idx_80: "data/PartA/idx_low_confidance_80.npy"
+
 ###Optimizer###
 weight_decay: 0.7
 step_decay: 30
@@ -19,19 +25,29 @@ optimizer: 'SGD'
 
 ###Network###
 num_epoch: 500 
-batch_size: 32
+batch_size: 64
 continue_training: False   #If set True will continue training from pretrained model
 pretrain_model: ""       #Name of folder that contains the model to resume training
 gpu: 1
 
-###Model parameters###
-embed_dim: 128
-n_classes: 5
-num_features: 4
-output_features: 1
-TS: 137
-n_joints: 469
 
+###Network###
+num_epoch: 500 
+batch_size: 64
+continue_training: False   #If set True will continue training from pretrained model
+pretrain_model: "None" #"08-05-17:36" # #"08-03-12:18"       #Name of folder that contains the model resume training
+gpu: 0
+
+###Model parameters###
+model_name: "aagcn" #"a3tgcn" #
+embed_dim: 128
+num_subset: 2
+num_features: 6
+t_kernel_size: 9
+hidden_size: 1
+TS: 137
+n_joints: 468
+adaptive: False
 lr: 0.01
-LOG_DIR: "./log/"
+LOG_DIR: "log/"
 

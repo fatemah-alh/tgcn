@@ -46,11 +46,10 @@ class DataLoader(torch.utils.data.Dataset):
         self.X=np.load(self.data_path) #
         
         if self.num_features==4:
-            self.X=np.concatenate( (self.X[:,:,:,:2],self.X[:,:,:,3:5]),axis=3)
+             self.X=self.X[:,:,:,:4]
+            #self.X=np.concatenate( (self.X[:,:,:,:2],self.X[:,:,:,3:5]),axis=3)
         elif self.num_features==2:
             self.X=self.X[:,:,:,:2]
-        
-       # self.pre_processing()
         self._reshape_data()
         print("Contains Nan values",np.isnan(self.features).any())
         self.labels=np.load(self.labels_path)#0,..,4
@@ -78,13 +77,6 @@ class DataLoader(torch.utils.data.Dataset):
         
     def __len__(self):
         return self.features.shape[0]
-    def pre_processing(self):
-        print("pre_process data ...")
-        for i in tqdm(range (0,len(self.X))):
-            for j in range(len(self.X[i])):
-                self.X[i,j,:,:self.num_features//2]=frobenius_norm(self.X[i,j,:,:self.num_features//2])
-                #print(self.X[i,j,:,:self.num_features//2].shape)
-    
     def get_shapes(self):
         print("featuers: ",self.features.shape, "labels:", self.labels.shape)
         print("assert featuers:",self.features[0][0])

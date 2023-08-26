@@ -83,12 +83,14 @@ def save_labels(csv_file,label_data):
 def plot_histogram(values,title="Histogram"):
     q25, q75 = np.percentile(values, [25, 75])
     bin_width = 2 * (q75 - q25) * len(values) ** (-1/3)
-    #print(np.max(values),np.min(values))
+    
     bins = round((values.max() - values.min()) / bin_width)
+    print(np.max(values),np.min(values),bins)
     fig,ax=plt.subplots()
-    ax.hist(values,range=(np.min(values),np.max(values)),bins=bins)
+    ax.hist(values,range=(np.min(values),np.max(values)),bins=2000)
     ax.set_title(title)
     plt.show()
+    ax.clear()
 def standarization_train(data_train,num_features,calc_std=True):
     means=[]
     stds=[]
@@ -176,7 +178,7 @@ def get_edges(landmarks,edges_path):
     return edges_index
     
 def delete_contour(sample):
-    sample=sample[17:,:]
+    sample=sample[:,17:,:]
     return sample
 def frobenius_norm(arr):
     """
@@ -195,13 +197,13 @@ def center_coordinate(frame):
    # x_std=np.std(frame[:,0])
    # y_std=np.std(frame[:,0])
    # z_std=np.std(frame[:,0])
-    frame[:,0]=frame[:,0]-x_center
-    frame[:,1]=frame[:,1]-y_center
-    frame[:,2]=frame[:,2]-z_center
-    return frame,np.array([[x_center,y_center,z_center]])
-def flip_y_coordiante(frame):
-    frame[:,1]=-frame[:,1]
-    return frame
+    #frame[:,0]=frame[:,0]-x_center
+    #frame[:,1]=frame[:,1]-y_center
+    #frame[:,2]=frame[:,2]-z_center
+    return frame,[x_center,y_center,z_center]
+def flip_y_coordiante(sample):
+    sample[:,:,1]=-sample[:,:,1]
+    return sample
 def get_rotation_matrix(lndk_centered):
   e_vals_g, e_vect_g = np.linalg.eig(np.matmul(lndk_centered.T, lndk_centered))
   e_vals_g = np.real(e_vals_g)
@@ -235,51 +237,50 @@ def get_rotation_matrix(lndk_centered):
   base_m = np.vstack( (base_m, v.reshape(1,-1)) )
   return base_m
 def calc_velocity(sample):
-    velcetiy=[]
+    t,n,f=sample.shape
+    velcetiy=np.zeros((t-1,n,f)) #137,51,2
+    ##velcetiy=[]
     for i in range(1,len(sample)):
-        velcetiy.append(sample[i]-sample[i-1])
+        velcetiy[i-1]=sample[i]-sample[i-1]
+       #velcetiy.append(sample[i]-sample[i-1])
     return velcetiy  
-def add_centroid(frame,centroid):
-   
-    frame=np.append(frame,centroid,axis=0)
-    return frame
-def preprocess_frame(frame):
-    frame=delete_contour(frame)
-    frame=flip_y_coordiante(frame)
-    frame,centroid=center_coordinate(frame)
-    R_matrix=get_rotation_matrix(frame)
-    frame=np.matmul( R_matrix, frame.T ).T
-    frame=add_centroid(frame,centroid)
-    print(frame.shape)
-    #frame=standardize(frame)
-    #frame=frobenius_norm(frame)
-    return frame
-def process_all_data(landmarks_folder:str,filesnames:list,normalized_data:np.array,path_save:str):
-    """
-    Iterate over all landmarks.npy for each sample, apply
-    1- make coordiates have zero mean 
-    2- Divise each frame by frobenius norm
-    3-calculate centroid???
-    4 remove rotaione of the face, align points to be in frontal face position. 
-    5- calculate velocitie
-    create the data matrix that containes all samples [num_samples,num_frame,num_landmarks,num_featuers]
-    """
+
+def process_all_data_new(landmarks_folder:str,filesnames:list,normalized_data:np.array,path_save:str):
     for i in tqdm(range (0,len(filesnames))):
         path=landmarks_folder+filesnames[i]+"/"+filesnames[i].split("/")[1]+".npy"
         sample=np.load(path) #[138,68,3] 
-        processed_sample=np.zeros((138,52,3))
+        sample=delete_contour(sample)
+        sample=flip_y_coordiante(sample)
+        velocity=calc_velocity(sample[:,:,:2])
+        sample_centroids=np.zeros((sample.shape[0],sample.shape[1],2))
+        processed_sample=np.zeros((sample.shape[0],sample.shape[1],2))
         for j in range(len(sample)):
-            processed_sample[j]=preprocess_frame(sample[j])
-           
-        velocity=calc_velocity(processed_sample)
-        data=np.concatenate((processed_sample[:-1,:,:], velocity), axis=2) 
-        normalized_data[i][:data.shape[0]]= data
-    print(normalized_data[:,:,:,0].shape,np.max(normalized_data[:,:,:,0]),np.min(normalized_data[:,:,:,0]),np.max(normalized_data[:,:,:,1]),np.min(normalized_data[:,:,:,1]),np.max(normalized_data[:,:,:,2]),np.min(normalized_data[:,:,:,2]))
+            frame=sample[j]
+            frame,centroid=center_coordinate(frame)
+            R_matrix=get_rotation_matrix(frame)
+            frame=np.matmul( R_matrix, frame.T ).T
+            sample_centroids[j]= np.full((frame.shape[0],2),centroid[:2])
+            processed_sample[j]=frobenius_norm(frame[:,:2])
+            
+        centroid_velocity=calc_velocity(sample_centroids) 
+        #print(np.max(centroid_velocity),np.min(centroid_velocity),  np.max(velocity),np.min(velocity),np.max(processed_sample),np.min(processed_sample))
+         # delete Z coordinate. 
+        
+        data=np.concatenate((processed_sample[:-1,:,:], velocity,centroid_velocity), axis=2)   
+        normalized_data[i]= data
+    print(normalized_data[:,:,:,0].shape,
+          np.max(normalized_data[:,:,:,0]),
+          np.min(normalized_data[:,:,:,0]),
+          np.max(normalized_data[:,:,:,1]),
+          np.min(normalized_data[:,:,:,1]),
+          np.max(normalized_data[:,:,:,2]),
+          np.min(normalized_data[:,:,:,2]))
     print("Contains Nan values",np.isnan(normalized_data).any())
     #normalized_data=np.nan_to_num(normalized_data)        
     np.save(path_save,normalized_data)
     return normalized_data
-
+        
+    
 def split_all_partecipant(csv_file):
     low_expressiv_ids=["082315_w_60", "082414_m_64", "082909_m_47","083009_w_42", "083013_w_47", 
                         "083109_m_60", "083114_w_55", "091914_m_46", "092009_m_54","092014_m_56", 
@@ -344,45 +345,26 @@ filter_idx_90=parent_folder+config["filter_idx_90"]
 filesnames=get_file_names(csv_file)
 
 if name_file=="mediapipe":
-    normalized_data = np.zeros((8700, 137, 469, 4), dtype=np.float32)
+    normalized_data = np.zeros((8700, 137, 468, 4), dtype=np.float32)
     
 
 if name_file=="open_face":
-    normalized_data = np.zeros((8700, 137, 52, 6), dtype=np.float32)
+    normalized_data = np.zeros((8700, 137, 51, 6), dtype=np.float32)
 
-#%%
 
 #%%   #Create the the dataset file with process
-#normalized_data=process_all_data(landmarks_path,filesnames,normalized_data,data_path)
-#print(normalized_data[:,:,:,0].shape,np.max(normalized_data[:,:,:,0]),np.min(normalized_data[:,:,:,0]),np.max(normalized_data[:,:,:,1]),np.min(normalized_data[:,:,:,1]),np.max(normalized_data[:,:,:,2]),np.min(normalized_data[:,:,:,2]))
-    
-#%%   # create label file
-#labels=save_labels(csv_file,labels_path)
-labels=np.load(labels_path)
-print(labels)
 
+#%%
+#normalized_data=process_all_data_new(landmarks_path,filesnames,normalized_data,data_path)
+for i in range(0,6):
+    print(np.max(normalized_data[:,:,:,i]),np.min(normalized_data[:,:,:,i]),np.mean(normalized_data[:,:,:,i]))
+#%%   
+#labels=save_labels(csv_file,labels_path)
 
 #%%   #Split to train set and test 
 #split_idx_train_test(idx_train,idx_test,csv_file,filter_idx_90)
 
-#%%   #Create the edges array 
-data=np.load(data_path)
-idx_train_=np.load(idx_train)
-idx_test_=np.load(idx_test)
-#%%
 
-#%%
-#data=np.nan_to_num(data)
-#%%
-#print(data[idx_test_,:,:,0].shape,np.max(data[idx_test_,:,:,0]),np.min(data[idx_test_,:,:,0]),np.max(data[idx_test_,:,:,1]),np.min(data[idx_test_,:,:,1]),np.max(data[idx_test_,:,:,2]),np.min(data[idx_test_,:,:,2]),np.max(data[idx_test_,:,:,3]),np.min(data[idx_test_,:,:,3]),np.max(data[idx_test_,:,:,4]),np.min(data[idx_test_,:,:,4]),np.max(data[idx_test_,:,:,5]),np.min(data[idx_test_,:,:,5]))
-#print(data[idx_train_,:,:,0].shape,np.max(data[idx_train_,:,:,0]),np.min(data[idx_train_,:,:,0]),np.max(data[idx_train_,:,:,1]),np.min(data[idx_train_,:,:,1]),np.max(data[idx_train_,:,:,2]),np.min(data[idx_train_,:,:,2]),np.max(data[idx_train_,:,:,3]),np.min(data[idx_train_,:,:,3]),np.max(data[idx_train_,:,:,4]),np.min(data[idx_train_,:,:,4]),np.max(data[idx_train_,:,:,5]),np.min(data[idx_train_,:,:,5]))
-#print(np.mean(data[idx_test_,:,:,0]),np.mean(data[idx_test_,:,:,1]),np.mean(data[idx_test_,:,:,2]),np.mean(data[idx_test_,:,:,3]),np.mean(data[idx_test_,:,:,4]),np.mean(data[idx_test_,:,:,5]))
-#print(np.mean(data[idx_train_,:,:,0]),np.mean(data[idx_train_,:,:,1]),np.mean(data[idx_train_,:,:,2]),np.mean(data[idx_train_,:,:,3]),np.mean(data[idx_train_,:,:,4]),np.mean(data[idx_train_,:,:,5]))
-#%%
-
-#%%
-data_train=data[idx_train_,:,:,:]
-data_test=data[idx_test_,:,:,:]
 #%%
 """
 standard_data,means,stds=standarization_train(data_train,6)
@@ -392,66 +374,52 @@ data[idx_train_,:,:,:]=standard_data
 data[idx_test_,:,:,:]=standard_data_test
 #np.save("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/openFace/dataset_openFace_standarized.npy",data)
 """
-#%%
-#%%
-data_centroids=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/openFace/dataset_openFace_centroid.npy")
-idx_train_=np.load(idx_train)
-idx_test_=np.load(idx_test)
-#%%
-x_values=data_centroids[idx_test_,:,:51,0].flatten()
-y_values=data_centroids[idx_test_,:,:51,1].flatten()
-print(x_values.shape,y_values.shape)
-#%%
-x_values_train=data_centroids[idx_train_,:,:51,0].flatten()
-y_values_train=data_centroids[idx_train_,:,:51,1].flatten()
-print(x_values_train.shape,y_values_train.shape,idx_train_.shape,idx_test_.shape)
-#%%
-plot_histogram(x_values,"Histogram of x values for test set after traslation")
-#%%
-plot_histogram(y_values,"Histogram of y values for test set after traslation")
-#%%
-plot_histogram(x_values_train,"Histogram of x values for train set after traslation")
-#%%
-plot_histogram(y_values_train,"Histogram of y values for train set after traslation")
-
-
-#%%
-#Calcola centroid:
-data_centroids=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/openFace/dataset_openFace_raw.npy")
-idx_train_=np.load(idx_train)
-idx_test_=np.load(idx_test)
-#%%
-x_centroids=[]
-y_centroids=[]
-x_centroids_train=[]
-y_centroids_train=[]
-for i in range(0,len(idx_test_)):
-    for j in range(0,137):
-        x_mean=np.mean(data_centroids[idx_test_[i],j,:,0])
-        y_mean=np.mean(data_centroids[idx_test_[i],j,:,1])
-        x_centroids.append(x_mean)
-        y_centroids.append(y_mean)
-
-#%%
-x_centroids
-#%%
-plot_histogram(np.array(x_centroids),"Histogram of x  centroids values for test set")
-#%%
-plot_histogram(np.array(y_centroids),"Histogram of y  centroids values for test set")
-
-
 
 #%%
 #edges_index=get_edges(data[0,0,:51,:2],edges_path)
 
-
 #%%
-edges_index=np.load(edges_path)
-#%% #visualize
+#edges_index=np.load(edges_path)
+#%% 
 #visualize_landmarks(data[100:400],labels,edges_index,vis_edges=True,time_steps=10)
 
 #%%
 #split_all_partecipant(idx_train,idx_test,csv_file)
+#%%
+data=np.load(data_path)
+idx_train_=np.load(idx_train) #without_low_react
+idx_test_=np.load(idx_test)
+#%%
+data.shape
+#%%
+labels=np.load(labels_path)
 
+idx_0=np.where(labels==0)[0]
+idx_0=list((set(idx_test_) | set(idx_train_)) & set(idx_0))
+idx_4=np.where(labels==4)[0]
 
+idx_4=list((set(idx_test_) | set(idx_train_)) & set(idx_4))
+idx_3=np.where(labels==3)[0]
+idx_3=list((set(idx_test_) | set(idx_train_)) & set(idx_3))
+idx_2=np.where(labels==2)[0]
+idx_2=list((set(idx_test_) | set(idx_train_)) & set(idx_2))
+idx_1=np.where(labels==1)[0]
+idx_1=list((set(idx_test_) | set(idx_train_))& set(idx_1))
 
+#%%
+len(idx_1)
+#%%
+
+def plot_single_feature(data,title):
+    x_values=data.flatten()
+    print(x_values.shape)
+    plot_histogram(x_values,title)
+
+#%%
+def plot_all(data):
+    plot_single_feature(data[idx_train_,:,:,2],title="Histogram of x  velocity in train ")
+    plot_single_feature(data[idx_train_,:,:,3],title="Histogram of y  velocity in train")
+
+plot_all(data)
+
+# %%

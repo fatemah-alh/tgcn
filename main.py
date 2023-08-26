@@ -11,14 +11,15 @@ import torch.optim.lr_scheduler as lr_scheduler
 import datetime
 import os
 import yaml
-from tensorboardX import SummaryWriter
 from sklearn.metrics import confusion_matrix
 import seaborn as sns
 import matplotlib.pyplot as plt
-import matplotlib
+from PIL import Image
+import imageio
+from sklearn.metrics import  ConfusionMatrixDisplay
 
 #wandb.login() #just  for first run
-#matplotlib.use('GTK3Cairo')
+
 
 class Trainer():
     def __init__(self, config) -> None:
@@ -38,7 +39,7 @@ class Trainer():
         #model parameters
         self.num_features=config['num_features']
         self.embed_dim=config['embed_dim']
-        self.output_features=config['output_features']
+        
         self.TS=config['TS']
         self.continue_training=config['continue_training']
         self.pretrain_model=self.LOG_DIR+config['pretrain_model']
@@ -55,18 +56,22 @@ class Trainer():
         self.num_subset=config['num_subset']
         self.num_features=config['num_features']
         self.adaptive=config['adaptive']
-        self.set_log_dir()
+        self.kernel_size=config['t_kernel_size']
+        self.hidden_size=config['hidden_size']
+        self.bn=config['bn']
         self.set_device()
-        self.edge_index=torch.LongTensor(np.load(self.edges_path)).to(self.device)
+        self.load_edges()
         self.load_datasets()
         self.load_model()
         self.load_optimizer()
         self.load_loss()
-        self.init_writer()
-
-    def set_log_dir(self):
-        self.date=datetime.datetime.now().strftime("%m-%d-%H:%M")
-        self.log_dir=os.path.join(self.LOG_DIR,self.date)
+        
+   
+    def set_log_dir(self,name=None):
+        self.name=name
+        if self.name==None:
+            self.name=datetime.datetime.now().strftime("%m-%d-%H:%M")
+        self.log_dir=os.path.join(self.LOG_DIR,self.name)
         os.makedirs(self.log_dir,exist_ok=True)
     def set_device(self):
         if torch.cuda.is_available():
@@ -76,13 +81,23 @@ class Trainer():
         else:
             self.device="cpu"
             print('Warning: Using CPU')
-    def init_writer(self):
-        writer_path=self.parent_folder+'writer/' + self.name_exp+self.date
-        os.makedirs(writer_path,exist_ok=True)
-        self.writer = SummaryWriter(writer_path)
+    def load_edges(self):
+        self.edge_index=torch.LongTensor(np.load(self.edges_path)).to(self.device)
     def load_datasets(self):
-        self.train_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,idx_path=self.idx_train,model_name=self.model_name,num_features= self.num_features,num_nodes=self.num_nodes)
-        self.test_dataset=DataLoader(self.data_path,self.labels_path,self.edges_path,idx_path=self.idx_test,model_name=self.model_name,num_features= self.num_features,num_nodes=self.num_nodes)
+        self.train_dataset=DataLoader(self.data_path,
+                                      self.labels_path,
+                                      self.edges_path,
+                                      idx_path=self.idx_train,
+                                      model_name=self.model_name,
+                                      num_features= self.num_features,
+                                      num_nodes=self.num_nodes)
+        self.test_dataset=DataLoader(self.data_path,
+                                     self.labels_path,
+                                     self.edges_path,
+                                     idx_path=self.idx_test,
+                                     model_name=self.model_name,
+                                     num_features= self.num_features,
+                                     num_nodes=self.num_nodes)
         self.train_loader = torch.utils.data.DataLoader(self.train_dataset, 
                                                    batch_size=self.batch_size, 
                                                    shuffle=True,
@@ -95,9 +110,24 @@ class Trainer():
        
     def load_model(self):
         if self.model_name=="aagcn":
-            self.model = aagcn_network( graph=self.edge_index ,num_person=1,num_nodes=self.num_nodes,num_subset=self.num_subset, in_channels=self.num_features,drop_out=0.5, adaptive=self.adaptive, attention=True)
+            self.model = aagcn_network( graph=self.edge_index ,
+                                       num_person=1,
+                                       num_nodes=self.num_nodes,
+                                       num_subset=self.num_subset, 
+                                       in_channels=self.num_features,
+                                       drop_out=0.5, 
+                                       adaptive=self.adaptive, 
+                                       attention=True,
+                                       kernel_size=self.kernel_size,
+                                       hidden_size=self.hidden_size,
+                                       bn=self.bn
+                                       )
         elif self.model_name=="a3tgcn":
-            self.model=A3TGCN2_network(edge_index=self.edge_index,node_features=self.num_features,num_nodes=self.num_nodes,periods=self.TS,batch_size=self.batch_size)
+            self.model=A3TGCN2_network(edge_index=self.edge_index,
+                                       node_features=self.num_features,
+                                       num_nodes=self.num_nodes,
+                                       periods=self.TS,
+                                       batch_size=self.batch_size)
         else:
             raise ValueError("No model with such name ", self.model_name )
         
@@ -110,7 +140,7 @@ class Trainer():
 
     def load_optimizer(self):
         if self.optimizer_name=="SGD":
-            self.optimizer = torch.optim.SGD(list(self.model.parameters()),lr = self.lr,momentum = 0.9,weight_decay=0.0001)
+            self.optimizer = torch.optim.SGD(list(self.model.parameters()),lr = self.lr,momentum = 0.9,weight_decay=0.001)
         elif self.optimizer_name=="adam":
             self.optimizer = torch.optim.Adam(list(self.model.parameters()), lr=self.lr,weight_decay=0.0001)
         self.scheduler=lr_scheduler.StepLR(self.optimizer, self.step_decay,self.weight_decay)
@@ -145,8 +175,6 @@ class Trainer():
                if param.grad==None:
                    raise RuntimeError(f"Gradient is None {name}" )
             self.optimizer.zero_grad()
-            
-            self.writer.add_scalars('train loss batch', {"loss":loss}, i)
             tq.set_description("train: Loss batch: {},MAE:{}".format(loss,MAE_batch))
             avg_loss += loss
             MAE += MAE_batch
@@ -174,14 +202,13 @@ class Trainer():
                 loss=self.loss(y_hat,label.float())
                 MAE_batch=self.MAE(y_hat,label.float())
                 avg_loss += loss
-                self.writer.add_scalars('Eval loss batch', {"loss":loss}, i)
                 tq.set_description("Test Loss batch: {}".format(loss))
                 MAE += MAE_batch
         avg_loss = avg_loss / (i+1)
         MAE=MAE/(i+1)
         return avg_loss,MAE
     
-    def calc_accuracy(self,path_model=None):
+    def calc_accuracy(self,path_model=None,mode="test"):
         targests=[]
         predicted=[]
         if path_model!=None:
@@ -191,18 +218,21 @@ class Trainer():
         sample=0
         min_found=100
         max_found=0
-        tq=tqdm(self.test_loader)
+        if mode=="test":
+            tq=tqdm(self.test_loader)
+        else:
+            tq=tqdm(self.train_loader)
         with torch.no_grad():
             for i,snapshot in enumerate(tq):
                 x,label=snapshot
                 x=x.to(self.device)
-                
                 y_hat = self.model(x)
                 y_hat=y_hat.cpu().numpy()
                 min_found,max_found=self.get_min_max(y_hat,min_found,max_found)
                 y_hat=[x * 4 for x in y_hat]
                 y_hat=np.round(y_hat).tolist()
                 predicted.append(y_hat)
+                label=label.tolist()
                 label=[x * 4 for x in label]
                 targests.append(label)
                 for k in range(0,len(label)):
@@ -215,10 +245,14 @@ class Trainer():
         cm=confusion_matrix( targests,predicted,labels=[0,1,2,3,4])
         self.cm.append(cm)
         accuracy_class=100*cm.diagonal()/cm.sum(1)
-
+        
         print("accuracy",count/sample)
         print("max value:",max_found,"min value:",min_found)
         print(cm,accuracy_class)
+        wandb.log({"conf_matrix" : wandb.plot.confusion_matrix( 
+            preds=predicted, y_true=targests,
+            class_names=[0,1,2,3,4])})
+
         return count/sample,cm,accuracy_class,[max_found,min_found]
     def get_embedding(self,path=None):
         self.model_embed= aagcn_network( graph=self.edge_index ,num_person=1,num_nodes=self.num_nodes,num_subset=self.num_subset, in_channels=self.num_features,drop_out=0.5, adaptive=self.adaptive, attention=True,embed=True)
@@ -255,12 +289,21 @@ class Trainer():
             predicted_class_all=np.concatenate(predicted_class_all)
             print(class_embed_all)
         return embed_all,class_embed_all,predicted_class_all
+    def visualize_one_cm(self,cm,title="Confusion_matrix"):
+        fig, ax = plt.subplots()
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+        disp.plot(ax=ax)
+        ax.set_title(title)
+        fig.canvas.draw()
+        image = Image.frombytes('RGB', fig.canvas.get_width_height(), fig.canvas.tostring_rgb())
+        image_wand = wandb.Image(image, caption=title)
+        wandb.log({title: image_wand})
 
-    def run(self):
-        wandb.init(project="First_Run")
-        wandb.config = self.config
-        wandb.watch(self.model,self.loss,log="all",log_freq=10)
-       
+    def run(self,name=None):
+        wandb.init(project="New data with centroid velocity",group="upgrade complexity",config=self.config,name=name)
+        
+        wandb.watch(self.model,self.loss,log="all",log_freq=1,log_graph=True)
+        self.set_log_dir(name)
 
         previous_best_avg_test_acc = 0.0
         #previous_best_avg_loss=1000000
@@ -280,8 +323,7 @@ class Trainer():
           
             avg_test_loss,MAE_test= self.eval()
             avg_accuracy,_,_,_=self.calc_accuracy()
-            self.writer.add_scalars("Loss training and evaluating",{'train_loss': avg_train_loss,'eval_loss': avg_test_loss,}, epoch)
-
+           
             result="Epoch {}, Train_loss: {} ,eval loss: {} ,eval_accuracy:{},lr:{} \n".format(epoch + 1,avg_train_loss,avg_test_loss,avg_accuracy,self.optimizer.param_groups[0]['lr'])
             with open(os.path.join(self.log_dir, 'log.txt'), 'a') as f:
                 f.write(result)
@@ -299,16 +341,21 @@ class Trainer():
         
         np.save(self.log_dir+"/cm.npy",self.cm)    
         avg_accuracy,cm,accuracy_class,max_min= self.calc_accuracy(self.log_dir+"/best_model.pkl")
-        wandb.log({"cm_matrix_best_model":cm,"class_accuracy_best_model":accuracy_class,"Max_min_best_model":max_min})
+        self.visualize_one_cm(cm,title="best_model"+self.name)
+        
         with open(self.log_dir+'/log.txt', 'a') as f:
                     f.write("results_best_model:\n Avg_Accuracy: {}\n max_min_value{}\n cm:{}\n class_accuracy{}".format(avg_accuracy,max_min,cm,accuracy_class))
         avg_accuracy,cm,accuracy_class,max_min= self.calc_accuracy(self.log_dir+"/ckpt_{}.pkl".format(self.num_epoch))
+        self.visualize_one_cm(cm,title="last_epoch"+self.name)
+        
         with open(self.log_dir+'/log.txt', 'a') as f:
                     f.write("results_last_epoche:\n Avg_Accuracy: {}\n max_min_value{}\n cm:{}\n class_accuracy{}".format(avg_accuracy,max_min,cm,accuracy_class))
-        wandb.log({"cm_matrix_last_epoche":cm,"class_accuracy_last_epoche":accuracy_class,"Max_min_last_epoch":max_min})
-        self.model.to_onnx()
-        wandb.save("model.onnx")
-
+        
+        avg_accuracy,cm,accuracy_class,max_min= self.calc_accuracy(self.log_dir+"/ckpt_{}.pkl".format(self.num_epoch),mode="train")
+        self.visualize_one_cm(cm,title="last_epoch_train"+ self.name)
+        with open(self.log_dir+'/log.txt', 'a') as f:
+                    f.write("results_last_epoch_on_train:\n Avg_Accuracy: {}\n max_min_value{}\n cm:{}\n class_accuracy{}".format(avg_accuracy,max_min,cm,accuracy_class))
+        
 if __name__=="__main__":
     torch.manual_seed(100)
 
@@ -321,7 +368,7 @@ if __name__=="__main__":
     config = yaml.safe_load(config_file)
 
     trainer=Trainer(config=config)
-    trainer.run()
+    trainer.run("no_BN")
     
     #trainer.calc_accuracy()
 # %%
