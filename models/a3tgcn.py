@@ -74,12 +74,9 @@ class A3TGCN2_network(nn.Module):
         
         
         h = self.tgnn1(x, self.edge_index) #torch.Size([32, 51, 256]) eliminate temporal dimension
-        h = F.relu(h)
         h=self.dropout(h)
         h = self.linear1(h)#[32, 51, 128]
-        h = F.relu(h)
         h=self.linear3(h)#[32, 51, 1]
-        
         h=h.view(-1,self.num_nodes)#[32, 51]
         h=self.linear4(h)
         h = F.relu(h) 

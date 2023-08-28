@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 from PIL import Image
 import imageio
 from sklearn.metrics import  ConfusionMatrixDisplay
-
+from torcheval.metrics.functional import multiclass_f1_score
 #wandb.login() #just  for first run
 
 
@@ -59,6 +59,13 @@ class Trainer():
         self.kernel_size=config['t_kernel_size']
         self.hidden_size=config['hidden_size']
         self.bn=config['bn']
+        self.gru_layer=config['gru']
+        self.strid=config["strid"]
+        self.class_3=config["class_3"]
+        if self.class_3:
+            self.classes=[0,1,2]
+        else:
+            self.classes=[0,1,2,3,4]
         self.set_device()
         self.load_edges()
         self.load_datasets()
@@ -90,14 +97,16 @@ class Trainer():
                                       idx_path=self.idx_train,
                                       model_name=self.model_name,
                                       num_features= self.num_features,
-                                      num_nodes=self.num_nodes)
+                                      num_nodes=self.num_nodes,
+                                      class_3=self.class_3)
         self.test_dataset=DataLoader(self.data_path,
                                      self.labels_path,
                                      self.edges_path,
                                      idx_path=self.idx_test,
                                      model_name=self.model_name,
                                      num_features= self.num_features,
-                                     num_nodes=self.num_nodes)
+                                     num_nodes=self.num_nodes,
+                                     class_3=self.class_3)
         self.train_loader = torch.utils.data.DataLoader(self.train_dataset, 
                                                    batch_size=self.batch_size, 
                                                    shuffle=True,
@@ -120,7 +129,8 @@ class Trainer():
                                        attention=True,
                                        kernel_size=self.kernel_size,
                                        hidden_size=self.hidden_size,
-                                       bn=self.bn
+                                       bn=self.bn,
+                                       stride=self.strid
                                        )
         elif self.model_name=="a3tgcn":
             self.model=A3TGCN2_network(edge_index=self.edge_index,
@@ -155,7 +165,7 @@ class Trainer():
         
     def train(self):
         avg_loss = 0.0
-        MAE=0.0
+        
         self.model.train()
         tq=tqdm(self.train_loader)
         for i,snapshot in enumerate(tq):
@@ -166,19 +176,17 @@ class Trainer():
             #forward
             y_hat = self.model(x)
             loss=self.loss(y_hat,label.float())
-            MAE_batch=self.MAE(y_hat,label.float())
+            
             #calc gradient and backpropagation
             loss.backward()
             self.optimizer.step()
-            #check gradient, if some tensors has been detached from CG
-            for name, param in self.model.named_parameters():
-               if param.grad==None:
-                   raise RuntimeError(f"Gradient is None {name}" )
+           
             self.optimizer.zero_grad()
-            tq.set_description("train: Loss batch: {},MAE:{}".format(loss,MAE_batch))
+            tq.set_description("train: Loss batch: {}")
             avg_loss += loss
-            MAE += MAE_batch
-        return avg_loss/(i+1),MAE/(i+1)
+        avg_loss = avg_loss / (i+1)    
+        acc,cm,f1,_,_=self.calc_accuracy(mode="train")
+        return avg_loss,acc,f1
     def get_min_max(self,x,min,max):
         m_found=np.min(x)
         ma_found=np.max(x)
@@ -191,7 +199,6 @@ class Trainer():
     def eval(self):
         self.model.eval()
         avg_loss = 0.0
-        MAE=0.0
         tq=tqdm(self.test_loader)
         with torch.no_grad():
             for i,snapshot in enumerate(tq):
@@ -200,15 +207,13 @@ class Trainer():
                 label = label.to(self.device) 
                 y_hat = self.model(x) 
                 loss=self.loss(y_hat,label.float())
-                MAE_batch=self.MAE(y_hat,label.float())
                 avg_loss += loss
                 tq.set_description("Test Loss batch: {}".format(loss))
-                MAE += MAE_batch
         avg_loss = avg_loss / (i+1)
-        MAE=MAE/(i+1)
-        return avg_loss,MAE
+        acc,cm,f1,_,_=self.calc_accuracy(mode="test")
+        return avg_loss,acc,f1
     
-    def calc_accuracy(self,path_model=None,mode="test"):
+    def calc_accuracy(self,path_model=None,mode="test",log=True):
         targests=[]
         predicted=[]
         if path_model!=None:
@@ -218,6 +223,7 @@ class Trainer():
         sample=0
         min_found=100
         max_found=0
+        max_classes=np.max(self.classes)
         if mode=="test":
             tq=tqdm(self.test_loader)
         else:
@@ -229,31 +235,58 @@ class Trainer():
                 y_hat = self.model(x)
                 y_hat=y_hat.cpu().numpy()
                 min_found,max_found=self.get_min_max(y_hat,min_found,max_found)
-                y_hat=[x * 4 for x in y_hat]
+                y_hat=[x * max_classes for x in y_hat]
                 y_hat=np.round(y_hat).tolist()
                 predicted.append(y_hat)
                 label=label.tolist()
-                label=[x * 4 for x in label]
+                label=[x * max_classes for x in label]
                 targests.append(label)
                 for k in range(0,len(label)):
                     sample=sample+1
                     if label[k] == y_hat[k]:
                         count=count+1
         
-        targests=list(chain.from_iterable(targests))#np.array(targests).flatten()
-        predicted=list(chain.from_iterable(predicted)) #np.array(predicted).flatten()
-        cm=confusion_matrix( targests,predicted,labels=[0,1,2,3,4])
-        self.cm.append(cm)
+        targests=list(chain.from_iterable(targests))
+        predicted=list(chain.from_iterable(predicted)) 
+        
+        cm=confusion_matrix( targests,predicted,labels=self.classes)
+        print(len(targests),len(predicted))
+        f1=multiclass_f1_score(torch.tensor(predicted),torch.tensor(targests),num_classes=5)
+        #The precision is the ratio tp / (tp + fp)
+        #The recall is the ratio tp / (tp + fn)
         accuracy_class=100*cm.diagonal()/cm.sum(1)
         
         print("accuracy",count/sample)
         print("max value:",max_found,"min value:",min_found)
         print(cm,accuracy_class)
-        wandb.log({"conf_matrix" : wandb.plot.confusion_matrix( 
-            preds=predicted, y_true=targests,
-            class_names=[0,1,2,3,4])})
-
-        return count/sample,cm,accuracy_class,[max_found,min_found]
+        p,r=self.get_precision_recall(cm)
+        if log:
+            wandb.log({f"conf_matrix_{mode}" : wandb.plot.confusion_matrix( 
+                preds=predicted, y_true=targests,
+                class_names=self.classes)})
+            """
+            wandb.log({f"pr_{mode}" : wandb.plot.pr_curve(targests,predicted,
+                        labels=None, classes_to_plot=None)})
+            """
+            wandb.log({f"f1_{mode}":f1,f"precison_{mode}":p,f"recall_{mode}":r})
+            if mode=="test":
+                self.cm.append(cm)
+        return count/sample,cm,f1,accuracy_class,[max_found,min_found]
+    def get_precision_recall(self,cm):
+        
+        true_pos = np.diag(cm)
+        false_pos = np.sum(cm, axis=0) 
+        false_neg = np.sum(cm, axis=1)
+        precision=np.zeros(cm.shape[0])
+        recall=np.zeros(cm.shape[0])
+        for i in range(0,len(true_pos)):
+            if false_pos[i]!=0:
+                precision[i]=true_pos[i]/false_pos[i]
+            if false_neg[i]!=0:
+                recall[i]=true_pos[i]/false_neg[i]
+        precision = np.mean(precision)
+        recall = np.mean(recall)
+        return precision,recall
     def get_embedding(self,path=None):
         self.model_embed= aagcn_network( graph=self.edge_index ,num_person=1,num_nodes=self.num_nodes,num_subset=self.num_subset, in_channels=self.num_features,drop_out=0.5, adaptive=self.adaptive, attention=True,embed=True)
         if path==None:
@@ -266,14 +299,15 @@ class Trainer():
         predicted_class_all=[]
         embed_all=[]
         tq=tqdm(self.test_loader)
+        max_classes=np.max(self.classes)
         with torch.no_grad():
             for i,snapshot in enumerate(tq):
                 x,label=snapshot
                 x=x.to(self.device)
                 y_hat,embed_vectors = self.model_embed(x)
                 y_hat=y_hat.tolist()
-                label=[x * 4 for x in label]
-                y_hat=[x * 4 for x in y_hat]
+                label=[x * max_classes for x in label]
+                y_hat=[x * max_classes for x in y_hat]
                 y_hat=np.round(y_hat).tolist()
                 bs,t_step,dim_emb=embed_vectors.shape
                 #try with y_hat instead of true predicted
@@ -298,78 +332,87 @@ class Trainer():
         image = Image.frombytes('RGB', fig.canvas.get_width_height(), fig.canvas.tostring_rgb())
         image_wand = wandb.Image(image, caption=title)
         wandb.log({title: image_wand})
-
-    def run(self,name=None):
-        wandb.init(project="New data with centroid velocity",group="upgrade complexity",config=self.config,name=name)
-        
-        wandb.watch(self.model,self.loss,log="all",log_freq=1,log_graph=True)
-        self.set_log_dir(name)
-
-        previous_best_avg_test_acc = 0.0
-        #previous_best_avg_loss=1000000
+    def log_parameters(self):
         with open(os.path.join(self.log_dir, 'log.txt'), 'a') as f:
             str_par=""
-            for i in config.keys():
+            for i in self.config.keys():
                 str_par+=i +" : "+ str(config[i])+"\n"
                 
             f.write(" Parametrs:\n {}".format(str_par))
-            
-        for epoch in range(self.num_epoch):
-            avg_train_loss,MAE_train=self.train()
-        
-            if ((epoch+1)%5==0):
-                torch.save(self.model.state_dict(), os.path.join(self.log_dir, "ckpt_%d.pkl" % (epoch + 1)))
-                print('Saved new checkpoint  ckpt_{epoch}.pkl , avr loss {l}'.format( epoch=epoch+1, l=avg_train_loss))
-          
-            avg_test_loss,MAE_test= self.eval()
-            avg_accuracy,_,_,_=self.calc_accuracy()
-           
-            result="Epoch {}, Train_loss: {} ,eval loss: {} ,eval_accuracy:{},lr:{} \n".format(epoch + 1,avg_train_loss,avg_test_loss,avg_accuracy,self.optimizer.param_groups[0]['lr'])
-            with open(os.path.join(self.log_dir, 'log.txt'), 'a') as f:
-                f.write(result)
+    def log_results(self,epoch,avg_train_loss,avg_test_loss,avg_test_acc,avg_train_acc):
+        lr=self.optimizer.param_groups[0]['lr']
+        result="Epoch {}, Train_loss: {} ,eval loss: {} ,eval_accuracy:{},train_accuracy{},lr:{} \n".format(epoch +1,avg_train_loss,avg_test_loss,avg_test_acc,avg_train_acc,lr)
+        with open(os.path.join(self.log_dir, 'log.txt'), 'a') as f:
+            f.write(result)
             print(result)
-            wandb.log({"epoche": epoch, "train_loss":avg_train_loss,"test_loss":avg_test_loss,"test_accuracy":avg_accuracy})
+        if ((epoch+1)%5==0):
+                torch.save(self.model.state_dict(), os.path.join(self.log_dir, "ckpt_%d.pkl" % (epoch +1)))
+                print('Saved new checkpoint  ckpt_{epoch_}.pkl'.format(epoch_=epoch+1))
 
         
-            if avg_accuracy > previous_best_avg_test_acc:
-                with open(self.log_dir+'/log.txt', 'a') as f:
-                    f.write("saved_a new best_model\n ")
-                torch.save(self.model.state_dict(),self.log_dir+"/best_model.pkl")
-                print('Best model in {dir}/best_model.pkl'.format(dir=self.log_dir))
-                previous_best_avg_test_acc=avg_accuracy
-            self.scheduler.step()
-        
-        np.save(self.log_dir+"/cm.npy",self.cm)    
-        avg_accuracy,cm,accuracy_class,max_min= self.calc_accuracy(self.log_dir+"/best_model.pkl")
+        wandb.log({"epoche": epoch, "train_loss":avg_train_loss,"test_loss":avg_test_loss,"train_accuracy":avg_train_acc,"test_accuracy":avg_test_acc,"lr":lr})
+
+    def log_final_cm(self):
+        avg_accuracy,cm,accuracy_class,max_min= self.calc_accuracy(self.log_dir+"/best_model.pkl",log=False)
         self.visualize_one_cm(cm,title="best_model"+self.name)
         
         with open(self.log_dir+'/log.txt', 'a') as f:
                     f.write("results_best_model:\n Avg_Accuracy: {}\n max_min_value{}\n cm:{}\n class_accuracy{}".format(avg_accuracy,max_min,cm,accuracy_class))
-        avg_accuracy,cm,accuracy_class,max_min= self.calc_accuracy(self.log_dir+"/ckpt_{}.pkl".format(self.num_epoch))
+        avg_accuracy,cm,accuracy_class,max_min= self.calc_accuracy(self.log_dir+"/ckpt_{}.pkl".format(self.num_epoch),log=False)
         self.visualize_one_cm(cm,title="last_epoch"+self.name)
         
         with open(self.log_dir+'/log.txt', 'a') as f:
                     f.write("results_last_epoche:\n Avg_Accuracy: {}\n max_min_value{}\n cm:{}\n class_accuracy{}".format(avg_accuracy,max_min,cm,accuracy_class))
         
-        avg_accuracy,cm,accuracy_class,max_min= self.calc_accuracy(self.log_dir+"/ckpt_{}.pkl".format(self.num_epoch),mode="train")
+        avg_accuracy,cm,accuracy_class,max_min= self.calc_accuracy(self.log_dir+"/ckpt_{}.pkl".format(self.num_epoch),mode="train",log=False)
         self.visualize_one_cm(cm,title="last_epoch_train"+ self.name)
         with open(self.log_dir+'/log.txt', 'a') as f:
                     f.write("results_last_epoch_on_train:\n Avg_Accuracy: {}\n max_min_value{}\n cm:{}\n class_accuracy{}".format(avg_accuracy,max_min,cm,accuracy_class))
+    def save_best_model(self,prev_acc,acc):
+        if acc > prev_acc:
+            with open(self.log_dir+'/log.txt', 'a') as f:
+                f.write("saved_a new best_model\n ")
+            torch.save(self.model.state_dict(),self.log_dir+"/best_model.pkl")
+            print('Best model in {dir}/best_model.pkl'.format(dir=self.log_dir))
+            prev_acc=acc
+        return prev_acc
+         
+    def run(self,name=None):
+        wandb.init(project="New data with centroid velocity",config=self.config,name=name)
+        wandb.watch(self.model,self.loss,log="all",log_freq=1,log_graph=True)
+        self.set_log_dir(name)
+        self.log_parameters()
+        prev_best_acc = 0.0
+        for epoch in range(self.num_epoch):
+            avg_train_loss,avg_train_acc,f1_train=self.train()
+            avg_test_loss,avg_test_acc,f1_test= self.eval()
+            self.log_results(epoch,avg_train_loss,avg_test_loss,avg_test_acc,avg_train_acc)
+            prev_best_acc=self.save_best_model(prev_best_acc,f1_test)
+            
+            """
+            if avg_test_acc > previous_best_avg_test_acc:
+                with open(self.log_dir+'/log.txt', 'a') as f:
+                    f.write("saved_a new best_model\n ")
+                torch.save(self.model.state_dict(),self.log_dir+"/best_model.pkl")
+                print('Best model in {dir}/best_model.pkl'.format(dir=self.log_dir))
+                previous_best_avg_test_acc=avg_test_acc
+            """
+            self.scheduler.step()
+        
+        np.save(self.log_dir+"/cm.npy",self.cm) 
+        self.log_final_cm()
+
         
 if __name__=="__main__":
     torch.manual_seed(100)
 
     name_exp="open_face"
-    #name_exp = 'mediapipe'
-    #name_exp = 'dlib'
-    #name_exp = 'minidata'
     parent_folder="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
     config_file=open(parent_folder+"/config/"+name_exp+".yml", 'r')
     config = yaml.safe_load(config_file)
 
     trainer=Trainer(config=config)
-    trainer.run("no_BN")
-    
+    trainer.run("1s+7k")
     #trainer.calc_accuracy()
 # %%
 

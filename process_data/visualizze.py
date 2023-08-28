@@ -7,13 +7,15 @@ import yaml
 from PIL import Image
 import imageio
 import sys
+from scipy.spatial import Delaunay
+import torch
 
 parent_folder= "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
 sys.path.append(parent_folder)
 
 from dataloader import DataLoader
 import wandb
-
+#%%
 
 #from dataloader import DataLoader
 
@@ -133,18 +135,38 @@ idx_test=parent_folder+config['idx_test']
 TS=config['TS']
 train_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_train,reshape_data=False,expand_dim=False,normalize_labels=False)
 #test_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_test,mode="test")
-data=np.zeros((20,137,52,6))
+data=np.zeros((20,137,43,6))
 labels=[]
 edges=np.load(edges_path)
 for i,sample in enumerate(train_dataset):
-    data[i]=sample[0]
+    data[i]=np.concatenate((sample[0][:,:10,:],sample[0][:,19:]),axis=1)
+    
     labels.append(sample[1])
 print(data.shape,len(labels))
 
 #%%
 #visualize_landmarks(data,labels,edges,time_steps=2,vis_index=False,vis_edges=True)
 # %%
-#visualize_sample(data[0],labels[0],edges,time_steps=1,vis_index=True,vis_edges=True)
+def get_edges(landmarks):
+    tri = Delaunay(landmarks[:,:2])
+    edges = []
+    for simplex in tri.simplices:
+        for i in range(3):
+            edges.append((simplex[i], simplex[(i+1)%3]))
+    edges_index=[[],[]]
+    for e in edges:
+        edges_index[0].append(e[0])
+        edges_index[1].append(e[1])
+    edges_index=torch.LongTensor(edges_index)
+    
+    print("number of index before adding symmetric edges:",edges_index.shape)
+    print(len(edges_index[0]))
+    
+    print("number of index after adding symmetric edges:",edges_index.shape)
+    np.save("FAL_edges.npy",edges_index)
+    return edges_index
+edges=get_edges(data[0][0,:,:2],)
+visualize_sample(data[0],labels[0],edges,time_steps=1,vis_index=True,vis_edges=True)
 # %%
 
 wandb.init()

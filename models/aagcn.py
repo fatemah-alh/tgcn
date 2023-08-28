@@ -16,7 +16,7 @@ from torch.autograd import Variable
 from torch_geometric.utils.to_dense_adj import to_dense_adj
 from torch_geometric.utils import add_self_loops,to_undirected
 import torch.nn.functional as F
-from torch.nn import GRU
+from torch.nn import GRU,Linear
 from torch_geometric_temporal.nn.recurrent import A3TGCN2
 def conv_branch_init(conv, branches):
     weight = conv.weight
@@ -426,7 +426,20 @@ class AAGCN(nn.Module):
         return y
     
 class aagcn_network(nn.Module):
-    def __init__(self, num_person=1, graph=None,num_nodes=51, in_channels=4,drop_out=0.2, adaptive=False, attention=True,num_subset=3,embed=False,kernel_size=13,hidden_size=1,bn=True):
+    def __init__(self, num_person=1, 
+                 graph=None,
+                 num_nodes=51, 
+                 in_channels=4,
+                 drop_out=0.5, 
+                 adaptive=False, 
+                 attention=True,
+                 num_subset=3,
+                 embed=False,
+                 kernel_size=9,
+                 hidden_size=1,
+                 gru_layer=2,
+                 bn=True,
+                 stride=1):
         super(aagcn_network, self).__init__()
         #graph:edges_index
         if graph is None:
@@ -438,15 +451,21 @@ class aagcn_network(nn.Module):
         #self.l2 = AAGCN(64, 64, graph,num_subset=num_subset, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
         #self.l3 = AAGCN(64, 64, graph,num_subset=num_subset, num_nodes=num_nodes, stride=3,adaptive=adaptive, attention=attention)
         #self.l4 = AAGCN(64, 64, graph,num_subset=num_subset, num_nodes=num_nodes, adaptive=adaptive, attention=attention)
-        self.l5 = AAGCN(64, 128, graph,num_subset=num_subset, num_nodes=num_nodes,stride=3, adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn)
-        self.l6 = AAGCN(128,128, graph,num_subset=num_subset, num_nodes=num_nodes,stride=3,adaptive=adaptive, attention=attention,kernel_size=7,bn=bn)
+        self.l5 = AAGCN(64, 128, graph,num_subset=num_subset, num_nodes=num_nodes,stride=stride, adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn)
+        self.l6 = AAGCN(128,128, graph,num_subset=num_subset, num_nodes=num_nodes,stride=stride,adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn)
+        
         #self.l7 = AAGCN(128, 64, graph,num_subset=num_subset, num_nodes=num_nodes,adaptive=adaptive, attention=attention,kernel_size=3)
         #self.l8 = AAGCN(128, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=3, adaptive=adaptive, attention=attention)
         #self.l9 = AAGCN(256, 256, graph,num_subset=num_subset, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
         #self.l10 = AAGCN(256, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=2,adaptive=adaptive, attention=attention)
         #self.tgnn1 = A3TGCN2(in_channels=256,out_channels=64,periods=16,batch_size=32)
         #self.linear=torch.nn.Linear(64, 1)
-        self.gru=GRU(input_size=64*num_nodes, hidden_size=hidden_size,num_layers=2,batch_first=True)
+       # self.conv=UnitTCN(128,64, kernel_size=1, stride=1)
+        #self.fc=Linear(in_features=128*num_nodes,out_features= 1024*3)#
+        #self.fc2=Linear(in_features=128*num_nodes,out_features= 1024)
+        self.gru=GRU(input_size=128*num_nodes, hidden_size=hidden_size,num_layers=gru_layer,batch_first=True)
+        #nn.init.kaiming_normal_(self.fc.weight)
+       # nn.init.constant_(self.fc.bias, 0)
         bn_init(self.data_bn, 1)
         if drop_out:
             self.drop_out = nn.Dropout(drop_out)
@@ -460,15 +479,12 @@ class aagcn_network(nn.Module):
         x = x.view(N, M, V, C, T).permute(0, 1, 3, 4, 2).contiguous().view(N * M, C, T, V) #[32, 4, 137, 51])
         #print(x.shape)
         x = self.l1(x)#torch.Size([32, 64, 137, 51])
-        #print(x.shape)
+       
        # x = self.l2(x)
         #x = self.l3(x)
        # x = self.l4(x)
         x = self.l5(x)#([32, 128, 48, 51])
-        
-        #print(x.shape)
         x = self.l6(x)
-        #print(x.shape)
        # x = self.l7(x)
         #x = self.l8(x)#([32, 256, 35, 51])# [32, 128, 16, 51]) to [B,51,256,16]
         
@@ -483,7 +499,9 @@ class aagcn_network(nn.Module):
        # print(x.shape)
        
         """
-        
+       # print(x.shape)
+        #x=self.conv(x)
+        #print(x.shape)
         t_new=x.size(2)
         c_new=x.size(1)
         x=x.permute(0, 2, 1, 3).contiguous().view(N,t_new,c_new,V) #(32,35,128,51)
@@ -492,6 +510,9 @@ class aagcn_network(nn.Module):
         embed_vectors=x
         
         x = self.drop_out(x)
+       # print(x.shape)
+       # x=self.fc(x.view(N*t_new,-1))
+        #x=x.view(N,t_new,-1)
         x,h=self.gru(x) #([batch_size:32, sequence_lenths:16, 1])
         x=F.relu(x)
         #print(x.shape,h.shape)
