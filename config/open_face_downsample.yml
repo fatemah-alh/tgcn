@@ -8,14 +8,14 @@ landmarks_path : "data/PartA/3dlandmarks/"
 csv_file: "data/PartA/samples.csv"
 labels_path: "data/PartA/lables.npy"
 
-data_path: "data/PartA/openFace/dataset_openFace_new.npy" 
+data_path: "data/PartA/openFace/dataset_openFace_down_sample.npy" 
 idx_train: "data/PartA/idx_train_filterd.npy" 
 #idx_train_all_subject
 #idx_train_filterd_low_react
 #idx_train_filterd
 idx_test: "data/PartA/idx_test_filterd.npy"
 
-edges_path: "data/PartA/openFace/edge_openFace.npy"
+edges_path: "data/PartA/down_sample_edges.npy"
 filter_idx_90: "data/PartA/idx_low_confidance_90.npy"
 filter_idx_80: "data/PartA/idx_low_confidance_80.npy"
 
@@ -29,22 +29,21 @@ num_epoch: 500
 batch_size: 64
 continue_training: False   #If set True will continue training from pretrained model
 pretrain_model: "None" #"08-05-17:36" # #"08-03-12:18"       #Name of folder that contains the model resume training
-gpu: 0
+gpu: 1
 
 ###Model parameters###
 model_name: "aagcn" # "a3tgcn" # # #
 embed_dim: 128
 num_subset: 2
 num_features: 6
-t_kernel_size: 7
+t_kernel_size: 15
 hidden_size: 1
 gru: 2
-augmentaion: True
-
+augmentaion: False
 bn: True
-strid: 3
+strid: 1
 TS: 137
-n_joints: 51
+n_joints: 22
 adaptive: False
 lr: 0.01
 LOG_DIR: "log/"

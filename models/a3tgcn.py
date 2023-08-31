@@ -49,7 +49,7 @@ class TemporalGNN(torch.nn.Module):
 """
 
 class A3TGCN2_network(nn.Module):
-    def __init__(self,edge_index, node_features=4,output_features=1,num_nodes=51, periods=137,batch_size=32):
+    def __init__(self,edge_index, node_features=6,output_features=1,num_nodes=51, periods=137,batch_size=32):
         super(A3TGCN2_network, self).__init__()
         self.node_features = node_features
        
@@ -58,11 +58,12 @@ class A3TGCN2_network(nn.Module):
         self.num_nodes=num_nodes
         self.batch_size=batch_size
         self.edge_index=edge_index
+        self.data_bn = nn.BatchNorm1d(self.node_features * num_nodes)#
         self.tgnn1 = A3TGCN2(in_channels=self.node_features,out_channels=256,periods=self.periods,batch_size=self.batch_size)
-        self.dropout = torch.nn.Dropout(0.5)
-        self.linear1= torch.nn.Linear(256, 128)
-        self.linear3=torch.nn.Linear(128, 1)#
-        self.linear4=torch.nn.Linear(self.num_nodes, 1)# batch [32, 51] [32,1]
+       # self.dropout = torch.nn.Dropout(0.5)
+        self.l=torch.nn.Linear(256, 64)#
+        self.l1=torch.nn.Linear(64*self.num_nodes, 1)# batch [32, 51] [32,1]
+        self.sigmoid = nn.Sigmoid()
         
 
 
@@ -71,15 +72,20 @@ class A3TGCN2_network(nn.Module):
         x = Node features for T time steps [B,51,4,137]
         edge_index = Graph edge indices [2,num_edges]
         """
-        
-        
-        h = self.tgnn1(x, self.edge_index) #torch.Size([32, 51, 256]) eliminate temporal dimension
-        h=self.dropout(h)
-        h = self.linear1(h)#[32, 51, 128]
-        h=self.linear3(h)#[32, 51, 1]
-        h=h.view(-1,self.num_nodes)#[32, 51]
-        h=self.linear4(h)
-        h = F.relu(h) 
+       
+        N, V, C, T = x.size()
+        x = x.view(N, V * C, T)
+        #print(x.shape)
+        x = self.data_bn(x)
+        x = x.view(N,V,C,T)
+        h = self.tgnn1(x, self.edge_index) #torch.Size([32, 51, 64) eliminate temporal dimension
+        #h=self.dropout(h)
+        h=self.l(h)
+        h=h.view(N,-1)
+      
+        h = self.sigmoid(self.l1(h))#[32, 51, 128]
+       
+        #h=h.view(-1,self.num_nodes)#[32, 51]
         h=h.view(-1)
        
         

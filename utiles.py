@@ -211,21 +211,6 @@ def angle_between(v1, v2):
     dot_prod = np.dot(unit_v1, unit_v2)
     return np.arccos(np.clip(dot_prod, -1.0, 1.0))
 
-def rotation_matrix_2d(theta):
-    '''
-    Function to get the 2D rotation matrix for a given angle theta (in radians).
-
-    Parameters
-    ----------
-    theta : Float
-        Angle in radians
-
-    Returns
-    -------
-    Array
-        The 2D rotation matrix for the given angle theta
-    '''
-    return np.array([[math.cos(theta), math.sin(theta)], [-math.sin(theta), math.cos(theta)]])
 
 def get_mini_dataset(path="/home/falhamdoosh/tgcn/data/PartA/minidata/"):
 

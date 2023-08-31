@@ -1,22 +1,15 @@
-
+#%%
 import numpy as np
 from tqdm import tqdm
 import torch
 import yaml
-
-def frobenius_norm(arr):
-        """
-        frame: array
-        """
-        norm=np.linalg.norm(arr,ord= 'fro')
-       # print(norm,np.min(arr),np.max(arr))
-        if norm!=0:
-            arr/norm
-       # print(norm,np.min(arr),np.max(arr))
-        return arr
+import random
+from utiles import rotation_matrix_2d
+import math
+from torchvision.transforms import RandomChoice,RandomApply,Compose
 
 class DataLoader(torch.utils.data.Dataset):
-    def __init__(self, data_path,labels_path,edges_index_path,data_shape=[(0, 3, 1, 2),(8700, 6,137,51)],normalize_labels=True,idx_path=None,reshape_data=True,expand_dim=True,model_name="aagcn",num_features=6,num_nodes=51,class_3=False):
+    def __init__(self, data_path,labels_path,edges_index_path,data_shape=[(0, 3, 1, 2),(8700, 6,137,51)],normalize_labels=True,idx_path=None,reshape_data=True,expand_dim=True,model_name="aagcn",num_features=6,num_nodes=51,class_3=False,transform=None):
         super(DataLoader, self).__init__()
 
         self.data_path = data_path
@@ -30,6 +23,7 @@ class DataLoader(torch.utils.data.Dataset):
         self.num_features=num_features
         self.num_nodes=num_nodes
         self.class_3=class_3
+        self.transform = transform
         if self.model_name=="a3tgcn":
             self.data_shape=[(0, 2, 3, 1),(8700,num_nodes,num_features,137)]
             self.expand_dim=False
@@ -50,8 +44,9 @@ class DataLoader(torch.utils.data.Dataset):
             #self.X=np.concatenate( (self.X[:,:,:,:2],self.X[:,:,:,3:5]),axis=3)
         elif self.num_features==2:
             self.X=self.X[:,:,:,:2]
+        #self.preprocess()
         self._reshape_data()
-        print("Contains Nan values",np.isnan(self.features).any())
+        print("Contains Nan values",np.isnan(np.array(self.features)).any())
         self.labels=np.load(self.labels_path)#0,..,4
         #Normalize label between 0,1.
         if self.class_3:
@@ -78,7 +73,16 @@ class DataLoader(torch.utils.data.Dataset):
             self.features=self.X
         if self.expand_dim:
             self.features=np.expand_dims(self.features,axis=-1)#unsqueeze, view
-        
+    def preprocess(self):
+        for i in range(0,self.X.shape[0]):
+            for j in range(0,self.X.shape[1]):
+                x_std=np.std(self.X[i,j,:,0]) 
+                y_std=np.std(self.X[i,j,:,1])
+                if x_std!=0:
+                    self.X[i,j,:,0]=self.X[i,j,:,0]/x_std
+                if y_std!=0:
+                    self.X[i,j,:,1]=self.X[i,j,:,1]/y_std
+
     def __len__(self):
         return self.features.shape[0]
     def get_shapes(self):
@@ -93,6 +97,8 @@ class DataLoader(torch.utils.data.Dataset):
 
         x = self.features[index]
         y=self.labels[index]
+        if self.transform:
+            x,y=self.transform((x,y))
         return x, y
     
     def split_data(self):
@@ -105,6 +111,7 @@ class DataLoader(torch.utils.data.Dataset):
             idx=np.array(idx,dtype=np.int32)
         self.features=self.features[idx]
         self.labels=self.labels[idx]
+    
 
     def three_classes(self):
         indices_1 = np.where(self.labels==1)[0]
@@ -133,9 +140,39 @@ class DataLoader(torch.utils.data.Dataset):
         print("number of samples with 4 class ",len(indices_4))
     
 
+class Rotate(object):
+    """
+    Rotate sample of N frame of 2d points
+    """
 
+    def __init__(self, angles=[-5,5,-10,10,-15,15]):
+        self.angles=angles
+
+    def __call__(self, sample):
+        x,y = sample
         
-   
+        C,T,V,M=x.shape
+        angle=random.choice(self.angles)
+        angle = math.radians(angle)
+        Rotation=rotation_matrix_2d(angle)
+        for i in range(0,T):
+            landmarks= torch.tensor(x[:2,i,:,0])
+            landmarks=landmarks.permute(1,0).contiguous().view(V,-1) 
+            rotated_l=np.dot(landmarks,Rotation.T)
+            x[:2,i,:,0]=rotated_l.reshape((2,V))
+        
+        #print("rotate:",angle)
+        return x,y
+        
+class FlipV(object):
+    """
+    Flip landmarks with respect to vertical axis
+    """
+    def __call__(self, sample):
+        x,y = sample
+        x[:,:,0]=-x[:,:,0]
+       # print("Flip")
+        return x,y
 if __name__=="__main__":
     name_exp="open_face"
    
@@ -153,11 +190,15 @@ if __name__=="__main__":
     num_features=config['num_features']
     num_nodes=config['n_joints'] 
     class_3=config['class_3']
+    transform=RandomApply([RandomChoice([Rotate(),FlipV(),Compose([FlipV(),Rotate()])])],p=0.5)
     #loader=DataLoader(data_path,labels_path,edges_path,num_features= num_features,num_nodes=num_nodes)
-    train_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_train,num_features= num_features,num_nodes=num_nodes,class_3= class_3)
+    train_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_train,num_features= num_features,num_nodes=num_nodes,class_3= class_3,transform=transform)
     test_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_test,num_features= num_features,num_nodes=num_nodes,class_3= class_3)
-    
-    for sample in train_dataset:
+    train_loader = torch.utils.data.DataLoader(train_dataset, 
+                                                   batch_size=batch_size, 
+                                                   shuffle=True,
+                                                   drop_last=True)
+    for sample in train_loader:
         x,y=sample
-       #print (x,x.shape,np.max(x))
-        break
+       
+        print(y)

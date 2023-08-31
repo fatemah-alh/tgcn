@@ -16,7 +16,7 @@ from torch.autograd import Variable
 from torch_geometric.utils.to_dense_adj import to_dense_adj
 from torch_geometric.utils import add_self_loops,to_undirected
 import torch.nn.functional as F
-from torch.nn import GRU,Linear
+from torch.nn import GRU,Linear,LSTM
 from torch_geometric_temporal.nn.recurrent import A3TGCN2
 def conv_branch_init(conv, branches):
     weight = conv.weight
@@ -464,6 +464,7 @@ class aagcn_network(nn.Module):
         #self.fc=Linear(in_features=128*num_nodes,out_features= 1024*3)#
         #self.fc2=Linear(in_features=128*num_nodes,out_features= 1024)
         self.gru=GRU(input_size=128*num_nodes, hidden_size=hidden_size,num_layers=gru_layer,batch_first=True)
+        #self.lstm=LSTM(input_size=128*num_nodes, hidden_size=hidden_size,num_layers=gru_layer,batch_first=True)
         #nn.init.kaiming_normal_(self.fc.weight)
        # nn.init.constant_(self.fc.bias, 0)
         bn_init(self.data_bn, 1)

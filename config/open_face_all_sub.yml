@@ -9,11 +9,11 @@ csv_file: "data/PartA/samples.csv"
 labels_path: "data/PartA/lables.npy"
 
 data_path: "data/PartA/openFace/dataset_openFace_new.npy" 
-idx_train: "data/PartA/idx_train_filterd.npy" 
+idx_train: "data/PartA/idx_train_all_subject.npy" 
 #idx_train_all_subject
 #idx_train_filterd_low_react
 #idx_train_filterd
-idx_test: "data/PartA/idx_test_filterd.npy"
+idx_test: "data/PartA/idx_test_all_subject.npy"
 
 edges_path: "data/PartA/openFace/edge_openFace.npy"
 filter_idx_90: "data/PartA/idx_low_confidance_90.npy"
@@ -32,14 +32,13 @@ pretrain_model: "None" #"08-05-17:36" # #"08-03-12:18"       #Name of folder tha
 gpu: 0
 
 ###Model parameters###
-model_name: "aagcn" # "a3tgcn" # # #
+model_name: "aagcn" #"a3tgcn" #
 embed_dim: 128
 num_subset: 2
 num_features: 6
 t_kernel_size: 7
 hidden_size: 1
 gru: 2
-augmentaion: True
 
 bn: True
 strid: 3

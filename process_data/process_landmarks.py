@@ -180,6 +180,18 @@ def get_edges(landmarks,edges_path):
 def delete_contour(sample):
     sample=sample[:,17:,:]
     return sample
+def downsample_nodes(sample):
+    sample=np.concatenate( (sample[:,:11,:],sample[:,19:,:]),axis=1)
+    sample=sample[:,::2,:]
+    return sample
+def keep_eyes(sample):
+    sample=sample[:,:31,:]
+    sample=np.concatenate( (sample[:,:11,:],sample[:,19:,:]),axis=1)
+    return sample
+def keep_mouth(sample):
+    sample=sample[:,31:,:]
+    return sample
+
 def frobenius_norm(arr):
     """
     frame: array
@@ -245,27 +257,39 @@ def calc_velocity(sample):
        #velcetiy.append(sample[i]-sample[i-1])
     return velcetiy  
 
-def process_all_data_new(landmarks_folder:str,filesnames:list,normalized_data:np.array,path_save:str):
+def process_all_data_new(landmarks_folder:str,filesnames:list,normalized_data:np.array,path_save:str,down_sample=False):
     for i in tqdm(range (0,len(filesnames))):
         path=landmarks_folder+filesnames[i]+"/"+filesnames[i].split("/")[1]+".npy"
         sample=np.load(path) #[138,68,3] 
         sample=delete_contour(sample)
         sample=flip_y_coordiante(sample)
+        if down_sample:
+            sample=downsample_nodes(sample)
+            #sample=keep_eyes(sample)
+            #sample=keep_mouth(sample)
         velocity=calc_velocity(sample[:,:,:2])
         sample_centroids=np.zeros((sample.shape[0],sample.shape[1],2))
         processed_sample=np.zeros((sample.shape[0],sample.shape[1],2))
         for j in range(len(sample)):
             frame=sample[j]
             frame,centroid=center_coordinate(frame)
+            sample_centroids[j]= np.full((frame.shape[0],2),centroid[:2])
+            
             R_matrix=get_rotation_matrix(frame)
             frame=np.matmul( R_matrix, frame.T ).T
-            sample_centroids[j]= np.full((frame.shape[0],2),centroid[:2])
             processed_sample[j]=frobenius_norm(frame[:,:2])
+            """
+            
+            x_std=np.std(processed_sample[j,:,0])
+            y_std=np.std(processed_sample[j,:,1])
+            if x_std!=0:
+                processed_sample[j,:,0]=processed_sample[j,:,0]/x_std
+            if y_std!=0:
+                processed_sample[j,:,1]=processed_sample[j,:,1]/y_std
+            """
             
         centroid_velocity=calc_velocity(sample_centroids) 
-        #print(np.max(centroid_velocity),np.min(centroid_velocity),  np.max(velocity),np.min(velocity),np.max(processed_sample),np.min(processed_sample))
-         # delete Z coordinate. 
-        
+        #print(np.max(centroid_velocity),np.min(centroid_velocity),  np.max(velocity),np.min(velocity),np.max(processed_sample),np.min(processed_sample)) 
         data=np.concatenate((processed_sample[:-1,:,:], velocity,centroid_velocity), axis=2)   
         normalized_data[i]= data
     print(normalized_data[:,:,:,0].shape,
@@ -323,11 +347,11 @@ def split_all_partecipant(csv_file):
     np.save("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/idx_test_all_subject.npy",filter_test)
 
 
-name_exp = 'open_face'
-    
-config_file=open(parent_folder+"config/"+name_exp+".yml", 'r')
+
+name_file = 'open_face_dowansample' 
+config_file=open(parent_folder+"config/"+name_file+".yml", 'r')
 path_vis=parent_folder+"/data/PartA/vis/" # path to save gif of visualizzation
-name_file = 'open_face' # name of conficuration file.
+# name of conficuration file.
 
 config = yaml.safe_load(config_file)
 labels_path=parent_folder+config['labels_path']
@@ -351,12 +375,22 @@ if name_file=="mediapipe":
 if name_file=="open_face":
     normalized_data = np.zeros((8700, 137, 51, 6), dtype=np.float32)
 
+if name_file=="open_face_dowansample":
+    normalized_data = np.zeros((8700, 137, 22, 6), dtype=np.float32)
+
+if name_file=="open_face_eyes":
+    normalized_data = np.zeros((8700, 137, 23, 6), dtype=np.float32)
+
+if name_file=="open_face_mouth":
+    normalized_data = np.zeros((8700, 137, 20, 6), dtype=np.float32)
+
 
 #%%   #Create the the dataset file with process
-
+data_path
 #%%
-#normalized_data=process_all_data_new(landmarks_path,filesnames,normalized_data,data_path)
+normalized_data=process_all_data_new(landmarks_path,filesnames,normalized_data,data_path,down_sample=True)
 for i in range(0,6):
+    print(normalized_data.shape)
     print(np.max(normalized_data[:,:,:,i]),np.min(normalized_data[:,:,:,i]),np.mean(normalized_data[:,:,:,i]))
 #%%   
 #labels=save_labels(csv_file,labels_path)
@@ -392,12 +426,12 @@ idx_test_=np.load(idx_test)
 #%%
 data.shape
 #%%
-labels=np.load(labels_path)
+""" 
 
+labels=np.load(labels_path)
 idx_0=np.where(labels==0)[0]
 idx_0=list((set(idx_test_) | set(idx_train_)) & set(idx_0))
 idx_4=np.where(labels==4)[0]
-
 idx_4=list((set(idx_test_) | set(idx_train_)) & set(idx_4))
 idx_3=np.where(labels==3)[0]
 idx_3=list((set(idx_test_) | set(idx_train_)) & set(idx_3))
@@ -405,9 +439,8 @@ idx_2=np.where(labels==2)[0]
 idx_2=list((set(idx_test_) | set(idx_train_)) & set(idx_2))
 idx_1=np.where(labels==1)[0]
 idx_1=list((set(idx_test_) | set(idx_train_))& set(idx_1))
+"""
 
-#%%
-len(idx_1)
 #%%
 
 def plot_single_feature(data,title):
@@ -420,6 +453,24 @@ def plot_all(data):
     plot_single_feature(data[idx_train_,:,:,2],title="Histogram of x  velocity in train ")
     plot_single_feature(data[idx_train_,:,:,3],title="Histogram of y  velocity in train")
 
-plot_all(data)
+#plot_all(data)
 
 # %%
+
+#Select most variable nodes. 
+data=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/openFace/dataset_openFace_raw.npy")
+idx_train_=np.load(idx_train) #without_low_react
+idx_test_=np.load(idx_test)
+#%%
+idx=np.concatenate((idx_test_,idx_train_))
+print(idx.shape)
+data_filtred=data[idx]
+#%%
+stds=np.std(data_filtred[:,:,:,:2],axis=2)
+
+
+# %%
+stds.shape
+# %%
+#Process dati to have down_sampled_data.
+#%%

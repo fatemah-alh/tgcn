@@ -15,9 +15,7 @@ sys.path.append(parent_folder)
 
 from dataloader import DataLoader
 import wandb
-#%%
-
-#from dataloader import DataLoader
+from utiles import rotation_matrix_2d
 
 def visualize_landmarks(data,label_data,edges=[],time_steps=137,vis_edges=False,vis="2d",vis_index=False,save=False,path_vis=None):
     """
@@ -78,6 +76,7 @@ def visualize_sample(data,label_data,edges=[],time_steps=137,vis_edges=False,vis
             ax = fig.add_subplot(projection='3d')
         # Flatten the axes array
         fram=data[time_step,:,:]
+        print(fram.shape)
         ax.set_title(f"VAS level: {label_data}")
         if vis_index:
             for index in range(len(fram)):
@@ -135,37 +134,34 @@ idx_test=parent_folder+config['idx_test']
 TS=config['TS']
 train_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_train,reshape_data=False,expand_dim=False,normalize_labels=False)
 #test_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_test,mode="test")
-data=np.zeros((20,137,43,6))
+#%%
+data=np.zeros((20,137,51,6))
 labels=[]
-edges=np.load(edges_path)
+
 for i,sample in enumerate(train_dataset):
-    data[i]=np.concatenate((sample[0][:,:10,:],sample[0][:,19:]),axis=1)
-    
+    data[i]=sample[0]
     labels.append(sample[1])
 print(data.shape,len(labels))
 
 #%%
 #visualize_landmarks(data,labels,edges,time_steps=2,vis_index=False,vis_edges=True)
-# %%
-def get_edges(landmarks):
-    tri = Delaunay(landmarks[:,:2])
-    edges = []
-    for simplex in tri.simplices:
-        for i in range(3):
-            edges.append((simplex[i], simplex[(i+1)%3]))
-    edges_index=[[],[]]
-    for e in edges:
-        edges_index[0].append(e[0])
-        edges_index[1].append(e[1])
-    edges_index=torch.LongTensor(edges_index)
-    
-    print("number of index before adding symmetric edges:",edges_index.shape)
-    print(len(edges_index[0]))
-    
-    print("number of index after adding symmetric edges:",edges_index.shape)
-    np.save("FAL_edges.npy",edges_index)
-    return edges_index
-edges=get_edges(data[0][0,:,:2],)
+
+#%%
+import math
+sample=data[0,0,:,:2]
+print(sample.shape)
+angle=+25
+angle = math.radians(angle)
+Rotation=rotation_matrix_2d(angle)
+rotated=np.dot(sample,Rotation.T)
+print(rotated.shape)
+#%%
+edges=np.load(edges_path)
+#%%
+data[0,0,:,:2]=rotated
+#%%
+data[0,0,:,0]=-data[0,0,:,0]
+#%%
 visualize_sample(data[0],labels[0],edges,time_steps=1,vis_index=True,vis_edges=True)
 # %%
 
