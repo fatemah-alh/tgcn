@@ -94,11 +94,14 @@ class DataLoader(torch.utils.data.Dataset):
         return self.features.shape
 
     def __getitem__(self, index):
-
+        #C,T,V,M
         x = self.features[index]
         y=self.labels[index]
+        #x=x[:,::2,:,:]
+        #print(x.shape)
         if self.transform:
             x,y=self.transform((x,y))
+        
         return x, y
     
     def split_data(self):
@@ -145,33 +148,48 @@ class Rotate(object):
     Rotate sample of N frame of 2d points
     """
 
-    def __init__(self, angles=[-5,5,-10,10,-15,15]):
+    def __init__(self, angles=[-5,5,-3,3]):
         self.angles=angles
 
     def __call__(self, sample):
         x,y = sample
-        
+        #print("rotate")
         C,T,V,M=x.shape
         angle=random.choice(self.angles)
         angle = math.radians(angle)
         Rotation=rotation_matrix_2d(angle)
+        
         for i in range(0,T):
             landmarks= torch.tensor(x[:2,i,:,0])
-            landmarks=landmarks.permute(1,0).contiguous().view(V,-1) 
+            landmarks=landmarks.permute(1,0).contiguous().view(V,-1) # [51,2]
             rotated_l=np.dot(landmarks,Rotation.T)
-            x[:2,i,:,0]=rotated_l.reshape((2,V))
-        
-        #print("rotate:",angle)
+            rotated_l=np.transpose(rotated_l, (1,0))
+            x[:2,i,:,0]=np.reshape(rotated_l, (2,V))
         return x,y
         
 class FlipV(object):
     """
     Flip landmarks with respect to vertical axis
     """
+    def __init__(self,re_index=None):
+        if re_index!=None:
+            self.re_index=re_index
+        if re_index==None:
+            self.re_index= [9,8,7,6,5,4,3,2,1,0, #sopraciglia
+            10,11,12,13,# vertical Nois
+            18,17,16,15,14, #Bottom nois
+            28,27,26,25,30,29, #left eye
+            22,21,20,19,24,23,#Right eye
+            37,36,35,34,33,32,31,# upper lip
+            42,41,40,39,38, #down lip
+            47,46,45,44,43,#up inside lip
+            50,49,48] 
     def __call__(self, sample):
-        x,y = sample
-        x[:,:,0]=-x[:,:,0]
-       # print("Flip")
+        x,y = sample #C,T,V,M
+       
+        #x[0,:,:,:]=-x[0,:,:,:]
+        x=x[:,:,self.re_index,:]
+        #print("Flip")
         return x,y
 if __name__=="__main__":
     name_exp="open_face"
@@ -192,7 +210,7 @@ if __name__=="__main__":
     class_3=config['class_3']
     transform=RandomApply([RandomChoice([Rotate(),FlipV(),Compose([FlipV(),Rotate()])])],p=0.5)
     #loader=DataLoader(data_path,labels_path,edges_path,num_features= num_features,num_nodes=num_nodes)
-    train_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_train,num_features= num_features,num_nodes=num_nodes,class_3= class_3,transform=transform)
+    train_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_train,num_features= num_features,num_nodes=num_nodes,class_3= class_3,transform=None)
     test_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_test,num_features= num_features,num_nodes=num_nodes,class_3= class_3)
     train_loader = torch.utils.data.DataLoader(train_dataset, 
                                                    batch_size=batch_size, 
@@ -202,3 +220,4 @@ if __name__=="__main__":
         x,y=sample
        
         print(y)
+        break

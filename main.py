@@ -94,7 +94,10 @@ class Trainer():
         self.edge_index=torch.LongTensor(np.load(self.edges_path)).to(self.device)
     def load_datasets(self):
         if self.augmentaion:
-            self.transform=transform=RandomApply([RandomChoice([Rotate(),FlipV(),Compose([FlipV(),Rotate()])])],p=0.5)
+            #self.transform=RandomApply([RandomChoice([Rotate(),FlipV(),Compose([FlipV(),Rotate()])])],p=0.01)
+            #self.transform=RandomApply([FlipV()],p=0.5)
+            self.transform=RandomApply([Rotate()],p=0.01)
+            print("augmentaion..")
         else:
             self.transform=None
             
@@ -106,7 +109,7 @@ class Trainer():
                                       num_features= self.num_features,
                                       num_nodes=self.num_nodes,
                                       class_3=self.class_3,
-                                      transform= self.transform)
+                                      transform=self.transform)
         self.test_dataset=DataLoader(self.data_path,
                                      self.labels_path,
                                      self.edges_path,
@@ -115,6 +118,15 @@ class Trainer():
                                      num_features= self.num_features,
                                      num_nodes=self.num_nodes,
                                      class_3=self.class_3)
+        self.train_dataset_for_test=DataLoader(self.data_path,
+                                      self.labels_path,
+                                      self.edges_path,
+                                      idx_path=self.idx_train,
+                                      model_name=self.model_name,
+                                      num_features= self.num_features,
+                                      num_nodes=self.num_nodes,
+                                      class_3=self.class_3,
+                                      )
         self.train_loader = torch.utils.data.DataLoader(self.train_dataset, 
                                                    batch_size=self.batch_size, 
                                                    shuffle=True,
@@ -123,6 +135,10 @@ class Trainer():
                                                    batch_size=self.batch_size, 
                                                    shuffle=False,
                                                    sampler=torch.utils.data.SequentialSampler(self.test_dataset),
+                                                   drop_last=False)
+        self.train_loader_for_test = torch.utils.data.DataLoader(self.train_dataset, 
+                                                   batch_size=self.batch_size, 
+                                                   shuffle=False,
                                                    drop_last=False)
        
     def load_model(self):
@@ -170,20 +186,35 @@ class Trainer():
         #self.loss=torch.nn.CrossEntropyLoss().to(self.device)
         self.loss=torch.nn.MSELoss().to(self.device)
         #self.loss=torch.nn.L1Loss().to(self.device)
-        
+    def apply_augmentain(self,snapshot):
+        x_s,y_s=snapshot
+        x_transormed=torch.zeros_like(x_s)
+        for i in range( 0,len(x_s)):
+            x,y=self.transform((x_s[i].cpu().numpy(),y_s[i]))
+            x_transormed[i]=torch.tensor(x)
+        return x_transormed,y_s
+
+
     def train(self):
         avg_loss = 0.0
         
         self.model.train()
         tq=tqdm(self.train_loader)
         for i,snapshot in enumerate(tq):
+            #print(i)
+            #transofrmed_x,transformed_y=self.apply_augmentain(snapshot)
             x,label=snapshot
+           # x=torch.cat((x,transofrmed_x),axis=0)
+            #label=torch.cat((label,transformed_y),axis=0)
+            #idx = torch.randperm(label.shape[0])
+            #x=x[idx]
+            #label=label[idx]
             #Move tensors to device
             x=x.to(self.device)
             label = label.to(self.device) 
             #forward
             y_hat = self.model(x)
-            self.optimizer.zero_grad()
+            
             loss=self.loss(y_hat,label.float())
             
             #calc gradient and backpropagation
@@ -239,7 +270,7 @@ class Trainer():
         if mode=="test":
             tq=tqdm(self.test_loader)
         else:
-            tq=tqdm(self.train_loader)
+            tq=tqdm(self.train_loader_for_test)
         with torch.no_grad():
             for i,snapshot in enumerate(tq):
                 x,label=snapshot
@@ -429,13 +460,13 @@ class Trainer():
 if __name__=="__main__":
     torch.manual_seed(100)
 
-    name_exp="open_face_downsample"
+    name_exp="open_face"
     parent_folder="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
     config_file=open(parent_folder+"/config/"+name_exp+".yml", 'r')
     config = yaml.safe_load(config_file)
 
     trainer=Trainer(config=config)
-    trainer.run("1s+15k+6features+downsampling2")
+    trainer.run("1s+15k+t+rotate_prop_0_01")
     #trainer.calc_accuracy()
 # %%
 

@@ -1,3 +1,4 @@
+
 #%%
 import matplotlib.pyplot as plt
 from sklearn.metrics import  ConfusionMatrixDisplay
@@ -13,7 +14,8 @@ import torch
 parent_folder= "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
 sys.path.append(parent_folder)
 
-from dataloader import DataLoader
+from dataloader import DataLoader,Rotate,FlipV
+from torchvision.transforms import RandomApply,RandomChoice,Compose
 import wandb
 from utiles import rotation_matrix_2d
 
@@ -40,7 +42,7 @@ def visualize_landmarks(data,label_data,edges=[],time_steps=137,vis_edges=False,
                 for index in range(len(fram)):
                     axs[d].annotate(index,(fram[index][0],fram[index][1]))
             if vis=="2d":
-                axs[d].scatter(fram[:,0], fram[:,1], alpha=0.8)
+                axs[d].scatter(fram[:,0], fram[:,1], alpha=0.8,s=1)
             else:
                 axs[d].scatter(fram[:,0], fram[:,1],fram[:,2], alpha=0.8)
                 #axs[d].quiver(origin[0],origin[1],origin[2], autovettori[0,0],autovettori[1,0],autovettori[2,0],color="r")
@@ -57,7 +59,7 @@ def visualize_landmarks(data,label_data,edges=[],time_steps=137,vis_edges=False,
             
             if vis_edges:
                 axs[d].plot([fram[edges[0],0],fram[edges[1],0]],[fram[edges[0],1],fram[edges[1],1]],"blue")
-            
+        
         fig.canvas.draw()
         image = Image.frombytes('RGB', fig.canvas.get_width_height(), fig.canvas.tostring_rgb())
         figures.append(image)
@@ -82,7 +84,7 @@ def visualize_sample(data,label_data,edges=[],time_steps=137,vis_edges=False,vis
             for index in range(len(fram)):
                 ax.annotate(index,(fram[index][0],fram[index][1]))
         if vis=="2d":
-            ax.scatter(fram[:,0], fram[:,1], alpha=0.8)
+            ax.scatter(fram[:,0], fram[:,1], alpha=0.8,s=1)
         else:
             ax.scatter(fram[:,0], fram[:,1],fram[:,2], alpha=0.8)
             #ax.quiver(origin[0],origin[1],origin[2], autovettori[0,0],autovettori[1,0],autovettori[2,0],color="r")
@@ -132,37 +134,76 @@ edges_path=parent_folder+config['edges_path']
 idx_train= parent_folder+config['idx_train']
 idx_test=parent_folder+config['idx_test']
 TS=config['TS']
-train_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_train,reshape_data=False,expand_dim=False,normalize_labels=False)
+#transform=RandomApply([RandomChoice([Rotate(),FlipV(),Compose([FlipV(),Rotate()])])],p=0.01)
+transform=RandomApply([Rotate()],p=0)
+#transform=RandomApply([FlipV(),Rotate()],p=0.5)
+#transform=None
+train_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_train,num_features=6,num_nodes=51,reshape_data=True,expand_dim=True,normalize_labels=False,transform=transform)
 #test_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_test,mode="test")
 #%%
-data=np.zeros((20,137,51,6))
+data=np.zeros((20,6,137,51,1))
 labels=[]
 
 for i,sample in enumerate(train_dataset):
     data[i]=sample[0]
     labels.append(sample[1])
 print(data.shape,len(labels))
+#%%
+reshaped_tensor = np.transpose(data, (0, 2, 3, 1,4))  # Transpose dimensions from 8700,137,469,4) to 8600, 469, 4, 137
+features= torch.tensor(np.reshape(reshaped_tensor, (20, 137,51,6,1)))  
+print(features.shape)
+# Reshape to desired shape 
+#%%
+features=features.view(20, 137,51,-1) 
+print(features.shape)  
+#%%
+import math
+angle=10
+angle = math.radians(angle)
+Rotation=rotation_matrix_2d(angle)
+rotated_sample=np.array(features[0])
+rotated_sample[0,:,:2]=np.dot(rotated_sample[0,:,:2],Rotation.T)
 
 #%%
-#visualize_landmarks(data,labels,edges,time_steps=2,vis_index=False,vis_edges=True)
+edges=np.load(edges_path)
+#%%
+edges.shape
+#%%
+reindex= [9,8,7,6,5,4,3,2,1,0, #sopraciglia
+            10,11,12,13,# vertical Nois
+            18,17,16,15,14, #Bottom nois
+            28,27,26,25,30,29, #left eye
+            22,21,20,19,24,23,#Right eye
+            37,36,35,34,33,32,31,# upper lip
+            42,41,40,39,38, #down lip
+            47,46,45,44,43,#up inside lip
+            50,49,48] 
+#%%
+print(rotated_sample[0,0,0],rotated_sample[0,9,0])
+#%%
+
+rotated_sample=rotated_sample[:,reindex,:]
+#%%
+visualize_landmarks(features[:,:,:,:2],labels,edges,time_steps=1,vis_index=True,vis_edges=False)
+#visualize_sample(rotated_sample,labels[0],edges,time_steps=1,vis_index=True,vis_edges=True)
 
 #%%
 import math
-sample=data[0,0,:,:2]
+sample=features[0,0,:,:2]
+#%%
 print(sample.shape)
-angle=+25
+angle=10
 angle = math.radians(angle)
 Rotation=rotation_matrix_2d(angle)
 rotated=np.dot(sample,Rotation.T)
 print(rotated.shape)
 #%%
-edges=np.load(edges_path)
 #%%
 data[0,0,:,:2]=rotated
 #%%
-data[0,0,:,0]=-data[0,0,:,0]
+features[0,0,:,0]=-features[0,0,:,0]
 #%%
-visualize_sample(data[0],labels[0],edges,time_steps=1,vis_index=True,vis_edges=True)
+visualize_sample(features[0],labels[0],edges,time_steps=1,vis_index=True,vis_edges=True)
 # %%
 
 wandb.init()

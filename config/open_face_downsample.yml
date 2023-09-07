@@ -36,12 +36,12 @@ model_name: "aagcn" # "a3tgcn" # # #
 embed_dim: 128
 num_subset: 2
 num_features: 6
-t_kernel_size: 15
+t_kernel_size: 7
 hidden_size: 1
 gru: 2
 augmentaion: False
 bn: True
-strid: 1
+strid: 3
 TS: 137
 n_joints: 22
 adaptive: False
