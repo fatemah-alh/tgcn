@@ -461,12 +461,12 @@ class aagcn_network(nn.Module):
         #self.tgnn1 = A3TGCN2(in_channels=256,out_channels=64,periods=16,batch_size=32)
         #self.linear=torch.nn.Linear(64, 1)
        # self.conv=UnitTCN(128,64, kernel_size=1, stride=1)
-        #self.fc=Linear(in_features=128*num_nodes,out_features= 1024*3)#
+        self.fc=Linear(in_features=128*num_nodes,out_features= 1024*3)#
         #self.fc2=Linear(in_features=128*num_nodes,out_features= 1024)
-        self.gru=GRU(input_size=128*num_nodes, hidden_size=hidden_size,num_layers=gru_layer,batch_first=True)
+        self.gru=GRU(input_size=1024*3, hidden_size=hidden_size,num_layers=gru_layer,batch_first=True)
         #self.lstm=LSTM(input_size=128*num_nodes, hidden_size=hidden_size,num_layers=gru_layer,batch_first=True)
-        #nn.init.kaiming_normal_(self.fc.weight)
-       # nn.init.constant_(self.fc.bias, 0)
+        nn.init.kaiming_normal_(self.fc.weight)
+        nn.init.constant_(self.fc.bias, 0)
         bn_init(self.data_bn, 1)
         if drop_out:
             self.drop_out = nn.Dropout(drop_out)
@@ -512,7 +512,8 @@ class aagcn_network(nn.Module):
         
         x = self.drop_out(x)
        # print(x.shape)
-       # x=self.fc(x.view(N*t_new,-1))
+        x=self.fc(x)
+        #print(x.shape)
         #x=x.view(N,t_new,-1)
         x,h=self.gru(x) #([batch_size:32, sequence_lenths:16, 1])
         x=F.relu(x)
@@ -563,6 +564,14 @@ if __name__=="__main__":
     print(model)
 
    
+    # Calculate the total number of parameters
+    total_params = sum(p.numel() for p in model.parameters())
+
+    # Calculate the total number of trainable parameters
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+    print(f"Total parameters: {total_params}")
+    print(f"Trainable parameters: {trainable_params}")
     train_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_train,num_features= num_features,num_nodes=num_nodes)
     test_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_test,num_features= num_features,num_nodes=num_nodes)
     test_loader = torch.utils.data.DataLoader(test_dataset, 

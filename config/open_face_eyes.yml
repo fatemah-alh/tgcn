@@ -47,4 +47,4 @@ n_joints: 23
 adaptive: False
 lr: 0.01
 LOG_DIR: "log/"
-class_3: False
+num_classes: False

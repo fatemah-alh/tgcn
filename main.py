@@ -62,19 +62,22 @@ class Trainer():
         self.bn=config['bn']
         self.gru_layer=config['gru']
         self.strid=config["strid"]
-        self.class_3=config["class_3"]
+        self.num_classes=config["num_classes"]
         self.augmentaion=config["augmentaion"]
-        if self.class_3:
+        if self.num_classes==2:
+            self.classes=[0,1]
+        elif self.num_classes==3:
             self.classes=[0,1,2]
         else:
             self.classes=[0,1,2,3,4]
+       
         self.set_device()
         self.load_edges()
         self.load_datasets()
         self.load_model()
         self.load_optimizer()
         self.load_loss()
-        
+        print("Adaptive:",self.adaptive)
    
     def set_log_dir(self,name=None):
         self.name=name
@@ -108,7 +111,7 @@ class Trainer():
                                       model_name=self.model_name,
                                       num_features= self.num_features,
                                       num_nodes=self.num_nodes,
-                                      class_3=self.class_3,
+                                      num_classes=self.num_classes,
                                       transform=self.transform)
         self.test_dataset=DataLoader(self.data_path,
                                      self.labels_path,
@@ -117,7 +120,7 @@ class Trainer():
                                      model_name=self.model_name,
                                      num_features= self.num_features,
                                      num_nodes=self.num_nodes,
-                                     class_3=self.class_3)
+                                     num_classes=self.num_classes)
         self.train_dataset_for_test=DataLoader(self.data_path,
                                       self.labels_path,
                                       self.edges_path,
@@ -125,7 +128,7 @@ class Trainer():
                                       model_name=self.model_name,
                                       num_features= self.num_features,
                                       num_nodes=self.num_nodes,
-                                      class_3=self.class_3,
+                                      num_classes=self.num_classes,
                                       )
         self.train_loader = torch.utils.data.DataLoader(self.train_dataset, 
                                                    batch_size=self.batch_size, 
@@ -294,7 +297,7 @@ class Trainer():
         #print(targests,predicted)
         cm=confusion_matrix( targests,predicted,labels=self.classes)
         print(len(targests),len(predicted))
-        f1=multiclass_f1_score(torch.tensor(predicted),torch.tensor(targests),num_classes=5)
+        f1=multiclass_f1_score(torch.tensor(predicted),torch.tensor(targests),num_classes=self.num_classes)
         #The precision is the ratio tp / (tp + fp)
         #The recall is the ratio tp / (tp + fn)
         accuracy_class=100*cm.diagonal()/cm.sum(1)
@@ -442,15 +445,6 @@ class Trainer():
             avg_test_loss,avg_test_acc,f1_test= self.eval()
             self.log_results(epoch,avg_train_loss,avg_test_loss,avg_test_acc,avg_train_acc)
             prev_best_acc=self.save_best_model(prev_best_acc,f1_test)
-            
-            """
-            if avg_test_acc > previous_best_avg_test_acc:
-                with open(self.log_dir+'/log.txt', 'a') as f:
-                    f.write("saved_a new best_model\n ")
-                torch.save(self.model.state_dict(),self.log_dir+"/best_model.pkl")
-                print('Best model in {dir}/best_model.pkl'.format(dir=self.log_dir))
-                previous_best_avg_test_acc=avg_test_acc
-            """
             self.scheduler.step()
         
         np.save(self.log_dir+"/cm.npy",self.cm) 
@@ -460,13 +454,13 @@ class Trainer():
 if __name__=="__main__":
     torch.manual_seed(100)
 
-    name_exp="open_face"
+    name_exp="open_face_all_sub"
     parent_folder="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
     config_file=open(parent_folder+"/config/"+name_exp+".yml", 'r')
     config = yaml.safe_load(config_file)
 
     trainer=Trainer(config=config)
-    trainer.run("1s+15k+t+rotate_prop_0_01")
+    trainer.run("1s+15k+all_Sub+adaptive+fc")
     #trainer.calc_accuracy()
 # %%
 

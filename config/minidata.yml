@@ -8,7 +8,7 @@ landmarks_path : "data/PartA/3dlandmarks/"
 csv_file: "data/PartA/samples.csv"
 labels_path: "data/PartA/lables.npy"
 
-data_path: "data/PartA/openFace/dataset_openFace_new.npy"
+data_path: "data/PartA/openFace/dataset_openFace.npy"
 edges_path: "data/PartA/openFace/edge_openFace.npy"
 
 idx_train: "data/PartA/minidata/idx_train.npy"

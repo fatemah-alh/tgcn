@@ -304,7 +304,39 @@ def process_all_data_new(landmarks_folder:str,filesnames:list,normalized_data:np
     np.save(path_save,normalized_data)
     return normalized_data
         
-    
+def split_all(csv_file):
+    df = pd.read_csv(csv_file,sep='\t')
+    idx_filter_90=np.load(filter_idx_90)
+    subject_name=df['subject_name'].to_numpy()
+    print(subject_name.shape,idx_filter_90.shape)
+    slices=[]
+    for i in range(0,len(subject_name)//20):
+        j=i*20
+        slices.append(j)
+    print(slices)
+    idx_test=[]
+    idx_train=[]
+    for i in slices:
+        for x in range(i,i+14):
+            print(x)
+            idx_train.append(x)
+        for y in range(i+14,i+20):
+            print(y)
+            idx_test.append(y)
+
+    filtered_train=[]
+    filter_test=[]
+    for dd in idx_train:
+        if dd not in idx_filter_90:
+            filtered_train.append(dd)
+    print(len(filtered_train))
+
+    for dd in idx_test:
+        if dd not in idx_filter_90 :
+            filter_test.append(dd)
+    print(len(idx_test)-len(filter_test))
+    np.save("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/idx_train_all_subject_no_filter.npy",filtered_train)
+    np.save("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/idx_test_all_subject_no_filter.npy",filter_test)
 def split_all_partecipant(csv_file):
     low_expressiv_ids=["082315_w_60", "082414_m_64", "082909_m_47","083009_w_42", "083013_w_47", 
                         "083109_m_60", "083114_w_55", "091914_m_46", "092009_m_54","092014_m_56", 
@@ -347,8 +379,18 @@ def split_all_partecipant(csv_file):
     np.save("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/idx_test_all_subject.npy",filter_test)
 
 
+def plot_single_feature(data,title):
+    x_values=data.flatten()
+    print(x_values.shape)
+    plot_histogram(x_values,title)
 
-name_file = 'open_face_dowansample' 
+
+def plot_all(data):
+    plot_single_feature(data[idx_train_,:,:,2],title="Histogram of x  velocity in train ")
+    plot_single_feature(data[idx_train_,:,:,3],title="Histogram of y  velocity in train")
+
+
+name_file = 'open_face' 
 config_file=open(parent_folder+"config/"+name_file+".yml", 'r')
 path_vis=parent_folder+"/data/PartA/vis/" # path to save gif of visualizzation
 # name of conficuration file.
@@ -370,8 +412,6 @@ filesnames=get_file_names(csv_file)
 
 if name_file=="mediapipe":
     normalized_data = np.zeros((8700, 137, 468, 4), dtype=np.float32)
-    
-
 if name_file=="open_face":
     normalized_data = np.zeros((8700, 137, 51, 6), dtype=np.float32)
 
@@ -385,8 +425,6 @@ if name_file=="open_face_mouth":
     normalized_data = np.zeros((8700, 137, 20, 6), dtype=np.float32)
 
 
-#%%   #Create the the dataset file with process
-data_path
 #%%
 normalized_data=process_all_data_new(landmarks_path,filesnames,normalized_data,data_path,down_sample=True)
 for i in range(0,6):
@@ -408,23 +446,11 @@ data[idx_train_,:,:,:]=standard_data
 data[idx_test_,:,:,:]=standard_data_test
 #np.save("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/openFace/dataset_openFace_standarized.npy",data)
 """
-
-#%%
-#edges_index=get_edges(data[0,0,:51,:2],edges_path)
-
-#%%
-#edges_index=np.load(edges_path)
-#%% 
-#visualize_landmarks(data[100:400],labels,edges_index,vis_edges=True,time_steps=10)
-
-#%%
-#split_all_partecipant(idx_train,idx_test,csv_file)
 #%%
 data=np.load(data_path)
-idx_train_=np.load(idx_train) #without_low_react
+idx_train_=np.load(idx_train) 
 idx_test_=np.load(idx_test)
-#%%
-data.shape
+
 #%%
 """ 
 
@@ -440,37 +466,3 @@ idx_2=list((set(idx_test_) | set(idx_train_)) & set(idx_2))
 idx_1=np.where(labels==1)[0]
 idx_1=list((set(idx_test_) | set(idx_train_))& set(idx_1))
 """
-
-#%%
-
-def plot_single_feature(data,title):
-    x_values=data.flatten()
-    print(x_values.shape)
-    plot_histogram(x_values,title)
-
-#%%
-def plot_all(data):
-    plot_single_feature(data[idx_train_,:,:,2],title="Histogram of x  velocity in train ")
-    plot_single_feature(data[idx_train_,:,:,3],title="Histogram of y  velocity in train")
-
-#plot_all(data)
-
-# %%
-
-#Select most variable nodes. 
-data=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/openFace/dataset_openFace_raw.npy")
-idx_train_=np.load(idx_train) #without_low_react
-idx_test_=np.load(idx_test)
-#%%
-idx=np.concatenate((idx_test_,idx_train_))
-print(idx.shape)
-data_filtred=data[idx]
-#%%
-stds=np.std(data_filtred[:,:,:,:2],axis=2)
-
-
-# %%
-stds.shape
-# %%
-#Process dati to have down_sampled_data.
-#%%
