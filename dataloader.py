@@ -114,14 +114,12 @@ class DataLoader(torch.utils.data.Dataset):
         print("featuers: ",self.features.shape, "labels:", self.labels.shape)
         print("assert featuers:",self.features[0][0])
         print("assert label",np.unique(self.labels))
-        
         return self.features.shape
 
     def __getitem__(self, index):
         #C,T,V,M
         x = self.features[index]
         y=self.labels[index]
-    
         if self.transform:
             x,y=self.transform((x,y))
         
@@ -189,9 +187,11 @@ class FlipV(object):
             50,49,48] 
     def __call__(self, sample):
         x,y = sample #C,T,V,M
-       
-        #x[0,:,:,:]=-x[0,:,:,:]
-        x=x[:,:,self.re_index,:]
+        x[0]=x[0][:,self.re_index,:]
+        x[1]=x[1][:,self.re_index,:]
+        x[2]=-x[2][:,self.re_index,:]
+        x[3]=x[3][:,self.re_index,:]
+        x[4]=-x[4][:,self.re_index,:]
         #print("Flip")
         return x,y
 if __name__=="__main__":

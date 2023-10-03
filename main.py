@@ -64,6 +64,7 @@ class Trainer():
         self.strid=config["strid"]
         self.num_classes=config["num_classes"]
         self.augmentaion=config["augmentaion"]
+        self.prop=config["prop"]
         if self.num_classes==2:
             self.classes=[0,1]
         elif self.num_classes==3:
@@ -97,9 +98,9 @@ class Trainer():
         self.edge_index=torch.LongTensor(np.load(self.edges_path)).to(self.device)
     def load_datasets(self):
         if self.augmentaion:
-            #self.transform=RandomApply([RandomChoice([Rotate(),FlipV(),Compose([FlipV(),Rotate()])])],p=0.01)
-            #self.transform=RandomApply([FlipV()],p=0.5)
-            self.transform=RandomApply([Rotate()],p=0.01)
+            #self.transform=RandomApply([RandomChoice([Rotate(),FlipV(),Compose([FlipV(),Rotate()])])],p=self.prop)
+            self.transform=RandomApply([FlipV()],p=self.prop)
+            #self.transform=RandomApply([Rotate()],p=0.01)
             print("augmentaion..")
         else:
             self.transform=None
@@ -204,29 +205,15 @@ class Trainer():
         self.model.train()
         tq=tqdm(self.train_loader)
         for i,snapshot in enumerate(tq):
-            #print(i)
-            #transofrmed_x,transformed_y=self.apply_augmentain(snapshot)
             x,label=snapshot
-           # x=torch.cat((x,transofrmed_x),axis=0)
-            #label=torch.cat((label,transformed_y),axis=0)
-            #idx = torch.randperm(label.shape[0])
-            #x=x[idx]
-            #label=label[idx]
-            #Move tensors to device
             x=x.to(self.device)
             label = label.to(self.device) 
             #forward
             y_hat = self.model(x)
-            
             loss=self.loss(y_hat,label.float())
-            
-            #calc gradient and backpropagation
             loss.backward()
-
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)  # Clip gradients
-
             self.optimizer.step()
-           
             self.optimizer.zero_grad()
             tq.set_description(f"train: Loss batch: {loss}")
             avg_loss += loss
@@ -294,15 +281,16 @@ class Trainer():
         
         targests=list(chain.from_iterable(targests))
         predicted=list(chain.from_iterable(predicted)) 
-        #print(targests,predicted)
+        
         cm=confusion_matrix( targests,predicted,labels=self.classes)
-        print(len(targests),len(predicted))
+       
         f1=multiclass_f1_score(torch.tensor(predicted),torch.tensor(targests),num_classes=self.num_classes)
         #The precision is the ratio tp / (tp + fp)
         #The recall is the ratio tp / (tp + fn)
         accuracy_class=100*cm.diagonal()/cm.sum(1)
-        
-        print("accuracy",count/sample)
+        acc=count/sample
+        print("accuracy",acc)
+        print("F1",f1)
         print("max value:",max_found,"min value:",min_found)
         print(cm,accuracy_class)
         p,r=self.get_precision_recall(cm)
@@ -315,10 +303,10 @@ class Trainer():
             wandb.log({f"pr_{mode}" : wandb.plot.pr_curve(targests,predicted,
                         labels=None, classes_to_plot=None)})
             """
-            wandb.log({f"f1_{mode}":f1,f"precison_{mode}":p,f"recall_{mode}":r})
+            wandb.log({f"f1_{mode}":f1,f"precison_{mode}":p,f"recall_{mode}":r,f"{mode}_accuracy":acc})
             if mode=="test":
                 self.cm.append(cm)
-        return count/sample,cm,f1,accuracy_class,[max_found,min_found]
+        return acc,cm,f1,accuracy_class,[max_found,min_found]
     def get_precision_recall(self,cm):
         
         true_pos = np.diag(cm)
@@ -343,7 +331,8 @@ class Trainer():
                                         drop_out=0.5,
                                         adaptive=self.adaptive, 
                                         attention=True,
-                                        embed=True,kernel_size=self.kernel_size,
+                                        embed=True,
+                                        kernel_size=self.kernel_size,
                                         bn=self.bn,
                                         stride=self.strid)
         if path==None:
@@ -360,6 +349,7 @@ class Trainer():
         with torch.no_grad():
             for i,snapshot in enumerate(tq):
                 x,label=snapshot
+                initial_label=label
                 x=x.to(self.device)
                 y_hat,embed_vectors = self.model_embed(x)
                 y_hat=y_hat.tolist()
@@ -379,7 +369,7 @@ class Trainer():
             embed_all=np.concatenate(embed_all)
             predicted_class_all=np.concatenate(predicted_class_all)
             print(class_embed_all)
-        return embed_all,class_embed_all,predicted_class_all
+        return embed_all,class_embed_all,predicted_class_all,initial_label
     def visualize_one_cm(self,cm,title="Confusion_matrix"):
         fig, ax = plt.subplots()
         disp = ConfusionMatrixDisplay(confusion_matrix=cm)
@@ -407,10 +397,12 @@ class Trainer():
                 print('Saved new checkpoint  ckpt_{epoch_}.pkl'.format(epoch_=epoch+1))
 
         
-        wandb.log({"epoche": epoch, "train_loss":avg_train_loss,"test_loss":avg_test_loss,"train_accuracy":avg_train_acc,"test_accuracy":avg_test_acc,"lr":lr})
+        wandb.log({"epoche": epoch, "train_loss":avg_train_loss,"test_loss":avg_test_loss,"lr":lr})
 
     def log_final_cm(self):
+
         avg_accuracy,cm,f1,accuracy_class,max_min= self.calc_accuracy(self.log_dir+"/best_model.pkl",log=False)
+        
         self.visualize_one_cm(cm,title="best_model"+self.name)
         
         with open(self.log_dir+'/log.txt', 'a') as f:
@@ -436,6 +428,7 @@ class Trainer():
          
     def run(self,name=None):
         wandb.init(project="New data with centroid velocity",config=self.config,name=name)
+        wandb.run.log_code(".")
         wandb.watch(self.model,self.loss,log="all",log_freq=1,log_graph=True)
         self.set_log_dir(name)
         self.log_parameters()
@@ -454,13 +447,13 @@ class Trainer():
 if __name__=="__main__":
     torch.manual_seed(100)
 
-    name_exp="open_face_all_sub"
+    name_exp="open_face"
     parent_folder="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
     config_file=open(parent_folder+"/config/"+name_exp+".yml", 'r')
     config = yaml.safe_load(config_file)
 
     trainer=Trainer(config=config)
-    trainer.run("1s+15k+all_Sub+adaptive+fc")
+    trainer.run("1s+15k+binary+aug001+Flip")
     #trainer.calc_accuracy()
 # %%
 
