@@ -11,7 +11,7 @@ import sys
 from scipy.spatial import Delaunay
 import torch
 from torch_geometric.utils import add_self_loops,to_undirected,to_dense_adj
-
+import seaborn as sns
 parent_folder= "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
 sys.path.append(parent_folder)
 
@@ -19,7 +19,7 @@ from dataloader import DataLoader,Rotate,FlipV
 from torchvision.transforms import RandomApply,RandomChoice,Compose
 import wandb
 from utiles import rotation_matrix_2d
-
+import pandas as pd
 def visualize_landmarks(data,label_data,edges=[],time_steps=137,vis_edges=False,vis="2d",vis_index=False,save=False,path_vis=None):
     """
     this function will visualize landmarks of data tensor, just the f
@@ -118,13 +118,41 @@ def visualize_one_cm(cm,path_vis=None,time_steps=None,title="Confusion_matrix"):
     image_wand = wandb.Image(image, caption=title)
     wandb.log({title: image_wand})     
 
-def visualize_Adjacencey_matrix(edges):
+def visualize_Adjacencey_matrix_from_edges(edges):
     edges_matrix=to_undirected(torch.tensor(edges),num_nodes=51)
     edges_matrix=to_dense_adj(torch.tensor(edges_matrix),max_num_nodes=51)
     edges_matrix=torch.squeeze(edges_matrix)
     plt.imshow(edges_matrix, cmap='gray')
     plt.colorbar()
     plt.show()  
+def visualize_adjacency_matrix(a_matrix):
+    plt.imshow(a_matrix, cmap='gray')
+    plt.colorbar()
+    plt.show() 
+def visualize_sample_withAdjacency(data,edges,vis_index=False):
+        fig = plt.figure()
+        ax = fig.add_subplot()
+        fram=data
+        print(fram.shape)
+        ax.scatter(fram[:,0], fram[:,1],alpha=0.7, c="blue")
+        if vis_index:
+            for index in range(len(fram)):
+                ax.annotate(index,(fram[index][0],fram[index][1])) 
+        
+        for i in range(51):
+            for j in range(51):
+                if edges[i][j]!=0:
+                    alpha=edges[i][j]
+                    ax.plot([fram[i][0],fram[j][0]],[fram[i][1],fram[j][1]],"blue",alpha=alpha)
+def visualize_sample_withNode_wieghts(data,vis_index=False):
+    
+        #sns.color_palette("YlOrBr", as_cmap=True)
+        sns.scatterplot(x="x", y="y", data=data,size='wieghts',hue='wieghts',palette="crest")
+        #plt.title('Fig.No. 3: BUBBLE CHART')
+       # plt.xlabel('Technical')
+       # plt.ylabel('Job Proficiency') 
+       # ax.scatter(fram[:,0], fram[:,1],alpha=0.7, c="blue",s=node_wieghts)
+        
 #%%
 path=parent_folder+"/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/08-23-16:47/"
 name_file = 'minidata'
@@ -160,6 +188,13 @@ for i,sample in enumerate(train_dataset):
     labels.append(sample[1])
 print(data.shape,len(labels))
 #%%
+print(data[0,0,:,4])
+#%%
+np.save("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/minidata/data.npy",data)
+#%%
+data=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/minidata/data.npy")
+print(data[0,0,:,4])
+#%%
 reshaped_tensor = np.transpose(data, (0, 2, 3, 1,4))  # Transpose dimensions from 8700,137,469,4) to 8600, 469, 4, 137
 features= np.reshape(reshaped_tensor, (20, 137,51,6,1)).squeeze(axis=-1) 
 print(features.shape)
@@ -167,3 +202,54 @@ print(features.shape)
 
 visualize_landmarks(features[:,:,:,:2],labels,edges,time_steps=1,vis_index=True,vis_edges=True)
 #visualize_sample(features[0],labels[0],edges,time_steps=1,vis_index=True,vis_edges=True)
+#%%
+adaptive=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/process_data/Adaptive_matrix.npy")
+
+# %%
+np.sum(adaptive[0][0])
+# %%
+adaptive[0].shape
+# %%
+plt.imshow((adaptive[0]+1)/2, cmap='gray')
+plt.colorbar()
+plt.show() 
+
+# %%
+plt.imshow(adaptive[1], cmap='gray')
+plt.colorbar()
+plt.show() 
+# %%
+normalizied =(adaptive[0]+1)/2
+normalizied[0]
+# %%
+#obtain_normalized matrix with edges have wieghts over 70,
+for i in range(51):
+    for j in range(51):
+        if normalizied[i][j]<0.7:
+            normalizied[i][j]=0
+        
+
+# %%
+plt.imshow(normalizied, cmap='gray')
+plt.colorbar()
+plt.show() 
+# %%
+visualize_sample_withAdjacency(data[0][0],normalizied,vis_index=True)
+# %%
+attention=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/process_data/Attention_nodes_l2.npy")
+
+# %%
+w=np.squeeze(attention[0])*10
+frame=data[0][0]
+x=frame[:,0]
+y=frame[:,1]
+x.shape
+# %%
+df=pd.DataFrame({"x":x,"y":y,"wieghts":w})
+df.head()
+
+#%%
+visualize_sample_withNode_wieghts(df)
+# %%
+
+# %%

@@ -274,6 +274,7 @@ def process_all_data_new(landmarks_folder:str,filesnames:list,normalized_data:np
             frame=sample[j]
             frame,centroid=center_coordinate(frame)
             sample_centroids[j]= np.full((frame.shape[0],2),centroid[:2])
+            print(sample_centroids[j].shape)
             
             R_matrix=get_rotation_matrix(frame)
             frame=np.matmul( R_matrix, frame.T ).T
@@ -289,9 +290,14 @@ def process_all_data_new(landmarks_folder:str,filesnames:list,normalized_data:np
             """
             
         centroid_velocity=calc_velocity(sample_centroids) 
+        print(centroid_velocity[0].shape)
+        
         #print(np.max(centroid_velocity),np.min(centroid_velocity),  np.max(velocity),np.min(velocity),np.max(processed_sample),np.min(processed_sample)) 
         data=np.concatenate((processed_sample[:-1,:,:], velocity,centroid_velocity), axis=2)   
         normalized_data[i]= data
+        print(data[0,:,4],data[0,:,5])
+        break
+    """
     print(normalized_data[:,:,:,0].shape,
           np.max(normalized_data[:,:,:,0]),
           np.min(normalized_data[:,:,:,0]),
@@ -302,6 +308,7 @@ def process_all_data_new(landmarks_folder:str,filesnames:list,normalized_data:np
     print("Contains Nan values",np.isnan(normalized_data).any())
     #normalized_data=np.nan_to_num(normalized_data)        
     np.save(path_save,normalized_data)
+    """
     return normalized_data
         
 def split_all(csv_file):
@@ -426,7 +433,9 @@ if name_file=="open_face_mouth":
 
 
 #%%
-normalized_data=process_all_data_new(landmarks_path,filesnames,normalized_data,data_path,down_sample=True)
+normalized_data=process_all_data_new(landmarks_path,filesnames,normalized_data,data_path,down_sample=False)
+
+#%%
 for i in range(0,6):
     print(normalized_data.shape)
     print(np.max(normalized_data[:,:,:,i]),np.min(normalized_data[:,:,:,i]),np.mean(normalized_data[:,:,:,i]))
@@ -450,8 +459,12 @@ data[idx_test_,:,:,:]=standard_data_test
 data=np.load(data_path)
 idx_train_=np.load(idx_train) 
 idx_test_=np.load(idx_test)
-
 #%%
+for i in range(len(data)):  
+    for j in range(len(data[i])):
+        data[i,j,:,4]
+#%%
+
 """ 
 
 labels=np.load(labels_path)
