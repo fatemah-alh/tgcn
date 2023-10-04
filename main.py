@@ -58,6 +58,7 @@ class Trainer():
         self.num_features=config['num_features']
         self.adaptive=config['adaptive']
         self.attention=config['attention']
+        self.drop_out=config['drop_out']
         self.kernel_size=config['t_kernel_size']
         self.hidden_size=config['hidden_size']
         self.bn=config['bn']
@@ -160,7 +161,7 @@ class Trainer():
                                        num_nodes=self.num_nodes,
                                        num_subset=self.num_subset, 
                                        in_channels=self.num_features,
-                                       drop_out=0.5, 
+                                       drop_out=self.drop_out, 
                                        adaptive=self.adaptive, 
                                        attention=self.attention,
                                        kernel_size=self.kernel_size,
@@ -336,7 +337,7 @@ class Trainer():
                                         num_nodes=self.num_nodes,
                                         num_subset=self.num_subset, 
                                         in_channels=self.num_features,
-                                        drop_out=0.5,
+                                        drop_out=self.drop_out,
                                         adaptive=self.adaptive, 
                                         attention=self.attention,
                                         embed=True,
@@ -436,7 +437,7 @@ class Trainer():
          
     def run(self,name=None):
         wandb.init(project="New data with centroid velocity",config=self.config,name=name)
-        wandb.run.log_code(".")
+       # wandb.run.log_code(".")
         wandb.watch(self.model,self.loss,log="all",log_freq=1,log_graph=True)
         self.set_log_dir(name)
         self.log_parameters()

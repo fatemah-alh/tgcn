@@ -14,7 +14,7 @@ import imageio
 import torch
 from torch_geometric.utils import add_self_loops,is_undirected,to_undirected,contains_self_loops
 from sklearn.preprocessing import MinMaxScaler
-
+import os
 """
 This file should be run after the run of the file "extract_3DLandmarks_openFace.py"
 it will process the data in landmarks folder and create a uninqe dataset file in numpy format
@@ -385,7 +385,54 @@ def split_all_partecipant(csv_file):
     np.save("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/idx_train_all_subject.npy",filtered_train)
     np.save("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/idx_test_all_subject.npy",filter_test)
 
+def split_loso(csv_file,):
+    #consider the 67 subject. 
+    low_expressiv_ids=["082315_w_60", "082414_m_64", "082909_m_47","083009_w_42", "083013_w_47", 
+                        "083109_m_60", "083114_w_55", "091914_m_46", "092009_m_54","092014_m_56", 
+                        "092509_w_51", "092714_m_64", "100514_w_51", "100914_m_39", "101114_w_37", 
+                        "101209_w_61", "101809_m_59", "101916_m_40", "111313_m_64", "120614_w_61"]
+    df = pd.read_csv(csv_file,sep='\t')
+    mask = df['subject_name'].isin(low_expressiv_ids)
+    idx_67ME= df.loc[~mask].index.tolist()
+    for i in range(0,67):
+        dir=f"/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/loso/{i}/"
+        idx_test = idx_67ME[i*100:(i+1)*100]
 
+        print(len(idx_test))
+        idx_train = idx_67ME[0:i*100]+idx_67ME[(i+1)*100:]
+        #print(idx_67ME[0:i*100])
+        print(len(idx_train))
+        os.makedirs(dir,exist_ok=True)
+        np.save(dir+"idx_train.npy",idx_train)
+        np.save(dir+"idx_test.npy",idx_test)
+
+def split_loso_filter(csv_file,):
+    #consider the 67 subject. 
+    idx_filter_90=set(np.load(filter_idx_90))
+    low_expressiv_ids=["082315_w_60", "082414_m_64", "082909_m_47","083009_w_42", "083013_w_47", 
+                        "083109_m_60", "083114_w_55", "091914_m_46", "092009_m_54","092014_m_56", 
+                        "092509_w_51", "092714_m_64", "100514_w_51", "100914_m_39", "101114_w_37", 
+                        "101209_w_61", "101809_m_59", "101916_m_40", "111313_m_64", "120614_w_61"]
+    df = pd.read_csv(csv_file,sep='\t')
+    mask = df['subject_name'].isin(low_expressiv_ids)
+    idx_67ME= df.loc[~mask].index.tolist()
+    for i in range(0,67):
+        dir=f"/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/loso_filtered/{i}/"
+        idx_test = list(set(idx_67ME[i*100:(i+1)*100])-idx_filter_90)
+        
+        print(len(idx_test))
+        idx_train = list(set(idx_67ME[0:i*100]+idx_67ME[(i+1)*100:])-idx_filter_90)
+        #print(idx_67ME[0:i*100])
+        print(len(idx_train))
+        os.makedirs(dir,exist_ok=True)
+        np.save(dir+"idx_train.npy",idx_train)
+        np.save(dir+"idx_test.npy",idx_test)
+
+def get_LE_SUb():
+    idx_filter_90=np.load(filter_idx_90)
+    df = pd.read_csv(csv_file,sep='\t')
+    mask =df.loc[idx_filter_90].index.tolist()
+    print(df.iloc[mask]['subject_name'].unique())
 def plot_single_feature(data,title):
     x_values=data.flatten()
     print(x_values.shape)
@@ -431,7 +478,22 @@ if name_file=="open_face_eyes":
 if name_file=="open_face_mouth":
     normalized_data = np.zeros((8700, 137, 20, 6), dtype=np.float32)
 
+#%%
 
+def get_LE_SUb():
+    low_expressiv_ids=set(["082315_w_60", "082414_m_64", "082909_m_47","083009_w_42", "083013_w_47", 
+                        "083109_m_60", "083114_w_55", "091914_m_46", "092009_m_54","092014_m_56", 
+                        "092509_w_51", "092714_m_64", "100514_w_51", "100914_m_39", "101114_w_37", 
+                        "101209_w_61", "101809_m_59", "101916_m_40", "111313_m_64", "120614_w_61"])
+    idx_filter_90=np.load(filter_idx_90)
+    print(idx_filter_90)
+    df = pd.read_csv(csv_file,sep='\t')
+    mask =df.loc[idx_filter_90].index.tolist()
+    low_confidence=set(df.iloc[mask]['subject_name'].unique().tolist())
+    print(low_confidence.intersection(low_expressiv_ids))
+get_LE_SUb()
+#%%
+split_loso_filter(csv_file)
 #%%
 normalized_data=process_all_data_new(landmarks_path,filesnames,normalized_data,data_path,down_sample=False)
 
@@ -479,3 +541,4 @@ idx_2=list((set(idx_test_) | set(idx_train_)) & set(idx_2))
 idx_1=np.where(labels==1)[0]
 idx_1=list((set(idx_test_) | set(idx_train_))& set(idx_1))
 """
+

@@ -195,35 +195,6 @@ class FlipV(object):
         #print("Flip")
         return x,y
     
-class LOSODataLoader(DataLoader):
-    def __init__(self, data_path,
-                    labels_path,
-                    edges_index_path,
-                    data_shape=[(0, 3, 1, 2),(8700, 6,137,51)],
-                    normalize_labels=True,
-                    idx_path=None,
-                    reshape_data=True,
-                    expand_dim=True,
-                    model_name="aagcn",
-                    num_features=6,
-                    num_nodes=51,
-                    num_classes=5,
-                    transform=None):
-        DataLoader.__init__(self,data_path,
-                    labels_path,
-                    edges_index_path,
-                    data_shape,
-                    normalize_labels,
-                    idx_path,
-                    reshape_data,
-                    expand_dim,
-                    model_name,
-                    num_features,
-                    num_nodes,
-                    num_classes,
-                    transform)
-        super(DataLoader, self).__init__()
-
 if __name__=="__main__":
     name_exp="open_face"
    

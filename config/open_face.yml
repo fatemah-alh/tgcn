@@ -6,15 +6,15 @@ landmarks_path : "data/PartA/3dlandmarks/"
 csv_file: "data/PartA/samples.csv"
 labels_path: "data/PartA/lables.npy"
 data_path: "data/PartA/openFace/dataset_openFace_new.npy" 
-idx_train: "data/PartA/idx_train_filterd_low_react.npy" 
+ # "data/PartA/idx_train_filterd_low_react.npy" 
 #idx_train_all_subject
 #idx_train_filterd_low_react
 #idx_train_filterd
-idx_test: "data/PartA/idx_test_filterd_low_react.npy"
+# "data/PartA/idx_test_filterd_low_react.npy"
 edges_path: "data/PartA/openFace/edge_openFace.npy"
 filter_idx_90: "data/PartA/idx_low_confidance_90.npy"
 filter_idx_80: "data/PartA/idx_low_confidance_80.npy"
-LOG_DIR: "log/"
+
 weight_decay: 0.7
 step_decay: 30
 optimizer: 'SGD'
@@ -28,24 +28,23 @@ embed_dim: 128
 gru: 2
 bn: True
 lr: 0.01
-
 num_subset: 2
 num_features: 6
-
 hidden_size: 1
-
-adaptive: False
-attention: False
-num_classes: 2
-
-t_kernel_size: 15
-strid: 1
 TS: 137
 n_joints: 51
 
-augmentaion: False
-prop: #0.2 #usando la classe di augmentation.
-Aug_type: #"r" # [ "r" , "f" , "r+f"]
-
-log_name: "1s+15k+binary+witout_attention"
+idx_train: "data/PartA/loso/0/idx_train.npy"
+idx_test:  "data/PartA/loso/0/idx_test.npy" 
+LOG_DIR: "log/loso/0/"
+adaptive: False
+attention: True
+drop_out: 0.2
+num_classes: 2
+t_kernel_size: 15
+strid: 1
+augmentaion: False # True
+prop: # 1 #usando la classe di augmentation.
+Aug_type: #"f" # [ "r" , "f" , "r+f"]
+log_name: "1s+15k+binary+loso_LE_test0"
 gpu: 1
