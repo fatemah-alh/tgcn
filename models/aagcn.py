@@ -452,7 +452,7 @@ class aagcn_network(nn.Module):
         self.l5 = AAGCN(64, 128, graph,num_subset=num_subset, num_nodes=num_nodes,stride=stride, adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l2")
         self.l6 = AAGCN(128,128, graph,num_subset=num_subset, num_nodes=num_nodes,stride=stride,adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l_3")
         
-        self.l7 = AAGCN(128, 128, graph,num_subset=num_subset, num_nodes=num_nodes,adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l_3")
+        #self.l7 = AAGCN(128, 128, graph,num_subset=num_subset, num_nodes=num_nodes,adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l_3")
         #self.l8 = AAGCN(128, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=3, adaptive=adaptive, attention=attention)
         #self.l9 = AAGCN(256, 256, graph,num_subset=num_subset, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
         #self.l10 = AAGCN(256, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=2,adaptive=adaptive, attention=attention)

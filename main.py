@@ -57,6 +57,7 @@ class Trainer():
         self.num_subset=config['num_subset']
         self.num_features=config['num_features']
         self.adaptive=config['adaptive']
+        self.attention=config['attention']
         self.kernel_size=config['t_kernel_size']
         self.hidden_size=config['hidden_size']
         self.bn=config['bn']
@@ -64,6 +65,7 @@ class Trainer():
         self.strid=config["strid"]
         self.num_classes=config["num_classes"]
         self.augmentaion=config["augmentaion"]
+        self.aug_type=config["Aug_type"]
         self.prop=config["prop"]
         if self.num_classes==2:
             self.classes=[0,1]
@@ -98,10 +100,16 @@ class Trainer():
         self.edge_index=torch.LongTensor(np.load(self.edges_path)).to(self.device)
     def load_datasets(self):
         if self.augmentaion:
-            #self.transform=RandomApply([RandomChoice([Rotate(),FlipV(),Compose([FlipV(),Rotate()])])],p=self.prop)
-            self.transform=RandomApply([FlipV()],p=self.prop)
-            #self.transform=RandomApply([Rotate()],p=0.01)
-            print("augmentaion..")
+            if self.aug_type=="r":
+                self.transform=RandomApply([Rotate()],p=self.prop)
+                print("augmentaion rotation..")
+            if self.aug_type=="f":
+                self.transform=RandomApply([FlipV()],p=self.prop)
+                print("augmentaion flip..")
+            if self.aug_type=="r+f":
+                self.transform=RandomApply([RandomChoice([Rotate(),FlipV(),Compose([FlipV(),Rotate()])])],p=self.prop)
+            
+                print("augmentaion rotaion + flip..")
         else:
             self.transform=None
             
@@ -154,7 +162,7 @@ class Trainer():
                                        in_channels=self.num_features,
                                        drop_out=0.5, 
                                        adaptive=self.adaptive, 
-                                       attention=True,
+                                       attention=self.attention,
                                        kernel_size=self.kernel_size,
                                        hidden_size=self.hidden_size,
                                        bn=self.bn,
@@ -330,7 +338,7 @@ class Trainer():
                                         in_channels=self.num_features,
                                         drop_out=0.5,
                                         adaptive=self.adaptive, 
-                                        attention=True,
+                                        attention=self.attention,
                                         embed=True,
                                         kernel_size=self.kernel_size,
                                         bn=self.bn,
@@ -453,7 +461,7 @@ if __name__=="__main__":
     config = yaml.safe_load(config_file)
 
     trainer=Trainer(config=config)
-    trainer.run("1s+15k+binary+aug001+Flip")
+    trainer.run(config["log_name"])
     #trainer.calc_accuracy()
 # %%
 
