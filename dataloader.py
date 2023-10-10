@@ -21,7 +21,8 @@ class DataLoader(torch.utils.data.Dataset):
                     num_features=6,
                     num_nodes=51,
                     num_classes=5,
-                    transform=None):
+                    transform=None,
+                    contantenat=False):
         super(DataLoader, self).__init__()
 
         self.data_path = data_path
@@ -36,6 +37,7 @@ class DataLoader(torch.utils.data.Dataset):
         self.num_nodes=num_nodes
         self.num_classes=num_classes
         self.transform = transform
+        self.concatenate=contantenat
         if self.model_name=="a3tgcn":
             self.data_shape=[(0, 2, 3, 1),(8700,num_nodes,num_features,137)]
             self.expand_dim=False
@@ -89,7 +91,7 @@ class DataLoader(torch.utils.data.Dataset):
         reshape (8700,137,51,6 ) to (8700, 6,137,51) aagcn (0, 3, 1, 2)
         reshape (8700,137,51,6 ) to(8700,51,6,137) a3gcn(0, 2, 3, 1)
         """
-        
+        print("shape X",self.X.shape)
         if self.reshape_data:
              reshaped_tensor = np.transpose(self.X, self.data_shape[0])  # Transpose dimensions from 8700,137,469,4) to 8600, 469, 4, 137
              self.features= torch.tensor(np.reshape(reshaped_tensor, self.data_shape[1]))  # Reshape to desired shape     
@@ -121,16 +123,24 @@ class DataLoader(torch.utils.data.Dataset):
         x = self.features[index]
         y=self.labels[index]
         if self.transform:
-            x,y=self.transform((x,y))
-        
+            if self.concatenate:
+                x_t,y_t=self.transform((x,y))
+                x=np.stack((x_t,x),axis=0)
+                y=np.stack((y_t,y),axis=0)
+            else:
+                x,y=self.transform((x,y))
+       
         return x, y
     
     def split_data(self):
         if self.idx_path!=None:
             idx=np.load(self.idx_path) 
+           
             idx=np.array(idx,dtype=np.int32)
+            
             self.features=self.features[idx]
             self.labels=self.labels[idx]
+            
 
     def three_classification(self):
         values = [0, 2 , 4]
@@ -214,14 +224,17 @@ if __name__=="__main__":
     num_classes=config['num_classes']
     transform=RandomApply([RandomChoice([Rotate(),FlipV(),Compose([FlipV(),Rotate()])])],p=0.5)
     #loader=DataLoader(data_path,labels_path,edges_path,num_features= num_features,num_nodes=num_nodes)
-    train_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_train,num_features= num_features,num_nodes=num_nodes,num_classes= num_classes,transform=None)
-    test_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_test,num_features= num_features,num_nodes=num_nodes,num_classes= num_classes)
+    train_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_train,num_features= num_features,num_nodes=num_nodes,num_classes= num_classes,transform=transform)
+    test_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_test,num_features= num_features,num_nodes=num_nodes,num_classes= num_classes,transform=transform)
     train_loader = torch.utils.data.DataLoader(train_dataset, 
                                                    batch_size=batch_size, 
                                                    shuffle=True,
                                                    drop_last=True)
     for sample in train_loader:
         x,y=sample
-       
-        print(y)
+        b,l,c,t,n,m=x.size()
+        x=x.view(b*l ,c, t, n, m)
+        y=y.view(-1)
+        print(x.shape,y.shape)
         break
+# %%

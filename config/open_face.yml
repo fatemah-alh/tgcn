@@ -6,19 +6,21 @@ landmarks_path : "data/PartA/3dlandmarks/"
 csv_file: "data/PartA/samples.csv"
 labels_path: "data/PartA/lables.npy"
 data_path: "data/PartA/openFace/dataset_openFace_new.npy" 
- # "data/PartA/idx_train_filterd_low_react.npy" 
-#idx_train_all_subject
-#idx_train_filterd_low_react
-#idx_train_filterd
-# "data/PartA/idx_test_filterd_low_react.npy"
+
 edges_path: "data/PartA/openFace/edge_openFace.npy"
 filter_idx_90: "data/PartA/idx_low_confidance_90.npy"
 filter_idx_80: "data/PartA/idx_low_confidance_80.npy"
 
+# "data/PartA/idx_train_filterd_low_react.npy" 
+#idx_train_all_subject
+#idx_train_filterd_low_react
+#idx_train_filterd
+# "data/PartA/idx_test_filterd_low_react.npy"
+
 weight_decay: 0.7
 step_decay: 30
 optimizer: 'SGD'
-num_epoch: 500 
+
 batch_size: 32
 continue_training: False   #If set True will continue training from pretrained model
 pretrain_model: "None" #"08-05-17:36" # #"08-03-12:18"       #Name of folder that contains the model resume training
@@ -34,17 +36,23 @@ hidden_size: 1
 TS: 137
 n_joints: 51
 
-idx_train: "data/PartA/loso/0/idx_train.npy"
-idx_test:  "data/PartA/loso/0/idx_test.npy" 
-LOG_DIR: "log/loso/0/"
+idx_train:  "data/PartA/idx_train_filterd_low_react.npy"
+idx_test: "data/PartA/idx_test_filterd_low_react.npy" 
+LOG_DIR: "log/"
+
 adaptive: False
 attention: True
 drop_out: 0.2
-num_classes: 2
+
+type_exp: "loso" #, "hold_out" 
 t_kernel_size: 15
 strid: 1
-augmentaion: False # True
-prop: # 1 #usando la classe di augmentation.
-Aug_type: #"f" # [ "r" , "f" , "r+f"]
-log_name: "1s+15k+binary+loso_LE_test0"
+augmentaion: True # True
+prop: 1 # 1 #usando la classe di augmentation.
+Aug_type: "r+f" #"f" # [ "r" , "f" , "r+f"]
+concatenate: True
+log_name: "Concatenate_aug" #"1s+15k+multi+loso-filtred_LE_test0"
+
 gpu: 1
+num_classes: 5
+num_epoch: 150 

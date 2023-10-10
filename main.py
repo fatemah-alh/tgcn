@@ -68,6 +68,9 @@ class Trainer():
         self.augmentaion=config["augmentaion"]
         self.aug_type=config["Aug_type"]
         self.prop=config["prop"]
+        self.concatenate=config["concatenate"]
+
+        self.type_exp=config["type_exp"]
         if self.num_classes==2:
             self.classes=[0,1]
         elif self.num_classes==3:
@@ -77,12 +80,15 @@ class Trainer():
        
         self.set_device()
         self.load_edges()
+        if self.type_exp=="hold_out":
+            self.init_trainer()
+        print("Adaptive:",self.adaptive)
+    def init_trainer(self):
         self.load_datasets()
         self.load_model()
         self.load_optimizer()
         self.load_loss()
-        print("Adaptive:",self.adaptive)
-   
+
     def set_log_dir(self,name=None):
         self.name=name
         if self.name==None:
@@ -108,7 +114,8 @@ class Trainer():
                 self.transform=RandomApply([FlipV()],p=self.prop)
                 print("augmentaion flip..")
             if self.aug_type=="r+f":
-                self.transform=RandomApply([RandomChoice([Rotate(),FlipV(),Compose([FlipV(),Rotate()])])],p=self.prop)
+                #self.transform=RandomApply([RandomChoice([Rotate(),FlipV(),Compose([FlipV(),Rotate()])])],p=self.prop)
+                self.transform=RandomApply([RandomChoice([Rotate(),FlipV()])],p=self.prop)
             
                 print("augmentaion rotaion + flip..")
         else:
@@ -199,14 +206,14 @@ class Trainer():
         #self.loss=torch.nn.CrossEntropyLoss().to(self.device)
         self.loss=torch.nn.MSELoss().to(self.device)
         #self.loss=torch.nn.L1Loss().to(self.device)
-    def apply_augmentain(self,snapshot):
-        x_s,y_s=snapshot
-        x_transormed=torch.zeros_like(x_s)
-        for i in range( 0,len(x_s)):
-            x,y=self.transform((x_s[i].cpu().numpy(),y_s[i]))
-            x_transormed[i]=torch.tensor(x)
-        return x_transormed,y_s
-
+    def conc_aug_batch(self,x,y):
+        b,l,c,t,n,m=x.size
+        x=x.view(b*l ,c, t, n, m)
+        y=y.view(-1)
+        idx=np.random.shuffle(range(b*l))
+        x=x[idx]
+        y=y[idx]
+        return x,y
 
     def train(self):
         avg_loss = 0.0
@@ -216,7 +223,9 @@ class Trainer():
         for i,snapshot in enumerate(tq):
             x,label=snapshot
             x=x.to(self.device)
-            label = label.to(self.device) 
+            label = label.to(self.device)
+            if self.concatenate and self.augmentaion:
+                x,label=self.conc_aug_batch(x,label)
             #forward
             y_hat = self.model(x)
             loss=self.loss(y_hat,label.float())
@@ -401,10 +410,12 @@ class Trainer():
         with open(os.path.join(self.log_dir, 'log.txt'), 'a') as f:
             f.write(result)
             print(result)
+        """
+        
         if ((epoch+1)%5==0):
                 torch.save(self.model.state_dict(), os.path.join(self.log_dir, "ckpt_%d.pkl" % (epoch +1)))
                 print('Saved new checkpoint  ckpt_{epoch_}.pkl'.format(epoch_=epoch+1))
-
+        """
         
         wandb.log({"epoche": epoch, "train_loss":avg_train_loss,"test_loss":avg_test_loss,"lr":lr})
 
@@ -416,6 +427,8 @@ class Trainer():
         
         with open(self.log_dir+'/log.txt', 'a') as f:
                     f.write("results_best_model:\n Avg_Accuracy: {}\n max_min_value{}\n cm:{}\n class_accuracy{}".format(avg_accuracy,max_min,cm,accuracy_class))
+        """
+        
         avg_accuracy,cm,f1,accuracy_class,max_min= self.calc_accuracy(self.log_dir+"/ckpt_{}.pkl".format(self.num_epoch),log=False)
         self.visualize_one_cm(cm,title="last_epoch"+self.name)
         
@@ -426,14 +439,13 @@ class Trainer():
         self.visualize_one_cm(cm,title="last_epoch_train"+ self.name)
         with open(self.log_dir+'/log.txt', 'a') as f:
                     f.write("results_last_epoch_on_train:\n Avg_Accuracy: {}\n max_min_value{}\n cm:{}\n class_accuracy{}".format(avg_accuracy,max_min,cm,accuracy_class))
-    def save_best_model(self,prev_acc,acc):
-        if acc > prev_acc:
-            with open(self.log_dir+'/log.txt', 'a') as f:
-                f.write("saved_a new best_model\n ")
-            torch.save(self.model.state_dict(),self.log_dir+"/best_model.pkl")
-            print('Best model in {dir}/best_model.pkl'.format(dir=self.log_dir))
-            prev_acc=acc
-        return prev_acc
+        """
+    def save_best_model(self,acc):
+        with open(self.log_dir+'/log.txt', 'a') as f:
+            f.write("saved_a new best_model\n ")
+        torch.save(self.model.state_dict(),self.log_dir+"/best_model.pkl")
+        print('Best model in {dir}/best_model.pkl'.format(dir=self.log_dir))
+        return acc
          
     def run(self,name=None):
         wandb.init(project="New data with centroid velocity",config=self.config,name=name)
@@ -442,15 +454,48 @@ class Trainer():
         self.set_log_dir(name)
         self.log_parameters()
         prev_best_acc = 0.0
+        best_loss=0.0
         for epoch in range(self.num_epoch):
             avg_train_loss,avg_train_acc,f1_train=self.train()
             avg_test_loss,avg_test_acc,f1_test= self.eval()
             self.log_results(epoch,avg_train_loss,avg_test_loss,avg_test_acc,avg_train_acc)
-            prev_best_acc=self.save_best_model(prev_best_acc,f1_test)
+            if f1_test > prev_best_acc:
+                prev_best_acc=self.save_best_model(f1_test)
+                best_loss=avg_test_loss
             self.scheduler.step()
-        
         np.save(self.log_dir+"/cm.npy",self.cm) 
         self.log_final_cm()
+        return prev_best_acc,best_loss
+   
+    def run_loso(self,type_="ME87",class_="binary",start=0): # or "LE67", "multi"
+        loso_acc=[]
+        loso_loss=[]
+        log_loso=self.parent_folder+f"log/loso_{type_}/log_loso_{type_}_{class_}.txt"
+        n=67
+        if type_=="ME87":
+            n=87
+        for i in range(start,n):
+            self.idx_train=self.parent_folder+f"data/PartA/loso_{type_}/{i}/idx_train.npy"
+            self.idx_test=self.parent_folder+f"data/PartA/loso_{type_}/{i}/idx_test.npy"
+            self.LOG_DIR= self.parent_folder+f"log/loso_{type_}/{i}/"
+            self.log_name= f"1s+15k+{class_}+loso_{type_}_test{i}"
+            
+            self.config["idx_train"]=self.idx_train
+            self.config["idx_test"]=self.idx_test
+            self.config["LOG_DIR"]=self.LOG_DIR
+            self.config["log_name"]=self.log_name
+            
+            self.init_trainer()
+
+            acc,loss=self.run(self.log_name)
+            loso_loss.append(loss)
+            loso_acc.append(acc)
+            with open(log_loso, 'a') as f:
+                f.write(f"Subject: {i}, acc: {acc}, loss: {loss}")
+        avg_acc=np.mean(loso_acc)
+        avg_loss=np.mean(loso_loss)
+        with open(log_loso, 'a') as f:
+            f.write(f"LOSO ACC: {avg_acc}, LOSO LOSS: {avg_loss}")
 
         
 if __name__=="__main__":
@@ -463,6 +508,10 @@ if __name__=="__main__":
 
     trainer=Trainer(config=config)
     trainer.run(config["log_name"])
+    #trainer.run_loso(type_="LE67",class_="binary",start=4)
+   # trainer.run_loso(type_="LE67",class_="multi",start=3)
+    #trainer.run_loso(type_="ME87",class_="multi",start=1)
+    #trainer.run_loso(type_="ME87",class_="binary",start=1)
     #trainer.calc_accuracy()
 # %%
 
