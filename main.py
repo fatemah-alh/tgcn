@@ -2,6 +2,7 @@
 import torch
 import wandb
 import numpy as np
+import random
 from itertools import chain
 from models.aagcn import aagcn_network
 from models.a3tgcn import A3TGCN2_network
@@ -70,7 +71,7 @@ class Trainer():
         self.prop=config["prop"]
         self.concatenate=config["concatenate"]
 
-        self.type_exp=config["type_exp"]
+        self.protocol=config["protocol"]
         if self.num_classes==2:
             self.classes=[0,1]
         elif self.num_classes==3:
@@ -80,7 +81,7 @@ class Trainer():
        
         self.set_device()
         self.load_edges()
-        if self.type_exp=="hold_out":
+        if self.protocol=="hold_out":
             self.init_trainer()
         print("Adaptive:",self.adaptive)
     def init_trainer(self):
@@ -129,7 +130,9 @@ class Trainer():
                                       num_features= self.num_features,
                                       num_nodes=self.num_nodes,
                                       num_classes=self.num_classes,
-                                      transform=self.transform)
+                                      transform=self.transform,
+                                      contantenat=self.concatenate
+                                      )
         self.test_dataset=DataLoader(self.data_path,
                                      self.labels_path,
                                      self.edges_path,
@@ -156,7 +159,7 @@ class Trainer():
                                                    shuffle=False,
                                                    sampler=torch.utils.data.SequentialSampler(self.test_dataset),
                                                    drop_last=False)
-        self.train_loader_for_test = torch.utils.data.DataLoader(self.train_dataset, 
+        self.train_loader_for_test = torch.utils.data.DataLoader(self.train_dataset_for_test, 
                                                    batch_size=self.batch_size, 
                                                    shuffle=False,
                                                    drop_last=False)
@@ -207,10 +210,11 @@ class Trainer():
         self.loss=torch.nn.MSELoss().to(self.device)
         #self.loss=torch.nn.L1Loss().to(self.device)
     def conc_aug_batch(self,x,y):
-        b,l,c,t,n,m=x.size
-        x=x.view(b*l ,c, t, n, m)
+        b,l,c,t,n,m=x.size()
+        x=x.view(-1 ,c, t, n, m)
         y=y.view(-1)
-        idx=np.random.shuffle(range(b*l))
+        idx=list(range(b*l))
+        random.shuffle(idx)
         x=x[idx]
         y=y[idx]
         return x,y

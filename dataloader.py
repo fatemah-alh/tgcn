@@ -91,7 +91,7 @@ class DataLoader(torch.utils.data.Dataset):
         reshape (8700,137,51,6 ) to (8700, 6,137,51) aagcn (0, 3, 1, 2)
         reshape (8700,137,51,6 ) to(8700,51,6,137) a3gcn(0, 2, 3, 1)
         """
-        print("shape X",self.X.shape)
+       
         if self.reshape_data:
              reshaped_tensor = np.transpose(self.X, self.data_shape[0])  # Transpose dimensions from 8700,137,469,4) to 8600, 469, 4, 137
              self.features= torch.tensor(np.reshape(reshaped_tensor, self.data_shape[1]))  # Reshape to desired shape     
@@ -135,9 +135,7 @@ class DataLoader(torch.utils.data.Dataset):
     def split_data(self):
         if self.idx_path!=None:
             idx=np.load(self.idx_path) 
-           
             idx=np.array(idx,dtype=np.int32)
-            
             self.features=self.features[idx]
             self.labels=self.labels[idx]
             
