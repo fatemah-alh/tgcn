@@ -6,7 +6,7 @@ import random
 from itertools import chain
 from models.aagcn import aagcn_network
 from models.a3tgcn import A3TGCN2_network
-from dataloader import DataLoader,Rotate,FlipV
+from dataloader import DataLoader,Rotate,FlipV,TranslateX,TranslateY
 from tqdm import tqdm 
 import torch.optim.lr_scheduler as lr_scheduler
 import datetime
@@ -70,7 +70,8 @@ class Trainer():
         self.aug_type=config["Aug_type"]
         self.prop=config["prop"]
         self.concatenate=config["concatenate"]
-
+        self.maxMinNormalization=config["maxMinNormalization"]
+        self.normalize_labels=config["normalize_labels"]
         self.protocol=config["protocol"]
         if self.num_classes==2:
             self.classes=[0,1]
@@ -117,8 +118,10 @@ class Trainer():
             if self.aug_type=="r+f":
                 #self.transform=RandomApply([RandomChoice([Rotate(),FlipV(),Compose([FlipV(),Rotate()])])],p=self.prop)
                 self.transform=RandomApply([RandomChoice([Rotate(),FlipV()])],p=self.prop)
-            
                 print("augmentaion rotaion + flip..")
+            if self.aug_type=="all":
+                self.transform=RandomApply([RandomChoice([Rotate(),FlipV(),TranslateY(),TranslateX()])],p=self.prop)
+                print("augmentaion rotaion + flip+ Translation x,y..")
         else:
             self.transform=None
             
@@ -131,7 +134,10 @@ class Trainer():
                                       num_nodes=self.num_nodes,
                                       num_classes=self.num_classes,
                                       transform=self.transform,
-                                      contantenat=self.concatenate
+                                      contantenat=self.concatenate,
+                                      maxMinNormalization=self.maxMinNormalization,
+                                      min_max_values=None,
+                                      normalize_labels=self.normalize_labels
                                       )
         self.test_dataset=DataLoader(self.data_path,
                                      self.labels_path,
@@ -140,7 +146,10 @@ class Trainer():
                                      model_name=self.model_name,
                                      num_features= self.num_features,
                                      num_nodes=self.num_nodes,
-                                     num_classes=self.num_classes)
+                                     num_classes=self.num_classes,
+                                     maxMinNormalization=self.maxMinNormalization,
+                                     min_max_values=self.train_dataset.min_max_values,
+                                     normalize_labels=self.normalize_labels)
         self.train_dataset_for_test=DataLoader(self.data_path,
                                       self.labels_path,
                                       self.edges_path,
@@ -149,6 +158,9 @@ class Trainer():
                                       num_features= self.num_features,
                                       num_nodes=self.num_nodes,
                                       num_classes=self.num_classes,
+                                      maxMinNormalization=self.maxMinNormalization,
+                                      min_max_values=None,
+                                      normalize_labels=self.normalize_labels
                                       )
         self.train_loader = torch.utils.data.DataLoader(self.train_dataset, 
                                                    batch_size=self.batch_size, 
@@ -290,11 +302,13 @@ class Trainer():
                 y_hat = self.model(x)
                 y_hat=y_hat.cpu().numpy()
                 min_found,max_found=self.get_min_max(y_hat,min_found,max_found)
-                y_hat=[x * max_classes for x in y_hat]
+                label=label.tolist()
+                y_hat=y_hat.tolist()
+                if self.normalize_labels:
+                    y_hat=[x * max_classes for x in y_hat]
+                    label=[x * max_classes for x in label]
                 y_hat=np.round(y_hat).tolist()
                 predicted.append(y_hat)
-                label=label.tolist()
-                label=[x * max_classes for x in label]
                 targests.append(label)
                 for k in range(0,len(label)):
                     sample=sample+1
@@ -460,6 +474,7 @@ class Trainer():
         prev_best_acc = 0.0
         best_loss=0.0
         for epoch in range(self.num_epoch):
+           
             avg_train_loss,avg_train_acc,f1_train=self.train()
             avg_test_loss,avg_test_acc,f1_test= self.eval()
             self.log_results(epoch,avg_train_loss,avg_test_loss,avg_test_acc,avg_train_acc)
@@ -471,18 +486,16 @@ class Trainer():
         self.log_final_cm()
         return prev_best_acc,best_loss
    
-    def run_loso(self,type_="ME87",class_="binary",start=0): # or "LE67", "multi"
+    def run_loso(self,type_="LE87",class_="binary",start=0,end=87): # or "LE67", "multi"
         loso_acc=[]
         loso_loss=[]
-        log_loso=self.parent_folder+f"log/loso_{type_}/log_loso_{type_}_{class_}.txt"
-        n=67
-        if type_=="ME87":
-            n=87
-        for i in range(start,n):
+        log_loso=self.parent_folder+f"log/loso_{type_}_aug_k2/log_loso_{type_}_{class_}.txt"
+        
+        for i in range(start,end):
             self.idx_train=self.parent_folder+f"data/PartA/loso_{type_}/{i}/idx_train.npy"
             self.idx_test=self.parent_folder+f"data/PartA/loso_{type_}/{i}/idx_test.npy"
-            self.LOG_DIR= self.parent_folder+f"log/loso_{type_}/{i}/"
-            self.log_name= f"1s+15k+{class_}+loso_{type_}_test{i}"
+            self.LOG_DIR= self.parent_folder+f"log/loso_{type_}_aug_k2/{i}/"
+            self.log_name= f"1s+15k+{class_}+loso_{type_}_aug_test{i}"
             
             self.config["idx_train"]=self.idx_train
             self.config["idx_test"]=self.idx_test
@@ -511,11 +524,13 @@ if __name__=="__main__":
     config = yaml.safe_load(config_file)
 
     trainer=Trainer(config=config)
-    trainer.run(config["log_name"])
-    #trainer.run_loso(type_="LE67",class_="binary",start=4)
-   # trainer.run_loso(type_="LE67",class_="multi",start=3)
-    #trainer.run_loso(type_="ME87",class_="multi",start=1)
-    #trainer.run_loso(type_="ME87",class_="binary",start=1)
+    if config["protocol"]=="hold_out":
+        trainer.run(config["log_name"])
+    else:
+        #trainer.run_loso(type_="LE67",class_="binary",start=4)
+        #trainer.run_loso(type_="LE67",class_="multi",start=44)
+        trainer.run_loso(type_="ME87",class_="multi",start=50,end=60)
+        #trainer.run_loso(type_="ME87",class_="binary",start=55)
     #trainer.calc_accuracy()
-# %%
+#%%
 

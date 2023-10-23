@@ -22,7 +22,9 @@ class DataLoader(torch.utils.data.Dataset):
                     num_nodes=51,
                     num_classes=5,
                     transform=None,
-                    contantenat=False):
+                    contantenat=False,
+                    maxMinNormalization=False,
+                    min_max_values=None):
         super(DataLoader, self).__init__()
 
         self.data_path = data_path
@@ -38,6 +40,8 @@ class DataLoader(torch.utils.data.Dataset):
         self.num_classes=num_classes
         self.transform = transform
         self.concatenate=contantenat
+        self.maxMinNormalization=maxMinNormalization
+        self.min_max_values=min_max_values
         if self.model_name=="a3tgcn":
             self.data_shape=[(0, 2, 3, 1),(8700,num_nodes,num_features,137)]
             self.expand_dim=False
@@ -51,7 +55,8 @@ class DataLoader(torch.utils.data.Dataset):
         print("Loading Dataset")
         self.labels=np.load(self.labels_path)#0,..,4
         self.X=np.load(self.data_path)
-
+        if self.maxMinNormalization:
+            self.maxMinNorm()
         #Select featurs 
         if self.num_nodes==43:
             print("Fal expirment...")
@@ -61,16 +66,11 @@ class DataLoader(torch.utils.data.Dataset):
             #self.X=np.concatenate( (self.X[:,:,:,:2],self.X[:,:,:,3:5]),axis=3)
         elif self.num_features==2:
             self.X=self.X[:,:,:,:2]
-
         #Preprocess
         #self.preprocess()
         self._reshape_data()
-        
-        
         #split data set with idx
         self.split_data()
-        
-        
         #Select the expirment:
         if self.num_classes==3:
             self.three_classification()
@@ -84,8 +84,15 @@ class DataLoader(torch.utils.data.Dataset):
             self.labels=self.labels/np.max(self.labels)
 
         print(self.features.shape)
+        print(np.min(self.X[:,:,:,0]),np.max(self.X[:,:,:,0])) 
         print(np.unique( self.labels))
-
+    def augment_data(self):
+        augmented_data=np.empty_like(self.features)
+        for i in range(0,len(self.features)):
+            x,y=self.transform(self.features[i],self.labels[i])
+            augmented_data[i]=x
+        self.features=np.concatenate((self.features,augmented_data),axis=0)
+        return augmented_data
     def _reshape_data(self):
         """
         reshape (8700,137,51,6 ) to (8700, 6,137,51) aagcn (0, 3, 1, 2)
@@ -131,7 +138,24 @@ class DataLoader(torch.utils.data.Dataset):
                 x,y=self.transform((x,y))
        
         return x, y
-    
+    def apply_maxMinNorm(self,val,min_val,max_val):
+        return (2 * (val - min_val) / (max_val - min_val)) - 1 
+    def maxMinNorm(self):
+        for i in range(0,len(self.X)):
+            sample=self.X[i]
+            minX=np.min(sample[:,:,0])
+            minY=np.min(sample[:,:,1])
+            maxX=np.max(sample[:,:,0])
+            maxY=np.max(sample[:,:,1])
+            #print(sample[:,:,0].shape)
+            sample[:,:,0]= self.apply_maxMinNorm(sample[:,:,0],minX,maxX) 
+            sample[:,:,1]=self.apply_maxMinNorm(sample[:,:,1],minY,maxY) 
+            self.X[i]=sample
+            #print(np.min(sample[:,:,2]),np.max( sample[:,:,2]))
+            #print(np.min(sample[:,:,3]),np.max(sample[:,:,3]))
+            
+            #print(np.min(sample[:,:,0]),np.max(sample[:,:,0]))
+           
     def split_data(self):
         if self.idx_path!=None:
             idx=np.load(self.idx_path) 
@@ -139,6 +163,32 @@ class DataLoader(torch.utils.data.Dataset):
             self.features=self.features[idx]
             self.labels=self.labels[idx]
             
+            if self.min_max_values==None:
+                self.min_max_values=[np.min(self.features[:,:,:,2]),
+                            np.max(self.features[:,:,:,2]),
+                            np.min(self.features[:,:,:,3]),
+                            np.max(self.features[:,:,:,3]),
+                            np.min(self.features[:,:,:,4]),
+                            np.max(self.features[:,:,:,4]),
+                            np.min(self.features[:,:,:,5]),
+                            np.max(self.features[:,:,:,5])]
+            print("max_min_used dynamics before norm:",self.min_max_values )
+            if self.maxMinNorm:
+                for i in range(0,len(self.features)):
+                    sample=self.features[i]
+                    sample[:,:,2]= self.apply_maxMinNorm(sample[:,:,2],self.min_max_values[0],self.min_max_values[1]) 
+                    sample[:,:,3]=self.apply_maxMinNorm(sample[:,:,3],self.min_max_values[2],self.min_max_values[3]) 
+                    sample[:,:,4]=self.apply_maxMinNorm(sample[:,:,4],self.min_max_values[4],self.min_max_values[5]) 
+                    sample[:,:,5]=self.apply_maxMinNorm(sample[:,:,5],self.min_max_values[6],self.min_max_values[7]) 
+                    self.features[i]=sample
+                print("max_min_dynamics after norm:",[np.min(self.features[:,:,:,2]),
+                            np.max(self.features[:,:,:,2]),
+                            np.min(self.features[:,:,:,3]),
+                            np.max(self.features[:,:,:,3]),
+                            np.min(self.features[:,:,:,4]),
+                            np.max(self.features[:,:,:,4]),
+                            np.min(self.features[:,:,:,5]),
+                            np.max(self.features[:,:,:,5])])
 
     def three_classification(self):
         values = [0, 2 , 4]
@@ -202,7 +252,22 @@ class FlipV(object):
         x[4]=-x[4][:,self.re_index,:]
         #print("Flip")
         return x,y
-    
+class TranslateX(object):
+    def __init__(self,t=[-3,3]):
+        self.t=t
+    def __call__(self, sample):
+        x,y = sample #C,T,V,M
+        val=random.randint(self.t[0], self.t[1])
+        x[0]=x[0]+val
+        return x,y
+class TranslateY(object):
+    def __init__(self,t=[-3,3]):
+        self.t=t
+    def __call__(self, sample):
+        x,y = sample #C,T,V,M
+        val=random.randint(self.t[0], self.t[1])
+        x[1]=x[1]+val
+        return x,y
 if __name__=="__main__":
     name_exp="open_face"
    
@@ -220,19 +285,34 @@ if __name__=="__main__":
     num_features=config['num_features']
     num_nodes=config['n_joints'] 
     num_classes=config['num_classes']
-    transform=RandomApply([RandomChoice([Rotate(),FlipV(),Compose([FlipV(),Rotate()])])],p=0.5)
-    #loader=DataLoader(data_path,labels_path,edges_path,num_features= num_features,num_nodes=num_nodes)
-    train_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_train,num_features= num_features,num_nodes=num_nodes,num_classes= num_classes,transform=transform)
-    test_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_test,num_features= num_features,num_nodes=num_nodes,num_classes= num_classes,transform=transform)
+    transform=RandomApply([RandomChoice([Rotate(),FlipV()])],p=0.5)
+    transform=None
+    train_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_train,
+                             num_features= num_features,
+                             num_nodes=num_nodes,
+                             num_classes= num_classes,
+                             transform=transform,
+                             maxMinNormalization=True,
+                             min_max_values=None)
+    
+    test_dataset=DataLoader(data_path,
+                            labels_path,
+                            edges_path,
+                            idx_path=idx_test,
+                            num_features= num_features,
+                            num_nodes=num_nodes,
+                            num_classes= num_classes,
+                            transform=transform,
+                            maxMinNormalization=True,
+                            min_max_values=train_dataset.min_max_values
+                            )
+    
     train_loader = torch.utils.data.DataLoader(train_dataset, 
                                                    batch_size=batch_size, 
                                                    shuffle=True,
                                                    drop_last=True)
     for sample in train_loader:
         x,y=sample
-        b,l,c,t,n,m=x.size()
-        x=x.view(b*l ,c, t, n, m)
-        y=y.view(-1)
         print(x.shape,y.shape)
         break
 # %%

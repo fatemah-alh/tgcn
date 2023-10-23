@@ -1,4 +1,4 @@
-Description: ""
+Description: "With complex architect+FC to reduce embeding sizes"
 name_exp : "dlib"
 parent_folder: "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
 video_path: "data/PartA/"
@@ -38,19 +38,39 @@ n_joints: 51
 idx_train:  "data/PartA/idx_train_filterd_low_react.npy"
 idx_test: "data/PartA/idx_test_filterd_low_react.npy" 
 LOG_DIR: "log/"
-
+t_kernel_size: 15
+strid: 1
+normalize_labels: False
 
 adaptive: False
 attention: True
 drop_out: 0.2
-protocol: "hold_out" #, "hold_out" 
-t_kernel_size: 15
-strid: 1
-augmentaion: True # True
-prop: 1 # 1 #usando la classe di augmentation.
-Aug_type: "r+f" #"f" # [ "r" , "f" , "r+f"]
-concatenate: True
-log_name: "Concatenate_aug_multi" #"1s+15k+multi+loso-filtred_LE_test0"
-gpu: 0
+protocol: "hold_out" #"hold_out" #"loso"  
+maxMinNormalization: True #True
+
+augmentaion: False #False #  # True
+prop:  #1 # 1 #usando la classe di augmentation.
+Aug_type: #"r+f" #"all" # #"r+f" #"f" # [ "r" , "f" , "r+f","all"]
+concatenate: False #True #False # # True
+log_name: "1s+15k+multi+minMaxNorm_dx_dy_NoLabelNorm" #"1s+15k+multi+loso-filtred_LE_test0"
+gpu: 1
 num_classes: 5
-num_epoch: 250 
+num_epoch: 500 
+
+#todo 3s+7k + augmentaion. due tipi. binary and multi. 
+
+#loso multi con augmentaion.
+
+#complicare la struttura con augmentaion.
+#binary without decay. 1
+#mean 
+#try generate the augmented data in the init. 
+#Plot histogram of aumented dataset
+#Calcolare la velocità dopo il min_max?
+
+#provare minmax for all dataset, provare a calcolare la velocità dopo 
+#provare con una k.
+#augment the whole dataset
+#minmax in binary classification.
+
+#fare loss senza normalization. 

@@ -446,23 +446,23 @@ class aagcn_network(nn.Module):
         self.embed=embed
         self.data_bn = nn.BatchNorm1d(num_person * in_channels * num_nodes)#TODO senza 
         self.l1 = AAGCN(in_channels, 64, graph, num_subset=num_subset,num_nodes=num_nodes, residual=False, adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l1")
-        #self.l2 = AAGCN(64, 64, graph,num_subset=num_subset, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
-        #self.l3 = AAGCN(64, 64, graph,num_subset=num_subset, num_nodes=num_nodes, stride=3,adaptive=adaptive, attention=attention)
-        #self.l4 = AAGCN(64, 64, graph,num_subset=num_subset, num_nodes=num_nodes, adaptive=adaptive, attention=attention)
-        self.l5 = AAGCN(64, 128, graph,num_subset=num_subset, num_nodes=num_nodes,stride=stride, adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l2")
-        self.l6 = AAGCN(128,128, graph,num_subset=num_subset, num_nodes=num_nodes,stride=stride,adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l_3")
+       # self.l2 = AAGCN(64, 64, graph,num_subset=num_subset, num_nodes=num_nodes,stride=1,adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l2")
+        #self.l3 = AAGCN(64, 64, graph,num_subset=num_subset, num_nodes=num_nodes,stride=1, adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l3")
+        #self.l4 = AAGCN(64, 64, graph,num_subset=num_subset, num_nodes=num_nodes,stride=1 ,adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l4")
+        self.l5 = AAGCN(64, 128, graph,num_subset=num_subset, num_nodes=num_nodes,stride=stride, adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l5")
+        self.l6 = AAGCN(128,128, graph,num_subset=num_subset, num_nodes=num_nodes,stride=stride,adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l6")
         
-        #self.l7 = AAGCN(128, 128, graph,num_subset=num_subset, num_nodes=num_nodes,adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l_3")
-        #self.l8 = AAGCN(128, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=3, adaptive=adaptive, attention=attention)
-        #self.l9 = AAGCN(256, 256, graph,num_subset=num_subset, num_nodes=num_nodes,adaptive=adaptive, attention=attention)
-        #self.l10 = AAGCN(256, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=2,adaptive=adaptive, attention=attention)
+       # self.l7 = AAGCN(128, 128, graph,num_subset=num_subset, num_nodes=num_nodes,stride=stride,adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l7")
+       # self.l8 = AAGCN(128, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=3, adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l8")
+        #self.l9 = AAGCN(256, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=stride,adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l9")
+        #self.l10 = AAGCN(256, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=1,adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l10")
         
-        #self.conv=UnitTCN(128,64, kernel_size=1, stride=1)
         #self.fc=Linear(in_features=128*num_nodes,out_features= 1024*3)
         #self.fc2=Linear(in_features=128*num_nodes,out_features= 1024)
-        self.gru=GRU(input_size=num_nodes*128, hidden_size=hidden_size,num_layers=gru_layer,batch_first=True)
-        #nn.init.kaiming_normal_(self.fc.weight)
-        #nn.init.constant_(self.fc.bias, 0)
+        self.gru=GRU(input_size=128*num_nodes, hidden_size=hidden_size,num_layers=gru_layer,batch_first=True)
+        #nn.init.kaiming_normal_(self.fc.weight,0,)
+        #nn.init.normal_(self.fc.weight, 0, 1) #math.sqrt(2. / num_cl1ass)
+       
         bn_init(self.data_bn, 1)
         if drop_out:
             self.drop_out = nn.Dropout(drop_out)
@@ -475,37 +475,33 @@ class aagcn_network(nn.Module):
         x = x.view(N, M, V, C, T).permute(0, 1, 3, 4, 2).contiguous().view(N * M, C, T, V)
         
         x = self.l1(x)
-        #x = self.l2(x)
-        #x = self.l3(x)
-        #x = self.l4(x)
+        #x = self.l2(x)#
+        #x = self.l3(x)#
+        #x = self.l4(x)#
         x = self.l5(x)
         x = self.l6(x)
-       # x = self.l7(x)
-        #x = self.l8(x)
-        
-       # x = self.l9(x)
-       # x = self.l10(x) 
-        """
-        x = self.drop_out(x) 
-        x=x.permute(0, 3, 1, 2).contiguous().view(N,V,256,16) 
-        x=self.tgnn1(x,self.edge_index)
-        x=x.mean(1)
-        x=self.linear(x)
-        """
-        #x=self.conv(x)
+        #x = self.l7(x)#
+        #x = self.l8(x)#
+       # x = self.l9(x)#
+        #x = self.l10(x) #
+        x = self.drop_out(x)
+       
         t_new=x.size(2)
         c_new=x.size(1)
         x=x.permute(0, 2, 1, 3).contiguous().view(N,t_new,c_new,V) #(32,35,128,51)
         x=x.view(N,t_new,-1)
-        #x = x.mean(3)#(32,35,128) #32,16,128
+      
         embed_vectors=x
-        x = self.drop_out(x)
+        
         #x=self.fc(x)
+        
         x,h=self.gru(x) 
+       
         x=F.relu(x)
         #Take the last output. 
         x=x[:,-1,:]
         x=x.view(-1)
+         
         if self.embed:
             return x,embed_vectors
         else:

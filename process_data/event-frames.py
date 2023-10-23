@@ -1,64 +1,171 @@
 #%%
-from PIL import Image
-import numpy as np
-import pandas as pd
-import yaml
-import sys
+import os,sys
 parent_folder= "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
 sys.path.append(parent_folder)
-from utiles import get_file_names
-from tqdm import tqdm 
-from scipy.spatial import Delaunay
+from PIL import Image,ImageOps
+import numpy as np
 import matplotlib.pyplot as plt
 import imageio
 import torch
-
-
-
-
-
-#%%
-np.mean([
-    0.9, 1.0, 0.65, 0.87, 0.8717948794364929, 0.9729729890823364, 
-    0.7749999761581421, 0.5263158082962036, 0.8461538553237915, 0.5, 
-    0.824999988079071, 0.9750000238418579, 0.7250000238418579, 0.8717948794364929, 
-    0.5, 0.7894737124443054, 0.5, 0.8717948794364929, 0.8999999761581421, 1.0, 
-    0.6410256624221802, 0.7575757503509521, 0.6410256624221802, 0.9259259104728699, 
-    0.8709677457809448, 0.5, 0.5405405163764954, 0.5, 0.5128205418586731, 
-    0.9696969985961914, 1.0, 0.5151515007019043, 0.5945945978164673, 
-    0.8717948794364929, 0.8000000715255737, 0.6410256624221802, 0.625, 0.5, 
-    0.925000011920929, 0.5161290168762207, 0.6666666865348816, 0.7058823704719543, 
-    0.7368420958518982, 0.8461538553237915, 1.0, 0.9090909361839294, 0.5, 
-    0.625, 0.5333333611488342, 0.6000000238418579, 0.699999988079071, 
-    0.9750000238418579, 0.625, 0.625, 0.625, 0.5, 0.5, 0.4871794879436493, 
-    0.8500000238418579, 0.8055556416511536, 0.9750000238418579, 0.5, 
-    0.574999988079071, 0.6666666865348816, 0.8461538553237915, 0.824999988079071, 
-    0.5263158082962036
-]
-)
-np.mean([
-    0.9750000238418579, 0.6000000238418579, 0.949999988079071, 0.692307710647583, 
-    0.9459459185600281, 0.7749999761581421, 0.7368420958518982, 0.692307710647583, 
-    0.824999988079071, 0.5, 0.5, 0.5, 0.8974359035491943, 0.949999988079071, 
-    0.5, 0.5, 0.8205128312110901, 0.925000011920929, 1.0, 0.692307710647583, 
-    0.5151515007019043, 0.6666666865348816
-]
-)
-
-#%%
-np.mean([
-    0.25, 0.47999998927116394, 0.28, 0.3100000023841858, 0.3232323229312897, 
-    0.3645833432674408, 0.2142857164144516, 0.27551019191741943, 0.3263157904148102, 
-    0.23000000417232513, 0.28999999165534973, 0.2800000011920929, 0.20000001788139343, 
-    0.2083333283662796, 0.20000001788139343, 0.2857142984867096
-]
-)
-
+import cv2
+#import imutils
+import time
+import dlib
+import h5py
+from itertools import repeat
 # %%
-np.mean([
-    0.41999998688697815, 0.23999999463558197, 0.28999999165534973, 
-    0.31313130259513855, 0.3020833432674408, 0.26530611515045166, 
-    0.27551019191741943
-]
-)
+video_path ="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/vis/071313_m_41-PA4-072.mp4"
+output_folder="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/vis/"
+
+#%%
+def get_frames_list(video_path):
+    frames_list=[]
+    cap = cv2.VideoCapture(video_path) #video shape (1038, 1388)
+    while True:
+          # Read a frame from the video
+          ret, frame = cap.read()
+          if not ret:
+              break
+          image = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+          frames_list.append(image)
+    cap.release()
+    return frames_list
+
+def calcultate_events(frame_list,
+                      threshold=0,
+                      fps = 30,
+                      size = (1038, 1388),
+                      output_path='/content/drive/My Drive/Note Unifi/output.mp4',
+                      stream_path='/content/drive/My Drive/Note Unifi/events_frames.npy'):
+    event_frames=[]
+    out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (size[1], size[0]), False)
+    for f in range(1,len(frame_list)):
+      current_frame=np.array(frame_list[f])
+      prev_frame=np.array(frame_list[f-1])
+      #diff = cv2.subtract(current_frame, prev_frame)
+      #diff=current_frame - prev_frame
+      e_frame=np.zeros(current_frame.shape)
+      e_normalized=np.zeros(current_frame.shape)
+      for i in range(0,current_frame.shape[0]):
+        for j in range(0,current_frame.shape[1]):
+          if current_frame[i][j]>prev_frame[i][j]+threshold:
+            e_frame[i][j]=1
+          elif current_frame[i][j]<prev_frame[i][j]+threshold:
+            e_frame[i][j]=-1
+          e_normalized[i][j]=((e_frame[i][j]+1)/2 )*255
+      event_frames.append(e_frame)
+      out.write(np.uint8(e_normalized))
+    out.release()
+    np.save(stream_path,event_frames)
+    return event_frames
+
+def convert_and_trim_bb(image, rect):
+    # extract the starting and ending (x, y)-coordinates of the
+    # bounding box
+    startX = rect.left()
+    startY = rect.top()
+    endX = rect.right()
+    endY = rect.bottom()
+    # ensure the bounding box coordinates fall within the spatial
+    # dimensions of the image
+    startX = max(0, startX)
+    startY = max(0, startY)
+    endX = min(endX, image.shape[1])
+    endY = min(endY, image.shape[0])
+    # compute the width and height of the bounding box
+    w = endX - startX
+    h = endY - startY
+    # return our bounding box coordinates
+    return (startX, startY, w, h)
+
+def padding(img, desired_size):
+
+    delta_width = desired_size[0] - img.shape[0]
+    delta_height = desired_size[1] - img.shape[1]
+    pad_width = delta_width // 2
+    pad_height = delta_height // 2
+    padding = (pad_width, pad_height, delta_width - pad_width, delta_height - pad_height)
+    img=cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    print(img.shape)
+    p=cv2.copyMakeBorder(img, pad_height, pad_height, pad_width , pad_width ,cv2.BORDER_CONSTANT,value=[0,0,0])
+    res=cv2.resize(p,desired_size)
+    print(p.shape)
+    return p  #ImageOps.expand(img, padding)
+
+#Extract face from each frame
+def extract_faces(video_path):
+    detector = dlib.get_frontal_face_detector()
+    cap = cv2.VideoCapture(video_path) #video shape (1038, 1388)
+    faces_list=[]
+    max_width=0
+    max_height=0
+    while True:
+          # Read a frame from the video
+          ret, frame = cap.read()
+          if not ret:
+              break
+          image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+          rects = detector(image)
+          boxes = [convert_and_trim_bb(image, r) for r in rects]
+          # loop over the bounding boxes
+          for (x, y, w, h) in boxes:
+            # draw the bounding box on our image
+            #cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            face=cv2.cvtColor(image[y:y+h,x:x+w], cv2.COLOR_BGR2GRAY)
+            max_width=max(face.shape[0],max_width)
+            max_height=max(face.shape[1],max_height)
+            faces_list.append(face)
+            #plt.imshow(face)
+    cap.release()
+    return faces_list,max_width,max_height # return gray frames
+
+def get_paded_faces_list(faces_list,size):
+    return list(map(padding,faces_list,repeat(size)))
+
+def save_video_from_imgs(imgs,
+                         size,
+                         output_path,
+                         fps=30,
+                         colored=False):
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    #tempVideo = TempFile(ext=".mp4")
+    #writer = cv2.VideoWriter(tempVideo.path, fourcc, 30, (W, H), True)
+    out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc('m', 'p', '4', 'v'), fps, (size[1], size[0]),colored)
+    for f in range(1,len(imgs)):
+        out.write(imgs[f])
+    out.release()
+
+#%%
+faces_list,max_width,max_height=extract_faces(video_path)
+#%%
+save_video_from_imgs(faces_list,
+                    size=[max_width,max_height],
+                     output_path=output_folder+"faces_video_Gray.mp4",
+                     colored=False)
+#%%
+paded_faces_list=get_paded_faces_list(faces_list,[max_width,max_height])
+
+
+#%%
+save_video_from_imgs(paded_faces_list,
+                    size=[max_width,max_height],
+                    output_path=output_folder+"padded_faces_video.mp4"
+                    ,colored=False)
+#%%
+
+fram_faces_lists=get_frames_list("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/vis/faces_video_Gray.mp4")
+#%%
+for i in fram_faces_lists:
+    print(i.shape)
+#%%
+calcultate_events(fram_faces_lists,
+                  threshold=0,
+                  size=(max_width,max_height),
+                  output_path=output_folder+'video_event_faces_th0.mp4',
+                  stream_path=output_folder+'events_frames_faces_th0.npy')
+#%%
+
+plt.imshow(faces_list[0])
+# %%
+print([max_width,max_height])
 # %%
