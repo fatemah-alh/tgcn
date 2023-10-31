@@ -141,13 +141,14 @@ class DataLoader(torch.utils.data.Dataset):
     def apply_maxMinNorm(self,val,min_val,max_val):
         return (2 * (val - min_val) / (max_val - min_val)) - 1 
     def maxMinNorm(self):
+        print("min_max X tensor", self.X.shape)
         for i in range(0,len(self.X)):
             sample=self.X[i]
             minX=np.min(sample[:,:,0])
             minY=np.min(sample[:,:,1])
             maxX=np.max(sample[:,:,0])
             maxY=np.max(sample[:,:,1])
-            #print(sample[:,:,0].shape)
+           
             sample[:,:,0]= self.apply_maxMinNorm(sample[:,:,0],minX,maxX) 
             sample[:,:,1]=self.apply_maxMinNorm(sample[:,:,1],minY,maxY) 
             self.X[i]=sample
@@ -163,33 +164,36 @@ class DataLoader(torch.utils.data.Dataset):
             self.features=self.features[idx]
             self.labels=self.labels[idx]
             
+            print("Features shape ",self.features.shape,self.features[:,2,:,:,:].shape)
+            
             if self.min_max_values==None:
-                self.min_max_values=[np.min(self.features[:,:,:,2]),
-                            np.max(self.features[:,:,:,2]),
-                            np.min(self.features[:,:,:,3]),
-                            np.max(self.features[:,:,:,3]),
-                            np.min(self.features[:,:,:,4]),
-                            np.max(self.features[:,:,:,4]),
-                            np.min(self.features[:,:,:,5]),
-                            np.max(self.features[:,:,:,5])]
+                self.min_max_values=[np.min(self.features[:,2,:,:,:]),
+                            np.max(self.features[:,2,:,:,:]),
+                            np.min(self.features[:,3,:,:,:]),
+                            np.max(self.features[:,3,:,:,:]),
+                            np.min(self.features[:,4,:,:,:]),
+                            np.max(self.features[:,4,:,:,:]),
+                            np.min(self.features[:,5,:,:,:]),
+                            np.max(self.features[:,5,:,:,:])]
             print("max_min_used dynamics before norm:",self.min_max_values )
-            if self.maxMinNorm:
+            """
+            if self.maxMinNormalization:
                 for i in range(0,len(self.features)):
                     sample=self.features[i]
-                    sample[:,:,2]= self.apply_maxMinNorm(sample[:,:,2],self.min_max_values[0],self.min_max_values[1]) 
-                    sample[:,:,3]=self.apply_maxMinNorm(sample[:,:,3],self.min_max_values[2],self.min_max_values[3]) 
-                    sample[:,:,4]=self.apply_maxMinNorm(sample[:,:,4],self.min_max_values[4],self.min_max_values[5]) 
-                    sample[:,:,5]=self.apply_maxMinNorm(sample[:,:,5],self.min_max_values[6],self.min_max_values[7]) 
+                    sample[2,:,:,:]= self.apply_maxMinNorm(sample[2,:,:,:],self.min_max_values[0],self.min_max_values[1]) 
+                    sample[3,:,:,:]=self.apply_maxMinNorm(sample[3,:,:,:],self.min_max_values[2],self.min_max_values[3]) 
+                    sample[4,:,:,:]=self.apply_maxMinNorm(sample[4,:,:,:],self.min_max_values[4],self.min_max_values[5]) 
+                    sample[5,:,:,:]=self.apply_maxMinNorm(sample[5,:,:,:],self.min_max_values[6],self.min_max_values[7]) 
                     self.features[i]=sample
-                print("max_min_dynamics after norm:",[np.min(self.features[:,:,:,2]),
-                            np.max(self.features[:,:,:,2]),
-                            np.min(self.features[:,:,:,3]),
-                            np.max(self.features[:,:,:,3]),
-                            np.min(self.features[:,:,:,4]),
-                            np.max(self.features[:,:,:,4]),
-                            np.min(self.features[:,:,:,5]),
-                            np.max(self.features[:,:,:,5])])
-
+                print("max_min_dynamics after norm:",[np.min(self.features[:,2,:,:,:]),
+                            np.max(self.features[:,2,:,:,:]),
+                            np.min(self.features[:,3,:,:,:]),
+                            np.max(self.features[:,3,:,:,:]),
+                            np.min(self.features[:,4,:,:,:]),
+                            np.max(self.features[:,4,:,:,:]),
+                            np.min(self.features[:,5,:,:,:]),
+                            np.max(self.features[:,5,:,:,:])])
+                """
     def three_classification(self):
         values = [0, 2 , 4]
         indices = np.where(np.isin(self.labels, values))[0]
@@ -199,7 +203,8 @@ class DataLoader(torch.utils.data.Dataset):
         values = [0, 4]
         indices = np.where(np.isin(self.labels, values))[0]
         self.labels=self.labels[indices]
-        self.features=self.features[indices]   
+        self.features=self.features[indices]  
+        self.labels=self.labels/4 
 
 
 class Rotate(object):

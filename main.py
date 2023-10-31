@@ -73,13 +73,14 @@ class Trainer():
         self.maxMinNormalization=config["maxMinNormalization"]
         self.normalize_labels=config["normalize_labels"]
         self.protocol=config["protocol"]
+        self.max_output=config["max_output"]
         if self.num_classes==2:
             self.classes=[0,1]
         elif self.num_classes==3:
             self.classes=[0,1,2]
         else:
             self.classes=[0,1,2,3,4]
-       
+        self.max_classes=np.max(self.classes)
         self.set_device()
         self.load_edges()
         if self.protocol=="hold_out":
@@ -189,7 +190,8 @@ class Trainer():
                                        kernel_size=self.kernel_size,
                                        hidden_size=self.hidden_size,
                                        bn=self.bn,
-                                       stride=self.strid
+                                       stride=self.strid,
+                                       max_output= self.max_output
                                        )
         elif self.model_name=="a3tgcn":
             self.model=A3TGCN2_network(edge_index=self.edge_index,
@@ -244,11 +246,14 @@ class Trainer():
                 x,label=self.conc_aug_batch(x,label)
             #forward
             y_hat = self.model(x)
+            #y_hat=[np.min(pred,self.max_classes) for pred in y_hat]
+           
             loss=self.loss(y_hat,label.float())
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)  # Clip gradients
+            #torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)  # Clip gradients
             self.optimizer.step()
             self.optimizer.zero_grad()
+            #y_hat=torch.clamp(y_hat, min=0, max=self.max_classes)
             tq.set_description(f"train: Loss batch: {loss}")
             avg_loss += loss
         avg_loss = avg_loss / (i+1)    
@@ -273,6 +278,7 @@ class Trainer():
                 x=x.to(self.device)
                 label = label.to(self.device) 
                 y_hat = self.model(x) 
+               # y_hat=torch.clamp(y_hat, min=0, max=self.max_classes)
                 loss=self.loss(y_hat,label.float())
                 avg_loss += loss
                 tq.set_description("Test Loss batch: {}".format(loss))
@@ -290,7 +296,7 @@ class Trainer():
         sample=0
         min_found=100
         max_found=0
-        max_classes=np.max(self.classes)
+        
         if mode=="test":
             tq=tqdm(self.test_loader)
         else:
@@ -300,14 +306,16 @@ class Trainer():
                 x,label=snapshot
                 x=x.to(self.device)
                 y_hat = self.model(x)
-                y_hat=y_hat.cpu().numpy()
-                min_found,max_found=self.get_min_max(y_hat,min_found,max_found)
+                min_found,max_found=self.get_min_max(y_hat.cpu().numpy(),min_found,max_found)
                 label=label.tolist()
-                y_hat=y_hat.tolist()
+                
                 if self.normalize_labels:
-                    y_hat=[x * max_classes for x in y_hat]
-                    label=[x * max_classes for x in label]
-                y_hat=np.round(y_hat).tolist()
+                    y_hat=[x * self.max_classes  for x in y_hat.cpu().numpy()]
+                    label=[x * self.max_classes for x in label]
+                    y_hat=np.round(y_hat).tolist()
+                else:
+                    y_hat=torch.clamp(y_hat, min=0, max=self.max_classes)
+                    y_hat=np.round(y_hat.cpu().numpy()).tolist()
                 predicted.append(y_hat)
                 targests.append(label)
                 for k in range(0,len(label)):
@@ -429,7 +437,6 @@ class Trainer():
             f.write(result)
             print(result)
         """
-        
         if ((epoch+1)%5==0):
                 torch.save(self.model.state_dict(), os.path.join(self.log_dir, "ckpt_%d.pkl" % (epoch +1)))
                 print('Saved new checkpoint  ckpt_{epoch_}.pkl'.format(epoch_=epoch+1))
@@ -489,13 +496,13 @@ class Trainer():
     def run_loso(self,type_="LE87",class_="binary",start=0,end=87): # or "LE67", "multi"
         loso_acc=[]
         loso_loss=[]
-        log_loso=self.parent_folder+f"log/loso_{type_}_aug_k2/log_loso_{type_}_{class_}.txt"
+        log_loso=self.parent_folder+f"log/loso_{type_}_new/log_loso_{type_}_{class_}.txt"
         
         for i in range(start,end):
             self.idx_train=self.parent_folder+f"data/PartA/loso_{type_}/{i}/idx_train.npy"
             self.idx_test=self.parent_folder+f"data/PartA/loso_{type_}/{i}/idx_test.npy"
-            self.LOG_DIR= self.parent_folder+f"log/loso_{type_}_aug_k2/{i}/"
-            self.log_name= f"1s+15k+{class_}+loso_{type_}_aug_test{i}"
+            self.LOG_DIR= self.parent_folder+f"log/loso_{type_}_new/{i}/"
+            self.log_name= f"1s+15k+{class_}+loso_{type_}_test{i}"
             
             self.config["idx_train"]=self.idx_train
             self.config["idx_test"]=self.idx_test
