@@ -15,7 +15,7 @@ import seaborn as sns
 parent_folder= "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
 sys.path.append(parent_folder)
 
-from dataloader import DataLoader,Rotate,FlipV
+from tgcn.helper.dataloader import DataLoader,Rotate,FlipV
 from torchvision.transforms import RandomApply,RandomChoice,Compose
 import wandb
 from utiles import rotation_matrix_2d

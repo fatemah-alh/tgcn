@@ -8,7 +8,7 @@ from tqdm import tqdm
 import sys
 parent_folder= "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
 sys.path.append(parent_folder)
-from dataloader import DataLoader
+from helper.dataloader import DataLoader
 import yaml
 
 """

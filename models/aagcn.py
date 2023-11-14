@@ -5,7 +5,7 @@ from tqdm import tqdm
 import sys
 parent_folder= "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
 sys.path.append(parent_folder)
-from dataloader import DataLoader
+from helper.dataloader import DataLoader
 import yaml
 import math
 import torch
@@ -459,9 +459,10 @@ class aagcn_network(nn.Module):
         #self.l9 = AAGCN(256, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=stride,adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l9")
         #self.l10 = AAGCN(256, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=1,adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l10")
         
+        self.gru=GRU(input_size=128*num_nodes, hidden_size=128,num_layers=gru_layer,batch_first=True)
+
         self.fc=Linear(in_features=128,out_features= 1) 
        
-        self.gru=GRU(input_size=128*num_nodes, hidden_size=128,num_layers=gru_layer,batch_first=True)
         nn.init.kaiming_normal_(self.fc.weight)
         #nn.init.normal_(self.fc.weight, 0, math.sqrt(2. / 5)) #math.sqrt(2. / num_cl1ass)
     
@@ -501,10 +502,10 @@ class aagcn_network(nn.Module):
             x,_ = torch.max(x,dim=1)
         else:
             #Take the last output
-            x=x[:,74,:]
+            x=x[:,-1,:]
         
         x=x.view(-1)
-
+        
         #x=F.relu(x)
        
         if self.embed:
