@@ -72,6 +72,10 @@ class Evaluation:
         recall = np.mean(recall)
         f1=np.mean(f1)
         return precision,recall,f1
+    def calc_accuracy_loso(self,path):
+        pass
+
+
     
     
     

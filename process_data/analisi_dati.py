@@ -7,9 +7,36 @@ from sklearn.manifold import TSNE
 parent_folder= "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
 sys.path.append(parent_folder)
 from main import Trainer
-name_file = 'open_face'
-config_file=open(parent_folder+"config/"+name_file+".yml", 'r')
-config = yaml.safe_load(config_file)
+from helper.Config import Config
+from helper.DataHandler import DataHandler
+from helper.Logger import Logger
+from helper. Evaluation import Evaluation
+
+config_file="open_face"
+parent_folder="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
+config =Config.load_from_file(parent_folder+"/config/"+config_file+".yml")
+
+def get_all_outputs(config,path_pretrained_model):
+    trainer=Trainer(config=config)
+   # trainer.init_trainer()
+    return trainer.get_all_outputs(path=path_pretrained_model)
+def get_true_predicted(targets,predicted,outputs):
+    print(outputs[0].shape)
+    #outputs=outputs.view(1914,-1)
+    idx_0_0=np.where((targets==0) & (predicted==0))[0]
+    idx_4_4=np.where((targets==4) & (predicted==4))[0] 
+    print(idx_0_0)
+    outputs_0=outputs[idx_0_0]
+    outputs_4=outputs[idx_4_4]
+    print(outputs_4[0][:-1])
+    plt.plot(outputs_4[0][:-1],label= f"Label: 4")
+    plt.plot(outputs_0[0][:-1],label= f"Label: 0")
+    plt.set_title("Outputs of the network at each block")
+    plt.xlabel("Time Step")
+    plt.ylabel("VAS")
+    plt.legend()
+    plt.show()
+    pass
 
 def get_embeddings(config,path_pretrained_model):
     trainer=Trainer(config=config)
@@ -85,9 +112,55 @@ def get_TSNE(embeddings,
     plt.savefig(path_save+title+".png")
 
 
-def get_adaptive_matrix():
-    pass
+def get_ids(labels,predicted=4,pain_class=1):
+    idx_0_4=np.where((labels[:,0]==0) & (labels[:,1]==pain_class))[0]
+    idx_4_0=np.where((labels[:,0]==pain_class) & (labels[:,1]==0))[0] #Red
 
+
+#%%
+targets,predicted,outputs=get_all_outputs(config,"/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/1s+15k+multi+MinMaxNorm_xy+NoLabelNorm/best_model.pkl")
+#%%
+
+#%%
+idx_0_0=np.where((targets==0) & (predicted==0))[0]
+idx_4_4=np.where((targets==4) & (predicted==4))[0] 
+idx_3_3=np.where((targets==3) & (predicted==3))[0]
+print(len(idx_0_0),len(idx_4_4))
+#%%
+outputs=np.array(outputs)
+
+#%%
+outputs_0=outputs[idx_0_0]
+#%%
+outputs_4=outputs[idx_4_4]
+#%%
+outputs_0=[row for row in outputs_0]
+outputs_4=[row for row in outputs_4]
+#%%
+
+#%%
+outputs_3=outputs[idx_3_3]
+outputs_3=[row for row in outputs_3]
+
+#%%
+idx_0_4=np.where((targets==0) & (predicted==4))[0]
+outputs_0_4=outputs[idx_0_4]
+outputs_0_4=[row for row in outputs_0_4]
+#%%
+len(outputs_0_4)
+#%%
+for i in outputs_0_4[3:6]:
+    plt.plot(i, color="b")
+plt.title("Outputs of the network at each block __video label :3")
+plt.xlabel("Time Step")
+plt.ylabel("VAS")
+plt.show()
+
+
+#%%
+outputs_4=outputs[idx_4_4]
+#%%
+get_true_predicted(targets,predicted,outputs)
 #%%
 embeddings,classes,predicted,initial_label= get_embeddings(config,
 #path_pretrained_model="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/1s+15k+filterlow_react+binary_class_regression/best_model.pkl"
@@ -108,8 +181,3 @@ get_TSNE(embeddings,
          path_save=parent_folder+"./data/PartA/vis/")
 
 # %%
-def get_ids(labels,predicted=4,pain_class=1):
-    idx_0_4=np.where((labels[:,0]==0) & (labels[:,1]==pain_class))[0]
-    idx_4_0=np.where((labels[:,0]==pain_class) & (labels[:,1]==0))[0] #Red
-   
-    pass

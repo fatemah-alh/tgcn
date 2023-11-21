@@ -99,4 +99,12 @@ class Logger:
         with open(path+".txt", 'a') as f:
                 f.write(f"Subject: {i}, acc: {acc}, loss: {loss}")
   
-         
+    def plot_outputs(self,outputs,label,title,save_path):
+        plt.plot(outputs,label= f"Label: {label}")
+        plt.set_title(title)
+        plt.xlabel("Time Step")
+        plt.ylabel("VAS")
+        plt.legend()
+        plt.show()
+        plt.savefig(save_path)
+        

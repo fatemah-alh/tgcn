@@ -429,23 +429,23 @@ class aagcn_network(nn.Module):
                  num_nodes=51, 
                  in_channels=4,
                  drop_out=0.5, 
-                 adaptive=False, 
-                 attention=True,
                  num_subset=3,
-                 embed=False,
                  kernel_size=9,
+                 stride=1,
                  hidden_size=1,
                  gru_layer=2,
+                 adaptive=False, 
+                 attention=True,
                  bn=True,
-                 stride=1,
-                 max_output=False):
+                 embed=False,
+                 return_all_outputs=False):
         super(aagcn_network, self).__init__()
         #graph:edges_index
         if graph is None:
             raise ValueError("No edges_index is found!")
         self.edge_index=graph
         self.embed=embed
-        self.max_output=max_output
+        self.return_all_outputs=return_all_outputs
         self.data_bn = nn.BatchNorm1d(num_person * in_channels * num_nodes)#TODO senza 
         self.l1 = AAGCN(in_channels, 64, graph, num_subset=num_subset,num_nodes=num_nodes, residual=False, adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l1")
        # self.l2 = AAGCN(64, 64, graph,num_subset=num_subset, num_nodes=num_nodes,stride=1,adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l2")
@@ -458,14 +458,9 @@ class aagcn_network(nn.Module):
        # self.l8 = AAGCN(128, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=3, adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l8")
         #self.l9 = AAGCN(256, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=stride,adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l9")
         #self.l10 = AAGCN(256, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=1,adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l10")
-        
         self.gru=GRU(input_size=128*num_nodes, hidden_size=128,num_layers=gru_layer,batch_first=True)
-
         self.fc=Linear(in_features=128,out_features= 1) 
-       
         nn.init.kaiming_normal_(self.fc.weight)
-        #nn.init.normal_(self.fc.weight, 0, math.sqrt(2. / 5)) #math.sqrt(2. / num_cl1ass)
-    
         bn_init(self.data_bn, 1)
         if drop_out:
             self.drop_out = nn.Dropout(drop_out)
@@ -498,18 +493,19 @@ class aagcn_network(nn.Module):
         x,h=self.gru(x) 
         x = self.drop_out(x)
         x=self.fc(x)
-        if self.max_output:
-            x,_ = torch.max(x,dim=1)
-        else:
-            #Take the last output
-            x=x[:,-1,:]
-        
+        all_outputs= x
+        all_outputs=all_outputs.view(N,-1)
+       
+        #Take the last output
+        x=x[:,-1,:]
         x=x.view(-1)
         
         #x=F.relu(x)
        
         if self.embed:
             return x,embed_vectors
+        elif self.return_all_outputs:
+            return x, all_outputs
         else:
             return x
 

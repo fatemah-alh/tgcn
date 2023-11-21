@@ -66,7 +66,7 @@ class Trainer():
                 hidden_size=self.config.hidden_size,
                 bn=self.config.bn,
                 stride=self.config.strid,
-                max_output=self.config.max_output
+                
             ),
             "a3tgcn": lambda: A3TGCN2_network(
                 edge_index=self.edge_index,
@@ -151,12 +151,11 @@ class Trainer():
             for i,snapshot in enumerate(tq):
                 x,label=snapshot
                 x=x.to(self.device)
-                label = label.to(self.device) 
+                #label = label.to(self.device) 
                 y_hat = self.model(x) 
                
                 loss=self.loss(y_hat,label.float())
                 targets.append(label.cpu().numpy())
-
                 unrounded_predicted.append(y_hat.cpu().numpy())
                 tq.set_description(f"{mode} loss batch {i} : {loss}")
         targets=list(chain.from_iterable(targets))# flatten is used with arrays not with lists
@@ -186,18 +185,20 @@ class Trainer():
             #self.logger.log_cm_wandb(mode=mode,targets=targets,predicted=unrounded_predicted,classes=self.classes)
         return f1_micro,rmse_err
     def get_embedding(self,path=None):
-        self.model_embed= aagcn_network( graph=self.edge_index ,
+        self.model_embed= aagcn_network(graph=self.edge_index ,
                                         num_person=1,
-                                        num_nodes=self.config.num_nodes,
+                                        num_nodes=self.config.n_joints,
                                         num_subset=self.config.num_subset, 
                                         in_channels=self.config.num_features,
                                         drop_out=self.config.drop_out,
                                         adaptive=self.config.adaptive, 
                                         attention=self.config.attention,
-                                        embed=True,
                                         kernel_size=self.config.t_kernel_size,
-                                        bn=self.bn,
-                                        stride=self.strid)
+                                        hidden_size=self.config.hidden_size,
+                                        bn=self.config.bn,
+                                        stride=self.config.strid,
+                                        embed=True)
+        
         if path==None:
             self.model_embed.load_state_dict(self.model.state_dict())
         else:
@@ -208,8 +209,7 @@ class Trainer():
         predicted_class_all=[]
         embed_all=[]
         
-        tq=tqdm(self.test_loader)
-        max_classes=np.max(self.classes)
+        tq=tqdm(self.datahandler.test_loader)
         with torch.no_grad():
             for i,snapshot in enumerate(tq):
                 x,label=snapshot
@@ -218,8 +218,8 @@ class Trainer():
                 y_hat,embed_vectors = self.model_embed(x)
                 y_hat=y_hat.tolist()
                 if self.config.normalized_label:
-                    label=[x * max_classes for x in label]
-                    y_hat=[x * max_classes for x in y_hat]
+                    label=[x * self.max_classes for x in label]
+                    y_hat=[x * self.max_classes for x in y_hat]
                 y_hat=np.round(y_hat).tolist()
                 bs,t_step,dim_emb=embed_vectors.shape
                 #try with y_hat instead of true predicted
@@ -235,6 +235,48 @@ class Trainer():
             predicted_class_all=np.concatenate(predicted_class_all)
             print(class_embed_all)
         return embed_all,class_embed_all,predicted_class_all,initial_label
+    def get_all_outputs(self,path):
+        self.model_embed= aagcn_network( graph=self.edge_index ,
+                                        num_person=1,
+                                        num_nodes=self.config.n_joints,
+                                        num_subset=self.config.num_subset, 
+                                        in_channels=self.config.num_features,
+                                        drop_out=self.config.drop_out,
+                                        adaptive=self.config.adaptive, 
+                                        attention=self.config.attention,
+                                        kernel_size=self.config.t_kernel_size,
+                                        hidden_size=self.config.hidden_size,
+                                        bn=self.config.bn,
+                                        stride=self.config.strid,
+                                        return_all_outputs=True
+                                        )
+        if path==None:
+            self.model_embed.load_state_dict(self.model.state_dict())
+        else:
+            self.model_embed.load_state_dict(torch.load(path))
+        self.model_embed.to(self.device)
+        self.model_embed.eval()
+        targets=[]
+        unrounded_predicted=[]
+        all_outputs=[]
+        tq=tqdm(self.datahandler.test_loader)
+        with torch.no_grad():
+            for i,snapshot in enumerate(tq):
+                x,label=snapshot
+                x=x.to(self.device)
+                y_hat,outputs = self.model_embed(x)
+                targets.append(label.cpu().numpy())
+                unrounded_predicted.append(y_hat.cpu().numpy())
+                all_outputs.append(list(outputs.cpu().numpy()))
+        targets=list(chain.from_iterable(targets))# flatten is used with arrays not with lists
+        unrounded_predicted=list(chain.from_iterable(unrounded_predicted)) 
+        all_outputs=list(chain.from_iterable(all_outputs))
+        targets=self.evaluation.round_values(targets,self.config.normalize_labels,self.max_classes)
+        predicted=self.evaluation.round_values(unrounded_predicted,self.config.normalize_labels,self.max_classes)
+        
+        print(len(targets),len(unrounded_predicted),len(all_outputs)) 
+        return targets,predicted,all_outputs
+
     def run(self):
         
         self.set_log_dir()

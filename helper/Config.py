@@ -49,7 +49,6 @@ class Config:
     drop_out: float
     protocol: str 
     maxMinNormalization: bool
-    max_output: bool
     augmentaion: bool
     prop: float
     Aug_type: str
