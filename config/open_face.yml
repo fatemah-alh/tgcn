@@ -51,7 +51,7 @@ drop_out: 0.2
 protocol: "hold_out" #"hold_out" #"loso"  
 maxMinNormalization: True #False #True
 
-
+#center_loss: True
 augmentaion: False #True #False #  # True
 prop: #1 # 1 #usando la classe di augmentation.
 Aug_type: #"all" #"all" #"r+f" #"all" # #"r+f" #"f" # [ "r" , "f" , "r+f","all"] None

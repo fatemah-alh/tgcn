@@ -267,15 +267,19 @@ class Trainer():
                 y_hat,outputs = self.model_embed(x)
                 targets.append(label.cpu().numpy())
                 unrounded_predicted.append(y_hat.cpu().numpy())
-                all_outputs.append(list(outputs.cpu().numpy()))
-        targets=list(chain.from_iterable(targets))# flatten is used with arrays not with lists
-        unrounded_predicted=list(chain.from_iterable(unrounded_predicted)) 
-        all_outputs=list(chain.from_iterable(all_outputs))
+                all_outputs.append(outputs.cpu().numpy())
+                
+        targets=torch.tensor(list(chain.from_iterable(targets)))# flatten is used with arrays not with lists
+        unrounded_predicted=torch.tensor(list(chain.from_iterable(unrounded_predicted)))
+        all_outputs=torch.tensor(list(chain.from_iterable(all_outputs)))
+    
+        print(all_outputs.shape)
         targets=self.evaluation.round_values(targets,self.config.normalize_labels,self.max_classes)
         predicted=self.evaluation.round_values(unrounded_predicted,self.config.normalize_labels,self.max_classes)
         
         print(len(targets),len(unrounded_predicted),len(all_outputs)) 
-        return targets,predicted,all_outputs
+        features=self.datahandler.test_dataset.__getattribute__("features")
+        return targets,predicted,all_outputs,features
 
     def run(self):
         
@@ -348,3 +352,5 @@ if __name__=="__main__":
         #trainer.run_loso(type_="ME87",class_="multi",start=32,end=40)
         trainer.run_loso(type_="ME87",class_="binary",start=75,end=87)
 
+
+# %%

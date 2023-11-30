@@ -457,7 +457,6 @@ def plot_all(data):
     plot_single_feature(data[idx_train_,:,:,2],title="Histogram of x  velocity in train ")
     plot_single_feature(data[idx_train_,:,:,3],title="Histogram of y  velocity in train")
 
-
 name_file = 'open_face' 
 config_file=open(parent_folder+"config/"+name_file+".yml", 'r')
 path_vis=parent_folder+"/data/PartA/vis/" # path to save gif of visualizzation

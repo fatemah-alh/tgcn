@@ -22,8 +22,8 @@ class Evaluation:
     def round_values(self,values,normalized_labels,max_classes):
         if normalized_labels:
             values=[x * max_classes  for x in values]
-        values=np.round(values)
-        values=torch.clamp(torch.tensor(values), min=0, max=max_classes)
+        values=torch.round(values)
+        values=torch.clamp(values, min=0, max=max_classes)
         
         return values
     def calc_acc(self,targets,unrounded_predicted,classes,normalized_labels=False):

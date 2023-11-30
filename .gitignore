@@ -13,3 +13,7 @@ log
 __pycache__
 .vscode
 wandb
+process_data/fl.png
+process_data/combined_image.jpg
+process_data/comb_1.jpg
+process_data/temp_plot.png
