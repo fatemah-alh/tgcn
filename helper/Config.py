@@ -50,6 +50,7 @@ class Config:
     protocol: str 
     maxMinNormalization: bool
     augmentaion: bool
+    center_loss: bool
     prop: float
     Aug_type: str
     concatenate: bool

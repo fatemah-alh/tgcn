@@ -111,14 +111,16 @@ class UnitTCN(nn.Module):
         self, in_channels: int, out_channels: int, kernel_size: int = 9, stride: int = 1,bn :bool=True
     ):
         super(UnitTCN, self).__init__()
+        
         pad = int((kernel_size - 1) / 2)
         self.conv = nn.Conv2d(
             in_channels,
             out_channels,
             kernel_size=(kernel_size, 1),
             padding=(pad, 0),
-            stride=(stride, 1))
-
+            stride=(stride, 1),
+            padding_mode='replicate')
+        
         self.do_bn=bn
         self.relu = nn.ReLU(inplace=True)
         self._conv_init(self.conv)
@@ -137,7 +139,7 @@ class UnitTCN(nn.Module):
     def forward(self, x):
         #print(x.shape)
         #print(self.conv(x).shape)
-        x=self.conv(x)
+        x=self.conv(x) 
         if self.do_bn:
             x = self.bn(x)
         return x
@@ -246,14 +248,17 @@ class UnitGCN(nn.Module):
     def _init_attention_layers(self):
         # temporal attention
         pad_t = int((self.kernel_size - 1) / 2)
-        self.conv_ta = nn.Conv1d(self.out_c, 1, self.kernel_size, padding=pad_t)
+       
+        self.conv_ta = nn.Conv1d(self.out_c, 1, self.kernel_size, padding=pad_t,padding_mode='replicate')
+        
         nn.init.constant_(self.conv_ta.weight, 0)
         nn.init.constant_(self.conv_ta.bias, 0)
 
         # s attention
         ker_jpt = self.num_jpts - 1 if not self.num_jpts % 2 else self.num_jpts
         pad = (ker_jpt - 1) // 2
-        self.conv_sa = nn.Conv1d(self.out_c, 1, ker_jpt, padding=pad) 
+        self.conv_sa = nn.Conv1d(self.out_c, 1, ker_jpt, padding=pad,padding_mode='replicate') 
+       
         nn.init.xavier_normal_(self.conv_sa.weight)
         nn.init.constant_(self.conv_sa.bias, 0)
 
@@ -280,6 +285,7 @@ class UnitGCN(nn.Module):
         # spatial attention
     
         se = y.mean(-2)  # N C V
+        #se1 = self.sigmoid(self.conv_sa(se)) # l'importanza di ogni nodo 
         se1 = self.sigmoid(self.conv_sa(se)) # l'importanza di ogni nodo 
         #se1_save=se1.cpu().numpy()
         #np.save(f"Attention_nodes_{self.L_name}.npy",se1_save)
@@ -489,25 +495,26 @@ class aagcn_network(nn.Module):
         x=x.permute(0, 2, 1, 3).contiguous().view(N,t_new,c_new,V) #(32,35,128,51)
         x=x.view(N,t_new,-1)
       
-        embed_vectors=x
-        x,h=self.gru(x) 
+        embed_graph=x # Try with tow type of embeddings
+        x,h=self.gru(x)
+        embed_gru=x 
         x = self.drop_out(x)
         x=self.fc(x)
         all_outputs= x
         all_outputs=all_outputs.view(N,-1)
        
         #Take the last output
-        x=x[:,-1,:]
+        x=x[:,-7,:]
         x=x.view(-1)
         
         #x=F.relu(x)
        
         if self.embed:
-            return x,embed_vectors
+            return x,embed_graph
         elif self.return_all_outputs:
             return x, all_outputs
         else:
-            return x
+            return x,embed_gru[:,-7,:] #embed_graph[:,-1,:]
 
 
 if __name__=="__main__":
@@ -575,5 +582,4 @@ if __name__=="__main__":
         x=x.to(device)
         y_hat=model(x)
         break
-        
         

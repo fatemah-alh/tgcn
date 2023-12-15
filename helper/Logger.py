@@ -38,7 +38,7 @@ class Logger:
         
     # ... other logging methods such as for visualizations
     def log_max_min(self,values,mode):
-        msg=f"Mode: {mode}, Max value :{np.max(values)}, Min value:{np.min(values)} "
+        msg=f"Mode: {mode}, Max value :{torch.max(values)}, Min value:{torch.min(values)} "
         print(msg)
         return msg
        
@@ -54,16 +54,16 @@ class Logger:
         wandb.init(project=proj_name,config=self.config,name=self.config.log_name)
         wandb.watch(model,loss,log="all",log_freq=1,log_graph=True)
 
-    def log_epoch(self,epoch,mode,mse_err,rmse_err,mea_err,acc,f1_macro,f1_micro,p,r,lr):
+    def log_epoch(self,epoch,mode,mse_err,rmse_err,mea_err,acc,f1_macro,p,r,lr):
         
-        result=f"Epoch: {epoch}, {mode}_acc:{acc},{mode}_f1_macro:{f1_macro},{mode}_f1_micro:{f1_micro},{mode}_p:{p},{mode}_r:{r}, {mode}_MSE: {mse_err} ,{mode}_RMSE: {rmse_err} ,{mode}_MEA:{mea_err},lr:{lr} \n"
+        result=f"{mode}_acc:{acc},{mode}_f1_macro:{f1_macro},{mode}_p:{p},{mode}_r:{r}, {mode}_MSE: {mse_err} ,{mode}_RMSE: {rmse_err} ,{mode}_MEA:{mea_err},lr:{lr} \n"
         print(result)
         with open(os.path.join(self.log_dir, 'log.txt'), 'a') as f:
             f.write(result)
             
-    def log_epoch_wandb(self,epoch,mode,mse_err,rmse_err,mea_err,acc,f1_macro,f1_micro,p,r):
+    def log_epoch_wandb(self,epoch,mode,mse_err,rmse_err,mea_err,acc,f1_macro,p,r):
        
-        wandb.log({ f"{mode}_loss": mse_err, f"{mode}_acc": acc, f"{mode}_f1":f1_micro,f"{mode}_precison":p,f"{mode}_recall":r})
+        wandb.log({ f"{mode}_loss": mse_err, f"{mode}_acc": acc, f"{mode}_f1":f1_macro,f"{mode}_precison":p,f"{mode}_recall":r})
 
     def save_best_model(self,model):
         with open(self.log_dir+'/log.txt', 'a') as f:
@@ -80,6 +80,8 @@ class Logger:
         image = Image.frombytes('RGB', fig.canvas.get_width_height(), fig.canvas.tostring_rgb())
         image_wand = wandb.Image(image, caption=title)
         wandb.log({title: image_wand})
+    def save_cm(self,cm):
+        np.save(self.log_dir+"cm_",cm)
     def round_values(self,values,normalized_labels,max_classes): 
         #Repeated function also in evaluation.
         if normalized_labels:

@@ -15,7 +15,7 @@ import seaborn as sns
 parent_folder= "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
 sys.path.append(parent_folder)
 
-from tgcn.helper.dataloader import DataLoader,Rotate,FlipV
+from helper.dataloader import DataLoader,Rotate,FlipV
 from torchvision.transforms import RandomApply,RandomChoice,Compose
 import wandb
 from utiles import rotation_matrix_2d
@@ -72,27 +72,57 @@ def visualize_sample(data,label_data,edges=[],time_steps=137,vis_edges=False,vis
 
         print(fram.shape)
         ax.set_title(f"VAS level: {label_data}")
+
+        if vis_edges:
+            for i in range(len(edges[0])):
+                ax.plot([fram[edges[0][i],0].item(), (fram[edges[1][i],0]).item()], [fram[edges[0][i],1].item(), (fram[edges[1][i],1]).item()], "slateblue",alpha=0.2)
+            
         if vis_index:
             for index in range(len(fram)):
                 ax.annotate(index,(fram[index][0],fram[index][1]))
         if vis=="2d":
-            ax.scatter(fram[:,0], fram[:,1],alpha=0.7, c="blue")
+            ax.scatter(fram[:,0], fram[:,1],alpha=1, c="slateblue",s=50)
             
         else:
-            ax.scatter(fram[:,0], fram[:,1],fram[:,2], c="blue")
+            ax.scatter(fram[:,0], fram[:,1],fram[:,2], c="slateblue")
             ax.view_init()
         
-        if vis_edges:
-            for i in range(len(edges[0])):
-                ax.plot([fram[edges[0][i],0].item(), (fram[edges[1][i],0]).item()], [fram[edges[0][i],1].item(), (fram[edges[1][i],1]).item()], "blue",alpha=0.3)
-            
         fig.canvas.draw()
         image = Image.frombytes('RGB', fig.canvas.get_width_height(), fig.canvas.tostring_rgb())
         figures.append(image)
     if save:
         imageio.mimsave(path_vis+'vis_landmarks_3D_openface_absolut_eigenvectors_without_contur.gif', figures, duration=50)
 
+def visualize_temporal_edges(data):
+    fig = plt.figure()
+   
+    ax = fig.add_subplot()
 
+    fram=data[0,:,:]
+    fram2=data[1,:,:]
+    fram3=data[2,:,:]
+    fram2[:,0]=fram2[:,0]+75
+    fram2[:,1]=fram2[:,1]+75
+    fram3[:,0]=fram3[:,0]+150
+    fram3[:,1]=fram3[:,1]+150
+
+    for i in range(len(fram)):
+        ax.plot([fram[i,0], fram2[i,0]], [fram[i,1], fram2[i,1]], "slateblue",alpha=0.1)
+    for i in range(len(fram)):
+        ax.plot([fram3[i,0], fram2[i,0]], [fram3[i,1], fram2[i,1]], "slateblue",alpha=0.1)    
+    for i in range(len(edges[0])):
+        ax.plot([fram[edges[0][i],0].item(), (fram[edges[1][i],0]).item()], [fram[edges[0][i],1].item(), (fram[edges[1][i],1]).item()], "slateblue",alpha=0.4)
+    for i in range(len(edges[0])):
+        ax.plot([fram2[edges[0][i],0].item(), (fram2[edges[1][i],0]).item()], [fram2[edges[0][i],1].item(), (fram2[edges[1][i],1]).item()], "slateblue",alpha=0.1)
+    for i in range(len(edges[0])):
+        ax.plot([fram3[edges[0][i],0].item(), (fram3[edges[1][i],0]).item()], [fram3[edges[0][i],1].item(), (fram3[edges[1][i],1]).item()], "slateblue",alpha=0.1)
+                   
+    ax.scatter(fram[:,0], fram[:,1],alpha=1, c="slateblue",s=10)
+
+    ax.scatter(fram2[:,0], fram2[:,1],alpha=0.8, c="slateblue",s=10)
+    ax.scatter(fram3[:,0], fram3[:,1],alpha=0.6, c="slateblue",s=10)
+    fig.canvas.draw()
+   
 def visualize_cm(confusion_matrices,path_vis=None,time_steps=None):
     figures= [] # for storing the generated images
     for i,cm_k in enumerate(confusion_matrices):
@@ -104,8 +134,6 @@ def visualize_cm(confusion_matrices,path_vis=None,time_steps=None):
         image = Image.frombytes('RGB', fig.canvas.get_width_height(), fig.canvas.tostring_rgb())
         figures.append(image)       
     imageio.mimsave(path_vis+'cm.gif', figures, duration=100)
-
-
 
 def visualize_one_cm(cm,path_vis=None,time_steps=None,title="Confusion_matrix"):
     wandb.init()
@@ -122,7 +150,7 @@ def visualize_Adjacencey_matrix_from_edges(edges):
     edges_matrix=to_undirected(torch.tensor(edges),num_nodes=51)
     edges_matrix=to_dense_adj(torch.tensor(edges_matrix),max_num_nodes=51)
     edges_matrix=torch.squeeze(edges_matrix)
-    plt.imshow(edges_matrix, cmap='gray')
+    plt.imshow(edges_matrix, cmap='Purples')
     plt.colorbar()
     plt.show()  
 def visualize_adjacency_matrix(a_matrix):
@@ -169,6 +197,7 @@ TS=config['TS']
 #transform=RandomApply([Rotate()],p=0)
 #transform=RandomApply([FlipV(),Rotate()],p=0.5)
 transform=None
+#%%
 train_dataset=DataLoader(data_path,
                         labels_path,
                         edges_path,
@@ -193,7 +222,7 @@ print(data[0,0,:,4])
 np.save("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/minidata/data.npy",data)
 #%%
 data=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/minidata/data.npy")
-print(data[0,0,:,4])
+print(data.shape)
 #%%
 reshaped_tensor = np.transpose(data, (0, 2, 3, 1,4))  # Transpose dimensions from 8700,137,469,4) to 8600, 469, 4, 137
 features= np.reshape(reshaped_tensor, (20, 137,51,6,1)).squeeze(axis=-1) 
@@ -201,7 +230,15 @@ print(features.shape)
 
 
 visualize_landmarks(features[:,:,:,:2],labels,edges,time_steps=1,vis_index=True,vis_edges=True)
-#visualize_sample(features[0],labels[0],edges,time_steps=1,vis_index=True,vis_edges=True)
+#%%
+features=data
+#%%
+visualize_sample(features[0],labels[0],edges,time_steps=1,vis_index=False,vis_edges=True)
+#%%
+visualize_Adjacencey_matrix_from_edges(edges)
+#%%
+
+visualize_temporal_edges(data[0])
 #%%
 adaptive=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/process_data/Adaptive_matrix.npy")
 
@@ -251,5 +288,4 @@ df.head()
 #%%
 visualize_sample_withNode_wieghts(df)
 # %%
-
 # %%

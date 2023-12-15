@@ -25,7 +25,7 @@ optimizer_name: 'SGD'
 
 batch_size: 32
 continue_training: False   #If set True will continue training from pretrained model
-pretrain_model: "None" #"08-05-17:36" # #"08-03-12:18"       #Name of folder that contains the model resume training
+pretrain_model: "None" #"08-05-17:36" # #"08-03-12:18" #Name of folder that contains the model resume training
 Temporal_downsampling: False
 model_name: "aagcn" # "a3tgcn" # # #
 embed_dim: 128
@@ -38,8 +38,8 @@ num_features: 6
 hidden_size: 1
 TS: 137
 n_joints: 51
-idx_train:  "data/PartA/idx_train_filterd_low_react.npy"
-idx_test: "data/PartA/idx_test_filterd_low_react.npy" 
+idx_train:  "data/PartA/idx_train_filterd_low_react.npy" #  #"data/PartA/idx_train_filterd.npy"
+idx_test:  "data/PartA/idx_test_filterd_low_react.npy" # #"data/PartA/idx_test_filterd.npy"
 LOG_DIR: "log/"
 t_kernel_size: 15
 strid: 1
@@ -51,14 +51,13 @@ drop_out: 0.2
 protocol: "hold_out" #"hold_out" #"loso"  
 maxMinNormalization: True #False #True
 
-#center_loss: True
+center_loss: True
 augmentaion: False #True #False #  # True
 prop: #1 # 1 #usando la classe di augmentation.
 Aug_type: #"all" #"all" #"r+f" #"all" # #"r+f" #"f" # [ "r" , "f" , "r+f","all"] None
 concatenate: False # True #True #True # # # True
 project_name: "pain_estimation"
-log_name: "test_after_refactory_multi" #"1s+15k+multi+loso-filtred_LE_test0" minMaxNorm_dx_dy_
+log_name: "hold_out_binary_last7_center_loss_lambda01" #"1s+15k+multi+loso-filtred_LE_test0" minMaxNorm_dx_dy_
 gpu: 0
-num_classes: 5
-num_epoch: 70
-
+num_classes: 2
+num_epoch: 80

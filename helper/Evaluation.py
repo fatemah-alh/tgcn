@@ -11,8 +11,6 @@ class Evaluation:
         self.config=config
 
     def calc_errors(self,targets,unrounded_predicted):
-        targets=torch.tensor(targets)
-        unrounded_predicted=torch.tensor(unrounded_predicted)
         mse_loss=torch.nn.MSELoss()
         mea_loss=torch.nn.L1Loss(reduction="mean")
         mse_err =mse_loss(targets,unrounded_predicted)
@@ -24,7 +22,6 @@ class Evaluation:
             values=[x * max_classes  for x in values]
         values=torch.round(values)
         values=torch.clamp(values, min=0, max=max_classes)
-        
         return values
     def calc_acc(self,targets,unrounded_predicted,classes,normalized_labels=False):
         max_classes=np.max(classes)
@@ -35,7 +32,7 @@ class Evaluation:
         #if  micro is like accuracy? 
         #if macro is the mean 
         #Nel caso Multi it's same as accuracy
-        f1_micro=multiclass_f1_score(predicted,targets,num_classes=len(classes),average="micro")
+        #f1_micro=multiclass_f1_score(predicted,targets,num_classes=len(classes),average="micro")
         #The precision is the ratio tp / (tp + fp)
         #The recall is the ratio tp / (tp + fn)
         acc_class=100*cm.diagonal()/cm.sum(1)
@@ -46,7 +43,7 @@ class Evaluation:
         
         p,r,f1_macro=self.get_precision_recall(cm)
     
-        return acc,f1_macro,f1_micro,p,r,cm,acc_class
+        return acc,f1_macro,p,r,cm,acc_class
 
     
     def get_precision_recall(self,cm):

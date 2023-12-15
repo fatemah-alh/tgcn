@@ -11,7 +11,8 @@ import torch.optim.lr_scheduler as lr_scheduler
 from helper.Config import Config
 from helper.DataHandler import DataHandler
 from helper.Logger import Logger
-from helper. Evaluation import Evaluation
+from helper.Evaluation import Evaluation
+from helper.center_loss import CenterLoss
 
 class Trainer():
     def __init__(self, config) -> None:
@@ -35,8 +36,8 @@ class Trainer():
 
         self.datahandler=DataHandler(self.config)
         self.load_model()
-        self.load_optimizer()
         self.load_loss()
+        self.load_optimizer()
         self.load_eval()
     def set_device(self):
 
@@ -91,8 +92,12 @@ class Trainer():
          print("Pre trained model is loaded...")
 
     def load_optimizer(self):
-        opt_factory={ "SGD": lambda: torch.optim.SGD(list(self.model.parameters()),lr = self.config.lr,momentum = self.config.momentum,weight_decay=self.config.L2),
-                      "adam": lambda:  torch.optim.Adam(list(self.model.parameters()), lr=self.config.lr,weight_decay=self.config.L2)
+       
+        parameters=list(self.model.parameters())
+        if self.config.center_loss:
+            parameters+=list(self.center_loss.parameters())
+        opt_factory={ "SGD": lambda: torch.optim.SGD(parameters ,lr = self.config.lr,momentum = self.config.momentum,weight_decay=self.config.L2),
+                      "adam": lambda:  torch.optim.Adam(parameters, lr=self.config.lr,weight_decay=self.config.L2)
                       }
         if self.config.optimizer_name in opt_factory:
             self.optimizer = opt_factory[self.config.optimizer_name]()
@@ -103,6 +108,7 @@ class Trainer():
      
     def load_loss(self):
         self.loss=torch.nn.MSELoss().to(self.device)
+        self.center_loss=CenterLoss(num_classes=self.config.num_classes,feat_dim = 128)
     def load_eval(self):
         self.evaluation=Evaluation(self.config)   
     def conc_aug_batch(self,x,y):
@@ -126,8 +132,11 @@ class Trainer():
             label = label.to(self.device)
             if self.config.concatenate and self.config.augmentaion:
                 x,label=self.conc_aug_batch(x,label)
-            y_hat = self.model(x)
-            loss=self.loss(y_hat,label.float())
+            y_hat,features = self.model(x)
+            
+            loss=self.loss(y_hat,label.float()) #+ 
+            if self.config.center_loss:
+                loss+=self.center_loss(features, label) * 0.01 
             loss.backward()
             #torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)  # Clip gradients
             self.optimizer.step()
@@ -151,15 +160,15 @@ class Trainer():
             for i,snapshot in enumerate(tq):
                 x,label=snapshot
                 x=x.to(self.device)
-                #label = label.to(self.device) 
-                y_hat = self.model(x) 
+                label = label.to(self.device) 
+                y_hat,features = self.model(x) 
                
                 loss=self.loss(y_hat,label.float())
                 targets.append(label.cpu().numpy())
                 unrounded_predicted.append(y_hat.cpu().numpy())
                 tq.set_description(f"{mode} loss batch {i} : {loss}")
-        targets=list(chain.from_iterable(targets))# flatten is used with arrays not with lists
-        unrounded_predicted=list(chain.from_iterable(unrounded_predicted)) 
+        targets=torch.tensor(list(chain.from_iterable(targets)))# flatten is used with arrays not with lists
+        unrounded_predicted=torch.tensor(list(chain.from_iterable(unrounded_predicted)))
         
         return targets,unrounded_predicted
     
@@ -167,11 +176,11 @@ class Trainer():
         if title:
             self.logger.log_message(title)
             print(title)
-        
-        acc,f1_macro,f1_micro,p,r,cm,acc_class= self.evaluation.calc_acc(targets,unrounded_predicted,self.classes,normalized_labels=self.config.normalize_labels) #self.calc_accuracy(mode="train")
+       
+        acc,f1_macro,p,r,cm,acc_class= self.evaluation.calc_acc(targets,unrounded_predicted,self.classes,normalized_labels=self.config.normalize_labels) #self.calc_accuracy(mode="train")
         mse_err,rmse_err,mea_err= self.evaluation.calc_errors(targets,unrounded_predicted)
         #Start logg
-        self.logger.log_epoch(epoch,mode,mse_err,rmse_err,mea_err,acc,f1_macro,f1_micro,p,r,self.optimizer.param_groups[0]['lr'])
+        self.logger.log_epoch(epoch,mode,mse_err,rmse_err,mea_err,acc,f1_macro,p,r,self.optimizer.param_groups[0]['lr'])
         msg_min_max=self.logger.log_max_min(unrounded_predicted,mode)
         if log_finale:
             self.logger.log_message(msg_min_max)
@@ -180,10 +189,10 @@ class Trainer():
             self.logger.log_message("acc_class:{}".format(acc_class))
             
         else:
-            self.logger.log_epoch_wandb(epoch,mode,mse_err,rmse_err,mea_err,acc,f1_macro,f1_micro,p,r)
+            self.logger.log_epoch_wandb(epoch,mode,mse_err,rmse_err,mea_err,acc,f1_macro,p,r)
             print(cm)
             #self.logger.log_cm_wandb(mode=mode,targets=targets,predicted=unrounded_predicted,classes=self.classes)
-        return f1_micro,rmse_err
+        return acc,rmse_err
     def get_embedding(self,path=None):
         self.model_embed= aagcn_network(graph=self.edge_index ,
                                         num_person=1,
@@ -287,16 +296,17 @@ class Trainer():
         best_acc = 0.0
         best_loss=0.0
         for epoch in range(self.config.num_epoch):
-
+            self.logger.log_message(f"Epoch:{epoch}")
+            print(f"Epoch:{epoch}")
             self.train()
             targets,unrounded_predicted= self.eval(mode="test")
-            f1_test,rmse_err_test=self.get_results("test",targets,unrounded_predicted,epoch=epoch)
+            acc_test,rmse_err_test=self.get_results("test",targets,unrounded_predicted,epoch=epoch)
 
             targets,unrounded_predicted= self.eval(mode="train")
-            f1_train,rmse_err_train=self.get_results("train",targets,unrounded_predicted,epoch=epoch)
-            if f1_test > best_acc:
+            acc_train,rmse_err_train=self.get_results("train",targets,unrounded_predicted,epoch=epoch)
+            if acc_test > best_acc:
                 self.logger.save_best_model(self.model.state_dict())
-                best_acc=f1_test
+                best_acc=acc_test
                 best_loss=rmse_err_test
             self.scheduler.step()
         #self.log_dir+"/best_model.pkl" log the best model
@@ -306,14 +316,14 @@ class Trainer():
     def final_eval(self):
         self.logger.log_message("___________Training is Finished__________")
         targets,unrounded_predicted= self.eval(mode="test")
-        f1_test,rmse_err_test=self.get_results("test",targets,unrounded_predicted,epoch="Final",title="Test_Last_Epoch",log_finale=True)
+        acc_test,rmse_err_test=self.get_results("test",targets,unrounded_predicted,epoch="Final",title="Test_Last_Epoch",log_finale=True)
 
         targets,unrounded_predicted= self.eval(mode="train")
-        f1_train,rmse_err_train=self.get_results("train",targets,unrounded_predicted,epoch="Final",title="Train_Last_Epoch",log_finale=True)
+        acc_train,rmse_err_train=self.get_results("train",targets,unrounded_predicted,epoch="Final",title="Train_Last_Epoch",log_finale=True)
 
         self.load_pretraind(self.logger.log_dir+"/best_model.pkl")
         targets,unrounded_predicted= self.eval(mode="test")
-        f1_test,rmse_err_test=self.get_results("test",targets,unrounded_predicted,epoch="Final",title="Best_Model",log_finale=True)
+        acc_test,rmse_err_test=self.get_results("test",targets,unrounded_predicted,epoch="Final",title="Best_Model",log_finale=True)
 
     def run_loso(self,type_="LE87",class_="binary",start=0,end=87): # or "LE67", "multi"
 
@@ -347,10 +357,10 @@ if __name__=="__main__":
     if config.protocol=="hold_out":
         trainer.run()
     else:
-        #trainer.run_loso(type_="LE67",class_="binary",start=4)
+        trainer.run_loso(type_="LE67",class_="binary",start=0,end=10)
         #trainer.run_loso(type_="LE67",class_="multi",start=0,end=5)
         #trainer.run_loso(type_="ME87",class_="multi",start=32,end=40)
-        trainer.run_loso(type_="ME87",class_="binary",start=75,end=87)
+        #trainer.run_loso(type_="ME87",class_="binary",start=75,end=87)
 
 
 # %%
