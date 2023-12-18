@@ -3,16 +3,17 @@ import numpy as np
 from helper.Config import Config
 from sklearn.metrics import confusion_matrix
 from torcheval.metrics.functional import multiclass_f1_score
-
+import re
 
 
 class Evaluation:
     def __init__(self, config:Config) -> None:
         self.config=config
 
-    def calc_errors(self,targets,unrounded_predicted):
+    def calc_errors(self,targets,unrounded_predicted,max_classes):
         mse_loss=torch.nn.MSELoss()
         mea_loss=torch.nn.L1Loss(reduction="mean")
+        unrounded_predicted=torch.clamp(unrounded_predicted, min=0, max=max_classes)
         mse_err =mse_loss(targets,unrounded_predicted)
         mea_err=mea_loss(targets,unrounded_predicted)
         rmse_err= torch.sqrt(mse_err)
@@ -27,7 +28,6 @@ class Evaluation:
         max_classes=np.max(classes)
         predicted= self.round_values(unrounded_predicted,normalized_labels,max_classes)
         targets=self.round_values(targets,normalized_labels,max_classes)
-        
         cm=confusion_matrix( targets,predicted,labels=classes)
         #if  micro is like accuracy? 
         #if macro is the mean 
@@ -71,10 +71,46 @@ class Evaluation:
         return precision,recall,f1
     def calc_accuracy_loso(self,path):
         pass
+        
 
+    def extract_loso_results(self,path="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/loso_ME87_new/log_loso_ME87_multi.txt"):
+        # Initialize an empty dictionary to store the data
+        data_dict = {}
+        # Regular expression pattern to match the subject, accuracy, and loss
+        pattern = r"Subject:\s*(\d+)\s*,\s*acc:\s*([0-9.]+)\s*,\s*f1:\s*([0-9.]+)\s*,\s*rmse:\s*([0-9.]+)\s*,\s*mae:\s*([0-9.]+)"
+        #pattern = r"Subject:\s*(\d+)\s*,\s*acc:\s*([0-9.]+)\s*,\s*rmse:\s*([0-9.]+)\s*"
 
-    
-    
+        # Read the file (replace 'your_file.txt' with the actual file name)
+        with open(path, 'r') as file:
+            for line in file:
+                # Search for the pattern in each line
+                match = re.search(pattern, line)
+                if match:
+                    # Extract subject, accuracy, and loss
+                    subject = int(match.group(1))
+                    acc = float(match.group(2))
+                    f1 = float(match.group(3))
+                    rmse= float(match.group(4))
+                    mae = float(match.group(5))
+                    
+                    # Store the extracted values in the dictionary
+                    data_dict[subject] = {'acc': acc, 'rmse':rmse,'f1': f1,'mae':mae}
+                    
+        acc=[]
+        rmse=[]
+        mae=[]
+        f1=[]
+        subject=[]
+        for i in data_dict.keys():
+            acc.append(data_dict[i]["acc"])
+            rmse.append(data_dict[i]['rmse'])
+            mae.append(data_dict[i]['mae'])
+            f1.append(data_dict[i]['f1'])
+            subject.append(i)
+        print(np.mean(acc),np.mean(rmse),np.mean(f1),np.mean(mae))
+        return np.mean(acc),np.mean(rmse),np.mean(f1),np.mean(mae)
+
+            
     
    
         

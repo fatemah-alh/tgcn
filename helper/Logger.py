@@ -81,7 +81,7 @@ class Logger:
         image_wand = wandb.Image(image, caption=title)
         wandb.log({title: image_wand})
     def save_cm(self,cm):
-        np.save(self.log_dir+"cm_",cm)
+        np.save(self.log_dir+"cm_best_model.npy",cm)
     def round_values(self,values,normalized_labels,max_classes): 
         #Repeated function also in evaluation.
         if normalized_labels:
@@ -97,9 +97,9 @@ class Logger:
         wandb.log({f"conf_matrix_{mode}" : wandb.plot.confusion_matrix( 
                 preds=predicted, y_true=targets,
                 class_names=classes)})
-    def save_results(self,i,acc,loss,path):
-        with open(path+".txt", 'a') as f:
-                f.write(f"Subject: {i}, acc: {acc}, loss: {loss}")
+    def save_results(self,i,acc,f1,rmse,mae,path):
+        with open(path, 'a') as f:
+                f.write(f"Subject: {i}, acc: {acc},f1:{f1}, rmse: {rmse},mae: {mae} \n")
   
     def plot_outputs(self,outputs,label,title,save_path):
         plt.plot(outputs,label= f"Label: {label}")

@@ -163,7 +163,7 @@ class DataLoader(torch.utils.data.Dataset):
             idx=np.array(idx,dtype=np.int32)
             self.features=self.features[idx]
             self.labels=self.labels[idx]
-            """
+            
             if self.min_max_values==None:
                 self.min_max_values=[np.min(self.features[:,2,:,:,:]),
                             np.max(self.features[:,2,:,:,:]),
@@ -175,6 +175,7 @@ class DataLoader(torch.utils.data.Dataset):
                             np.max(self.features[:,5,:,:,:])]
             print("max_min_used dynamics before norm:",self.min_max_values )
             
+            """
             if self.maxMinNormalization:
                 for i in range(0,len(self.features)):
                     sample=self.features[i]

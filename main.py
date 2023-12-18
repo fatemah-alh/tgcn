@@ -13,7 +13,7 @@ from helper.DataHandler import DataHandler
 from helper.Logger import Logger
 from helper.Evaluation import Evaluation
 from helper.center_loss import CenterLoss
-
+import sys
 class Trainer():
     def __init__(self, config) -> None:
         self.config= config
@@ -162,7 +162,6 @@ class Trainer():
                 x=x.to(self.device)
                 label = label.to(self.device) 
                 y_hat,features = self.model(x) 
-               
                 loss=self.loss(y_hat,label.float())
                 targets.append(label.cpu().numpy())
                 unrounded_predicted.append(y_hat.cpu().numpy())
@@ -192,7 +191,7 @@ class Trainer():
             self.logger.log_epoch_wandb(epoch,mode,mse_err,rmse_err,mea_err,acc,f1_macro,p,r)
             print(cm)
             #self.logger.log_cm_wandb(mode=mode,targets=targets,predicted=unrounded_predicted,classes=self.classes)
-        return acc,rmse_err
+        return acc,f1_macro,rmse_err,mea_err,cm
     def get_embedding(self,path=None):
         self.model_embed= aagcn_network(graph=self.edge_index ,
                                         num_person=1,
@@ -294,47 +293,55 @@ class Trainer():
         
         self.set_log_dir()
         best_acc = 0.0
-        best_loss=0.0
+        best_rmse=0.0
+        best_F1=0.0
+        best_MAE=0.0
+        best_combined=0.0
         for epoch in range(self.config.num_epoch):
             self.logger.log_message(f"Epoch:{epoch}")
             print(f"Epoch:{epoch}")
             self.train()
             targets,unrounded_predicted= self.eval(mode="test")
-            acc_test,rmse_err_test=self.get_results("test",targets,unrounded_predicted,epoch=epoch)
+            #cc,f1_macro,rmse_err,mea_err,cm
+            acc_test,f1_macro_test,rmse_err_test,mae_err_test,cm_test=self.get_results("test",targets,unrounded_predicted,epoch=epoch)
 
             targets,unrounded_predicted= self.eval(mode="train")
-            acc_train,rmse_err_train=self.get_results("train",targets,unrounded_predicted,epoch=epoch)
-            if acc_test > best_acc:
+            acc_train,f1_macro_train,rmse_err_train,mae_err_train,cm_train=self.get_results("train",targets,unrounded_predicted,epoch=epoch)
+            combined_metric = acc_test + f1_macro_test
+            if combined_metric > best_combined: #if acc_test > best_acc:
                 self.logger.save_best_model(self.model.state_dict())
+                self.logger.save_cm(cm_test)
                 best_acc=acc_test
-                best_loss=rmse_err_test
+                best_F1=f1_macro_test
+                best_MAE=mae_err_test
+                best_rmse=rmse_err_test
             self.scheduler.step()
         #self.log_dir+"/best_model.pkl" log the best model
         
         self.final_eval()
-        return best_acc,best_loss
+        return best_acc,best_F1,best_rmse,best_MAE
     def final_eval(self):
         self.logger.log_message("___________Training is Finished__________")
         targets,unrounded_predicted= self.eval(mode="test")
-        acc_test,rmse_err_test=self.get_results("test",targets,unrounded_predicted,epoch="Final",title="Test_Last_Epoch",log_finale=True)
+        acc_test,f1_test,rmse_err_test,mae_test,cm_test=self.get_results("test",targets,unrounded_predicted,epoch="Final",title="Test_Last_Epoch",log_finale=True)
 
         targets,unrounded_predicted= self.eval(mode="train")
-        acc_train,rmse_err_train=self.get_results("train",targets,unrounded_predicted,epoch="Final",title="Train_Last_Epoch",log_finale=True)
+        acc_train,f1_test,rmse_err_train,mae_train,cm_train=self.get_results("train",targets,unrounded_predicted,epoch="Final",title="Train_Last_Epoch",log_finale=True)
 
         self.load_pretraind(self.logger.log_dir+"/best_model.pkl")
         targets,unrounded_predicted= self.eval(mode="test")
-        acc_test,rmse_err_test=self.get_results("test",targets,unrounded_predicted,epoch="Final",title="Best_Model",log_finale=True)
+        acc_test,f1_test,rmse_err_test,mae_test,cm_test=self.get_results("test",targets,unrounded_predicted,epoch="Final",title="Best_Model",log_finale=True)
 
     def run_loso(self,type_="LE87",class_="binary",start=0,end=87): # or "LE67", "multi"
 
-        folder_name=f"log/loso_{type_}_new/"
-        log_loso=self.config.parent_folder+folder_name+f"log_loso_{type_}_{class_}"
+        folder_name=f"log/loso_{type_}_Adaptive/"
+        log_loso=self.config.parent_folder+folder_name+f"log_loso_{type_}_{class_}.txt"
 
-        
+
         for i in range(start,end):
-            idx_train=self.config.parent_folder+f"data/PartA/loso_{type_}/{i}/idx_train.npy"
-            idx_test=self.config.parent_folder+f"data/PartA/loso_{type_}/{i}/idx_test.npy"
-            self.LOG_DIR= self.config.parent_folder+folder_name+f"{i}/"
+            idx_train=f"data/PartA/loso_{type_}/{i}/idx_train.npy"
+            idx_test=f"data/PartA/loso_{type_}/{i}/idx_test.npy"
+            self.LOG_DIR= folder_name+f"{i}/"
             self.log_name= f"1s+15k+{class_}+loso_{type_}_test{i}"
             
             self.config.idx_train=idx_train
@@ -343,9 +350,40 @@ class Trainer():
             self.config.log_name=self.log_name
             
             self.init_trainer()
-            acc,loss=self.run()
-            self.logger.save_results(i,acc,loss,log_loso)
+            acc,f1,rmse,mae=self.run()
+            self.logger.save_results(i,acc,f1,rmse,mae,log_loso)
+    def eval_loso(self,path="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/loso_ME87_new/",
+                       type_="LE87",
+                       class_="multi",
+                       start=0,
+                       end=87
+                       ):
+        self.load_eval()
+        self.load_model()
+        self.load_loss()
+        self.set_log_dir()
+        log_loso=path+f"log_loso_EVAL_{type_}_{class_}.txt"
+        for i in range(start,end):
+            idx_train=f"data/PartA/loso_{type_}/{i}/idx_train.npy"
+            idx_test=f"data/PartA/loso_{type_}/{i}/idx_test.npy"
+            self.config.idx_train=idx_train
+            self.config.idx_test=idx_test
+            self.datahandler=DataHandler(self.config)
+            best_model=path+f"{i}/1s+15k+{class_}+loso_{type_}_test{i}/best_model.pkl"
+            print("best_model:",best_model)
+            self.load_pretraind(best_model)
 
+            targets,unrounded_predicted= self.eval(mode="test")
+            acc,f1_macro,p,r,cm,acc_class= self.evaluation.calc_acc(targets,unrounded_predicted,self.classes,normalized_labels=self.config.normalize_labels) 
+            mse_err,rmse_err,mae_err= self.evaluation.calc_errors(targets,unrounded_predicted,self.max_classes)
+
+            self.logger.save_results(i,acc,f1_macro,rmse_err,mae_err,log_loso)
+            #acc_test,f1_test,rmse_err_test,mae_test,cm_test=self.get_results("test",targets,unrounded_predicted,epoch="Final",title="Best_Model",log_finale=True)
+
+        acc,rmse,f1,mae=self.evaluation.extract_loso_results(log_loso) 
+        self.logger.save_results("AVERAGE",acc,f1,rmse,mae,log_loso)
+            
+            
 if __name__=="__main__":
     torch.manual_seed(100)
 
@@ -354,11 +392,18 @@ if __name__=="__main__":
     config =Config.load_from_file(parent_folder+"/config/"+config_file+".yml")
 
     trainer=Trainer(config=config)
+    if config.eval_loso:
+        trainer.eval_loso(path="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/loso_LE67_new/"
+                         ,type_="LE67",
+                         class_="multi",
+                         start=0,end=67)
+        sys.exit()
+    print("LOSO EVALuation Done!")
     if config.protocol=="hold_out":
         trainer.run()
     else:
-        trainer.run_loso(type_="LE67",class_="binary",start=0,end=10)
-        #trainer.run_loso(type_="LE67",class_="multi",start=0,end=5)
+        trainer.run_loso(type_="LE67",class_="binary",start=40,end=67)
+        #trainer.run_loso(type_="LE67",class_="multi",start=20,end=30)#20 , 50 
         #trainer.run_loso(type_="ME87",class_="multi",start=32,end=40)
         #trainer.run_loso(type_="ME87",class_="binary",start=75,end=87)
 

@@ -486,7 +486,7 @@ class aagcn_network(nn.Module):
         x = self.l6(x)
         #x = self.l7(x)#
         #x = self.l8(x)#
-       # x = self.l9(x)#
+        #x = self.l9(x)#
         #x = self.l10(x) #
         x = self.drop_out(x)
        
@@ -514,7 +514,7 @@ class aagcn_network(nn.Module):
         elif self.return_all_outputs:
             return x, all_outputs
         else:
-            return x,embed_gru[:,-7,:] #embed_graph[:,-1,:]
+            return x,embed_gru[:,-1,:] #embed_graph[:,-1,:]
 
 
 if __name__=="__main__":
