@@ -464,7 +464,8 @@ class aagcn_network(nn.Module):
        # self.l8 = AAGCN(128, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=3, adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l8")
         #self.l9 = AAGCN(256, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=stride,adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l9")
         #self.l10 = AAGCN(256, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=1,adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l10")
-        self.gru=GRU(input_size=128*num_nodes, hidden_size=128,num_layers=gru_layer,batch_first=True)
+        #self.gru=GRU(input_size=128*num_nodes, hidden_size=128,num_layers=gru_layer,batch_first=True)
+        self.fc_1=Linear(in_features=128*num_nodes,out_features= 128) 
         self.fc=Linear(in_features=128,out_features= 1) 
         nn.init.kaiming_normal_(self.fc.weight)
         bn_init(self.data_bn, 1)
@@ -496,7 +497,8 @@ class aagcn_network(nn.Module):
         x=x.view(N,t_new,-1)
       
         embed_graph=x # Try with tow type of embeddings
-        x,h=self.gru(x)
+        #x,h=self.gru(x)
+        x=self.fc_1(x)
         embed_gru=x 
         x = self.drop_out(x)
         x=self.fc(x)

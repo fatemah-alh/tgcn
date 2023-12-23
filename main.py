@@ -138,7 +138,7 @@ class Trainer():
             if self.config.center_loss:
                 loss+=self.center_loss(features, label) * 0.01 
             loss.backward()
-            #torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)  # Clip gradients
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=5)  # Clip gradients
             self.optimizer.step()
             self.optimizer.zero_grad()
             #y_hat=torch.clamp(y_hat, min=0, max=self.max_classes)
@@ -177,7 +177,7 @@ class Trainer():
             print(title)
        
         acc,f1_macro,p,r,cm,acc_class= self.evaluation.calc_acc(targets,unrounded_predicted,self.classes,normalized_labels=self.config.normalize_labels) #self.calc_accuracy(mode="train")
-        mse_err,rmse_err,mea_err= self.evaluation.calc_errors(targets,unrounded_predicted)
+        mse_err,rmse_err,mea_err= self.evaluation.calc_errors(targets,unrounded_predicted,self.max_classes)
         #Start logg
         self.logger.log_epoch(epoch,mode,mse_err,rmse_err,mea_err,acc,f1_macro,p,r,self.optimizer.param_groups[0]['lr'])
         msg_min_max=self.logger.log_max_min(unrounded_predicted,mode)
@@ -307,14 +307,15 @@ class Trainer():
 
             targets,unrounded_predicted= self.eval(mode="train")
             acc_train,f1_macro_train,rmse_err_train,mae_err_train,cm_train=self.get_results("train",targets,unrounded_predicted,epoch=epoch)
-            combined_metric = acc_test + f1_macro_test
-            if combined_metric > best_combined: #if acc_test > best_acc:
+            #combined_metric = acc_test + f1_macro_test
+            if acc_test > best_acc: #if combined_metric > best_combined: #if acc_test > best_acc:
                 self.logger.save_best_model(self.model.state_dict())
                 self.logger.save_cm(cm_test)
                 best_acc=acc_test
                 best_F1=f1_macro_test
                 best_MAE=mae_err_test
                 best_rmse=rmse_err_test
+                #best_combined=ombined_metric
             self.scheduler.step()
         #self.log_dir+"/best_model.pkl" log the best model
         
@@ -397,8 +398,9 @@ if __name__=="__main__":
                          ,type_="LE67",
                          class_="multi",
                          start=0,end=67)
+        print("LOSO EVALuation Done!")
         sys.exit()
-    print("LOSO EVALuation Done!")
+        
     if config.protocol=="hold_out":
         trainer.run()
     else:

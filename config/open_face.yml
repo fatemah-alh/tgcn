@@ -34,7 +34,7 @@ bn: True
 lr: 0.01
 
 num_subset: 2
-num_features: 6
+num_features: 2
 hidden_size: 1
 TS: 137
 n_joints: 51
@@ -57,9 +57,9 @@ prop: #1 # 1 #usando la classe di augmentation.
 Aug_type: #"all" #"all" #"r+f" #"all" # #"r+f" #"f" # [ "r" , "f" , "r+f","all"] None
 concatenate: False # True #True #True # # # True
 project_name: "pain_estimation"
-log_name: "hold_out_multi_last" #"1s+15k+multi+loso-filtred_LE_test0" minMaxNorm_dx_dy_
-gpu: 0
+log_name: "hold_out_multi_2Features_Joints" #"1s+15k+multi+loso-filtred_LE_test0" minMaxNorm_dx_dy_
+gpu: 1
 num_classes: 5
-num_epoch: 70
+num_epoch: 100
 
 eval_loso: False
