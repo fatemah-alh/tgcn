@@ -93,6 +93,8 @@ def plot_with_img(images, line_data,landmarks, title, output_file='output.mp4', 
             plt.plot(line_data[7:130])
             plt.plot(i-7, x, 'o')
             plt.title(title+f", Current VAS: {x}")
+            plt.xlabel('Frame Index')
+            plt.ylabel('VAS Pain Score')
             plt.savefig('temp_plot.png', dpi=dpi)
             plt.close()
             plt.figure(figsize=(width_in, height_in), dpi=dpi)
@@ -116,7 +118,7 @@ def plot_with_img(images, line_data,landmarks, title, output_file='output.mp4', 
     # Release the video writer
     video.release()
 
-def plot_videos(val_target,val_predic,targets,predicted,outputs,features,videos_paths,output_folder,num_plot=10):
+def plot_videos(val_target,val_predic,targets,predicted,outputs,features,videos_paths,output_folder,num_plot=10,random_=True):
     idx_selected=torch.where((targets==val_target) & (predicted==val_predic))[0]
     videos_paths_selected=[videos_paths[id] for id in idx_selected]
     outputs_selected=outputs[idx_selected]
@@ -132,26 +134,29 @@ def plot_videos(val_target,val_predic,targets,predicted,outputs,features,videos_
             plot_with_img(images=images[:-1],
                         line_data=outputs_selected[v],
                         landmarks=landmarks[v],
-                        title=f"GT:{targets_selected[v]},Final_out:{predicted_selected[v]}\n",
+                        title=f"Target:{targets_selected[v]},Predicted:{predicted_selected[v]}\n",
                         output_file=output_folder+f"t_{val_target}_p_{val_predic}/{video_name}")
 def reshape_data(features):
     reshaped_tensor = np.transpose(features, (0, 2, 3, 1,4))  # Transpose dimensions from 8700,137,469,4) to 8600, 469, 4, 137
     new_feat= np.reshape(reshaped_tensor, (len(features), 137,51,6,1)).squeeze(axis=-1) 
     return new_feat[:,:,:,:2]
-def main(labels_t=[0,1,2,3,4],labels_p=[0,1,2,3,4],num_plot=2,folder="gru_outputs/"):
+def main(labels_t=[0,1,2,3,4],labels_p=[0,1,2,3,4],num_plot=2,folder="gru_outputs/",random_=True):
     config_file="open_face"
     parent_folder="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
     config =Config.load_from_file(parent_folder+"/config/"+config_file+".yml")
     videos_folder="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/video/"
     output_folder="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/vis/"+folder
-    model_path="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/1s+15k+multi+MinMaxNorm_xy+NoLabelNorm/best_model.pkl"
+    model_path="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/Old/1s+15k+multi+MinMaxNorm_xy+NoLabelNorm/best_model.pkl"
     videos_paths=get_video_paths(config.parent_folder+config.csv_file,config.parent_folder+config.idx_test,videos_folder)
     targets,predicted,outputs,features=get_all_outputs(config,model_path)
     #labels=[0,1,2,3,4]
     for l in labels_t:
         for ll in labels_p:
-            plot_videos(l,ll,targets,predicted,outputs,features,videos_paths,output_folder,num_plot=num_plot)
+            plot_videos(l,ll,targets,predicted,outputs,features,videos_paths,output_folder,num_plot=num_plot,random_=random_)
 
 #%%
-main(labels_t=[4],labels_p=[0],num_plot=1,folder="t1/")
+
+main(labels_t=[4],labels_p=[4],num_plot=40,folder="t4/",random_=False)
+# %%
+
 # %%
