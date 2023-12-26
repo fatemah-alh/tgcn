@@ -11,6 +11,7 @@ class Config:
     description: str
     name_exp : str
     parent_folder: str
+    data_path:str
     video_path: str
     landmarks_path : str
     csv_file: str

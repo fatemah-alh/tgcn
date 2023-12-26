@@ -506,7 +506,7 @@ class aagcn_network(nn.Module):
         all_outputs=all_outputs.view(N,-1)
        
         #Take the last output
-        x=x[:,-7,:]
+        x=x[:,-1,:]
         x=x.view(-1)
         
         #x=F.relu(x)

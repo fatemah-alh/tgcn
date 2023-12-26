@@ -65,7 +65,9 @@ class DataLoader(torch.utils.data.Dataset):
              self.X=self.X[:,:,:,:4]
             #self.X=np.concatenate( (self.X[:,:,:,:2],self.X[:,:,:,3:5]),axis=3)
         elif self.num_features==2:
-            self.X=self.X[:,:,:,:2]
+            self.X=self.X[:,:,:,:2] #position
+            #self.X=self.X[:,:,:,2:4]#Velocity
+           # self.X=self.X[:,:,:,4:]#headMotion
         #Preprocess
         #self.preprocess()
         self._reshape_data()
@@ -163,7 +165,7 @@ class DataLoader(torch.utils.data.Dataset):
             idx=np.array(idx,dtype=np.int32)
             self.features=self.features[idx]
             self.labels=self.labels[idx]
-            
+            """
             if self.min_max_values==None:
                 self.min_max_values=[np.min(self.features[:,2,:,:,:]),
                             np.max(self.features[:,2,:,:,:]),
@@ -175,7 +177,7 @@ class DataLoader(torch.utils.data.Dataset):
                             np.max(self.features[:,5,:,:,:])]
             print("max_min_used dynamics before norm:",self.min_max_values )
             
-            """
+            
             if self.maxMinNormalization:
                 for i in range(0,len(self.features)):
                     sample=self.features[i]

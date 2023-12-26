@@ -10,7 +10,7 @@ import pandas as pd
 from tqdm import tqdm
 from utiles import get_file_names
 from collections import Counter
-(137,68,3),(137,51,3)
+#(137,68,3),(137,51,3)
 def extract_landmarks_video(feateure_extractor,video_path,output_path):  
     """
     Function to extract 3D landmarks from a single video using OpenFace library
