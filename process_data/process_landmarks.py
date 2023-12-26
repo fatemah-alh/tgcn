@@ -5,7 +5,7 @@ import yaml
 import sys
 parent_folder= "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
 sys.path.append(parent_folder)
-from utiles import get_file_names
+
 from tqdm import tqdm 
 from scipy.spatial import Delaunay
 import matplotlib.pyplot as plt
@@ -28,7 +28,15 @@ This will perform :
 4- calculate velocity on x,y
 5- Insert centroid of landmarls before alignement, to account of head movement
 """
-def visualize_landmarks(data,label_data,edges=[],time_steps=137,vis_edges=False,vis="2d",vis_index=False,save=False):
+def get_file_names(csv_file):
+    """
+    Function to get a list of paths to videos to process. 
+    """
+    df = pd.read_csv(csv_file,sep='\t')
+    filesnames=(df['subject_name'] + '/' + df['sample_name']).to_numpy()
+    return filesnames
+
+def visualize_landmarks(data,label_data,edges=[],time_steps=137,vis_edges=False,vis="2d",vis_index=False,save=False,path_vis=""):
     """
     this function will visualize landmarks of data tensor, just the f
     """
@@ -74,6 +82,7 @@ def visualize_landmarks(data,label_data,edges=[],time_steps=137,vis_edges=False,
         figures.append(image)
     if save:
         imageio.mimsave(path_vis+'vis_landmarks_3D_openface_absolut_eigenvectors_without_contur.gif', figures, duration=50)
+
 def save_labels(csv_file,label_data):
     df = pd.read_csv(csv_file,sep='\t')
     labels=df['class_id'].values
@@ -274,7 +283,7 @@ def process_all_data_new(landmarks_folder:str,filesnames:list,normalized_data:np
             frame=sample[j]
             frame,centroid=center_coordinate(frame)
             sample_centroids[j]= np.full((frame.shape[0],2),centroid[:2])
-            print(sample_centroids[j].shape)
+            #print(sample_centroids[j].shape)
             
             R_matrix=get_rotation_matrix(frame)
             frame=np.matmul( R_matrix, frame.T ).T
@@ -290,14 +299,14 @@ def process_all_data_new(landmarks_folder:str,filesnames:list,normalized_data:np
             """
             
         centroid_velocity=calc_velocity(sample_centroids) 
-        print(centroid_velocity[0].shape)
+        #print(centroid_velocity[0].shape)
         
         #print(np.max(centroid_velocity),np.min(centroid_velocity),  np.max(velocity),np.min(velocity),np.max(processed_sample),np.min(processed_sample)) 
         data=np.concatenate((processed_sample[:-1,:,:], velocity,centroid_velocity), axis=2)   
         normalized_data[i]= data
-        print(data[0,:,4],data[0,:,5])
-        break
-    """
+        #print(data[0,:,4],data[0,:,5])
+        
+    
     print(normalized_data[:,:,:,0].shape,
           np.max(normalized_data[:,:,:,0]),
           np.min(normalized_data[:,:,:,0]),
@@ -308,10 +317,10 @@ def process_all_data_new(landmarks_folder:str,filesnames:list,normalized_data:np
     print("Contains Nan values",np.isnan(normalized_data).any())
     #normalized_data=np.nan_to_num(normalized_data)        
     np.save(path_save,normalized_data)
-    """
+    
     return normalized_data
         
-def split_all(csv_file):
+def split_all(csv_file,filter_idx_90):
     df = pd.read_csv(csv_file,sep='\t')
     idx_filter_90=np.load(filter_idx_90)
     subject_name=df['subject_name'].to_numpy()
@@ -344,7 +353,7 @@ def split_all(csv_file):
     print(len(idx_test)-len(filter_test))
     np.save("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/idx_train_all_subject_no_filter.npy",filtered_train)
     np.save("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/idx_test_all_subject_no_filter.npy",filter_test)
-def split_all_partecipant(csv_file):
+def split_all_partecipant(csv_file,filter_idx_90):
     low_expressiv_ids=["082315_w_60", "082414_m_64", "082909_m_47","083009_w_42", "083013_w_47", 
                         "083109_m_60", "083114_w_55", "091914_m_46", "092009_m_54","092014_m_56", 
                         "092509_w_51", "092714_m_64", "100514_w_51", "100914_m_39", "101114_w_37", 
@@ -406,7 +415,7 @@ def split_loso_LE(csv_file,):
         np.save(dir+"idx_train.npy",idx_train)
         np.save(dir+"idx_test.npy",idx_test)
 
-def split_loso_filter_LE(csv_file,):
+def split_loso_filter_LE(csv_file,filter_idx_90):
     #consider the 67 subject. 
     idx_filter_90=set(np.load(filter_idx_90))
     low_expressiv_ids=["082315_w_60", "082414_m_64", "082909_m_47","083009_w_42", "083013_w_47", 
@@ -427,7 +436,7 @@ def split_loso_filter_LE(csv_file,):
         os.makedirs(dir,exist_ok=True)
         np.save(dir+"idx_train.npy",idx_train)
         np.save(dir+"idx_test.npy",idx_test)
-def split_loso_filter_ME():
+def split_loso_filter_ME(filter_idx_90):
     #consider the 87 subject. 
     idx_filter_90=set(np.load(filter_idx_90))
     idx_87ME= list(range(0,8700))
@@ -442,20 +451,36 @@ def split_loso_filter_ME():
         np.save(dir+"idx_train.npy",idx_train)
         np.save(dir+"idx_test.npy",idx_test)
 
-def get_LE_Sub():
+def get_LE_Sub(csv_file,filter_idx_90):
     idx_filter_90=np.load(filter_idx_90)
     df = pd.read_csv(csv_file,sep='\t')
     mask =df.loc[idx_filter_90].index.tolist()
     print(df.iloc[mask]['subject_name'].unique())
+
+
+def get_LE_SUb(csv_file,filter_idx_90):
+    low_expressiv_ids=set(["082315_w_60", "082414_m_64", "082909_m_47","083009_w_42", "083013_w_47", 
+                        "083109_m_60", "083114_w_55", "091914_m_46", "092009_m_54","092014_m_56", 
+                        "092509_w_51", "092714_m_64", "100514_w_51", "100914_m_39", "101114_w_37", 
+                        "101209_w_61", "101809_m_59", "101916_m_40", "111313_m_64", "120614_w_61"])
+    idx_filter_90=np.load(filter_idx_90)
+    print(idx_filter_90)
+    df = pd.read_csv(csv_file,sep='\t')
+    mask =df.loc[idx_filter_90].index.tolist()
+    low_confidence=set(df.iloc[mask]['subject_name'].unique().tolist())
+    print(low_confidence.intersection(low_expressiv_ids))
+
 def plot_single_feature(data,title):
     x_values=data.flatten()
     print(x_values.shape)
     plot_histogram(x_values,title)
 
 
-def plot_all(data):
+def plot_all(data,idx_train_):
     plot_single_feature(data[idx_train_,:,:,2],title="Histogram of x  velocity in train ")
     plot_single_feature(data[idx_train_,:,:,3],title="Histogram of y  velocity in train")
+
+"""
 
 name_file = 'open_face' 
 config_file=open(parent_folder+"config/"+name_file+".yml", 'r')
@@ -491,33 +516,18 @@ if name_file=="open_face_eyes":
 if name_file=="open_face_mouth":
     normalized_data = np.zeros((8700, 137, 20, 6), dtype=np.float32)
 
+"""
+#%%
+#split_loso_filter_ME()
 
 #%%
-split_loso_filter_ME()
 
+#get_LE_SUb()
 #%%
+#%%
+#normalized_data=process_all_data_new(landmarks_path,filesnames,normalized_data,data_path,down_sample=False)
 
-def get_LE_SUb():
-    low_expressiv_ids=set(["082315_w_60", "082414_m_64", "082909_m_47","083009_w_42", "083013_w_47", 
-                        "083109_m_60", "083114_w_55", "091914_m_46", "092009_m_54","092014_m_56", 
-                        "092509_w_51", "092714_m_64", "100514_w_51", "100914_m_39", "101114_w_37", 
-                        "101209_w_61", "101809_m_59", "101916_m_40", "111313_m_64", "120614_w_61"])
-    idx_filter_90=np.load(filter_idx_90)
-    print(idx_filter_90)
-    df = pd.read_csv(csv_file,sep='\t')
-    mask =df.loc[idx_filter_90].index.tolist()
-    low_confidence=set(df.iloc[mask]['subject_name'].unique().tolist())
-    print(low_confidence.intersection(low_expressiv_ids))
-get_LE_SUb()
-#%%
-#%%
-normalized_data=process_all_data_new(landmarks_path,filesnames,normalized_data,data_path,down_sample=False)
 
-#%%
-for i in range(0,6):
-    print(normalized_data.shape)
-    print(np.max(normalized_data[:,:,:,i]),np.min(normalized_data[:,:,:,i]),np.mean(normalized_data[:,:,:,i]))
-#%%   
 #labels=save_labels(csv_file,labels_path)
 
 #%%   #Split to train set and test 
@@ -534,14 +544,7 @@ data[idx_test_,:,:,:]=standard_data_test
 #np.save("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/openFace/dataset_openFace_standarized.npy",data)
 """
 #%%
-data=np.load(data_path)
-idx_train_=np.load(idx_train) 
-idx_test_=np.load(idx_test)
-#%%
-for i in range(len(data)):  
-    for j in range(len(data[i])):
-        data[i,j,:,4]
-#%%
+
 
 """ 
 
@@ -557,8 +560,3 @@ idx_2=list((set(idx_test_) | set(idx_train_)) & set(idx_2))
 idx_1=np.where(labels==1)[0]
 idx_1=list((set(idx_test_) | set(idx_train_))& set(idx_1))
 """
-
-#%%
-d=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/loso/0/idx_test.npy")
-print(len(d))
-# %%

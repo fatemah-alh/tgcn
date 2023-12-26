@@ -11,9 +11,10 @@ class Config:
     description: str
     name_exp : str
     parent_folder: str
-    data_path:str
+    folder_data_path:str
     video_path: str
     landmarks_path : str
+    landmarks_npy: str
     csv_file: str
     labels_path: str
     data_path: str

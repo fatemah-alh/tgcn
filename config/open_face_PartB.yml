@@ -1,20 +1,14 @@
-
-
 description: ""
 name_exp : "dlib"
-parent_folder: "/Users/fatemahalhamdoosh/Desktop/Git/PAIN_ESTIMATION/"
+parent_folder: "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
 folder_data_path: "data/PartB/"
 video_path: "data/PartB/video/"
 landmarks_path : "data/PartB/3dlandmarks/"
 landmarks_npy: "data/PartB/landmarksnpy/"
 csv_file: "data/PartB/samples.csv"
 labels_path: "data/PartB/lables.npy"
-data_path: "data/PartB/openFace/dataset_openFace_new.npy" 
-
-
-
-
-edges_path: "data/PartB/openFace/edge_openFace.npy"
+data_path: "data/PartB/dataset_processed.npy" 
+edges_path: "data/PartB/edges.npy"
 filter_idx_90: "data/PartB/idx_low_confidance_90.npy"
 filter_idx_80: "data/PartB/idx_low_confidance_80.npy"
 
@@ -41,7 +35,7 @@ bn: True
 lr: 0.01
 
 num_subset: 2
-num_features: 4
+num_features: 6
 hidden_size: 1
 TS: 137
 n_joints: 51

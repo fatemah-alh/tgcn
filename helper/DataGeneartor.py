@@ -5,7 +5,10 @@ import sys
 import os
 import re
 from tqdm import tqdm 
+parent_folder= "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
+sys.path.append(parent_folder)
 
+from process_data.process_landmarks import *
 
 class DataGenerator():
     def __init__(self,config,feature_extrator="/Users/fatemahalhamdoosh/Desktop/Git/PAIN_ESTIMATION/OpenFace/build/bin/FeatureExtraction"):
@@ -17,14 +20,14 @@ class DataGenerator():
         self.csv_file=self.parent_folder+config["csv_file"]
         self.folder_data_path=self.parent_folder+config["folder_data_path"]
         self.feature_extrator=feature_extrator
-        self.get_filenames()
-    def get_filenames(self):
-        """
-        Function to get a list of paths to videos to process. 
-        """
-        df = pd.read_csv(self.csv_file,sep='\t')
-        self.filesnames=(df['subject_name'] + '/' + df['sample_name']).to_numpy()
-        return self.filesnames
+        self.data_path=self.parent_folder+config["data_path"]
+        self.labels_path=self.parent_folder+config["labels_path"]
+        self.edges_path=self.parent_folder+config["edges_path"]
+        self.idx_train_path=self.parent_folder+config["idx_train"]
+        self.idx_test_path=self.parent_folder+config["idx_test"]
+        self.filter_idx_90=parent_folder+config["filter_idx_90"]
+        self.filesnames=get_file_names(self.csv_file)
+
     def extract_all(self):
         """
         Function to iterate over all video and extract 3D landmarks.
@@ -58,8 +61,8 @@ class DataGenerator():
         zero_frame=np.zeros((68,3))
         for i in tqdm(range (0,len(self.filesnames))):
             a=self.filesnames[i].split("/")
-            p_=self.landmarks_npy+a[0]+"/"+a[1]
-            os.makedirs(self.landmarks_npy+a[0]+"/",exist_ok=True)
+            p_=self.landmarks_npy+self.filesnames[i]+"/"+a[1]
+            os.makedirs(self.landmarks_npy+self.filesnames[i]+"/",exist_ok=True)
             path=self.landmarks_path+self.filesnames[i]+"/"+self.filesnames[i].split("/")[1]+".csv"
             if(os.path.exists(path)):
                 df = pd.read_csv(path)
@@ -92,20 +95,42 @@ class DataGenerator():
         #save idx to filter later
         np.save(self.folder_data_path+"idx_low_confidance_90.npy",idx_video_low_confidence)
         return dict_count
-    def generat_landmarks(self):
+    def generate_landmarks(self):
         self.extract_all()
         dict=self.get_output_data()
-    def generat_processed_data_set(self):
+    def generate_processed_data_set(self):
+        normalized_data = np.zeros((len(self.filesnames), 137, 51, 6), dtype=np.float32)
+        process_all_data_new(landmarks_folder=self.landmarks_npy,
+                             filesnames=self.filesnames,
+                             normalized_data=normalized_data,
+                             path_save=self.data_path,
+                             down_sample=False)
+
+    def generate_labels(self):
+        save_labels(self.csv_file,self.labels_path)
         pass
-    def generat_training_files(self):
+    def generate_training_files_hold_out_filtered(self):
+        split_idx_train_test(idx_train_path=self.idx_train_path,
+                             idx_test_path=self.idx_test_path,
+                             csv_file=self.csv_file,
+                             filter_90=self.filter_idx_90)
+        pass
+    def generate_training_files_loso_ME67(self):
+        pass
+    def generate_training_files_loso_LE86(self):
+        pass
+    def generate_edges_(self,landmarks):
+        get_edges(landmarks,edges_path=self.edges_path)
         pass
 if __name__=="__main__":
     name_file = 'open_face_PartB' # !IMPORTANT: name of conficuration file.
-    config_file=open("/Users/fatemahalhamdoosh/Desktop/Git/PAIN_ESTIMATION/"+name_file+".yml", 'r')
+    config_file=open("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/config/"+name_file+".yml", 'r')
     config = yaml.safe_load(config_file)
     data_generator=DataGenerator(config)
     #data_generator.generat_landmarks()
     #data_generator.get_output_data()
-    idx=np.load("/Users/fatemahalhamdoosh/Desktop/Git/PAIN_ESTIMATION/data/PartB/idx_low_confidance_90.npy")
-    print(len(idx),idx)
+    data_generator.generate_processed_data_set()
+    #data_generator.generate_labels()
+    #data_generator.generate_training_files_hold_out_filtered()
+   
 
