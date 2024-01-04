@@ -37,11 +37,12 @@ lr: 0.01
 num_subset: 2
 num_features: 6
 hidden_size: 1
+N_sample: 8600
 TS: 137
 n_joints: 51
-idx_train:  "data/PartB/idx_train_filterd_low_react.npy" #  #"data/PartB/idx_train_filterd.npy"
-idx_test:  "data/PartB/idx_test_filterd_low_react.npy" # #"data/PartB/idx_test_filterd.npy"
-LOG_DIR: "log/"
+idx_train:  "data/PartB/idx_train_filterd_hold_out.npy" #  #"data/PartB/idx_train_filterd.npy"
+idx_test:  "data/PartB/idx_test_filterd_hold_out.npy" # #"data/PartB/idx_test_filterd.npy"
+LOG_DIR: "log/PartB"
 t_kernel_size: 15
 strid: 1
 normalize_labels: False
@@ -58,7 +59,7 @@ prop: #1 # 1 #usando la classe di augmentation.
 Aug_type: #"all" #"all" #"r+f" #"all" # #"r+f" #"f" # [ "r" , "f" , "r+f","all"] None
 concatenate: False # True #True #True # # # True
 project_name: "pain_estimation"
-log_name: "hold_out_multi_4Features" #"1s+15k+multi+loso-filtred_LE_test0" minMaxNorm_dx_dy_
+log_name: "hold_out_multi_2" #"1s+15k+multi+loso-filtred_LE_test0" minMaxNorm_dx_dy_
 gpu: 0
 num_classes: 5
 num_epoch: 100

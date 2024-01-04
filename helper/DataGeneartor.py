@@ -27,6 +27,7 @@ class DataGenerator():
         self.idx_test_path=self.parent_folder+config["idx_test"]
         self.filter_idx_90=parent_folder+config["filter_idx_90"]
         self.filesnames=get_file_names(self.csv_file)
+        print(len(self.filesnames))
 
     def extract_all(self):
         """
@@ -129,7 +130,7 @@ if __name__=="__main__":
     data_generator=DataGenerator(config)
     #data_generator.generat_landmarks()
     #data_generator.get_output_data()
-    data_generator.generate_processed_data_set()
+    #data_generator.generate_processed_data_set()
     #data_generator.generate_labels()
     #data_generator.generate_training_files_hold_out_filtered()
    

@@ -4,6 +4,10 @@ from tqdm import tqdm
 import torch
 import yaml
 import random
+import sys
+parent_folder= "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
+sys.path.append(parent_folder)
+
 from utiles import rotation_matrix_2d
 import math
 from torchvision.transforms import RandomChoice,RandomApply,Compose
@@ -20,6 +24,8 @@ class DataLoader(torch.utils.data.Dataset):
                     model_name="aagcn",
                     num_features=6,
                     num_nodes=51,
+                    N_sample=8700,
+                    TS=137,
                     num_classes=5,
                     transform=None,
                     contantenat=False,
@@ -42,11 +48,12 @@ class DataLoader(torch.utils.data.Dataset):
         self.concatenate=contantenat
         self.maxMinNormalization=maxMinNormalization
         self.min_max_values=min_max_values
+
         if self.model_name=="a3tgcn":
-            self.data_shape=[(0, 2, 3, 1),(8700,num_nodes,num_features,137)]
+            self.data_shape=[(0, 2, 3, 1),(N_sample,num_nodes,num_features,TS)]
             self.expand_dim=False
         elif self.model_name=="aagcn":
-            self.data_shape=[(0, 3, 1, 2),(8700, num_features,137,num_nodes)]
+            self.data_shape=[(0, 3, 1, 2),(N_sample, num_features,TS,num_nodes)]
         else:
             self.data_shape=data_shape
         self._read_data()
@@ -55,9 +62,12 @@ class DataLoader(torch.utils.data.Dataset):
         print("Loading Dataset")
         self.labels=np.load(self.labels_path)#0,..,4
         self.X=np.load(self.data_path)
+        print(np.min(self.X[:,:,:,0]),np.max(self.X[:,:,:,0]))
+        print("Contains Nan values",np.isnan(self.X).any())
         if self.maxMinNormalization:
             self.maxMinNorm()
         #Select featurs 
+        print("Contains Nan values",np.isnan(self.X).any())
         if self.num_nodes==43:
             print("Fal expirment...")
             self.X=np.concatenate((self.X[:,:,:11,:],self.X[:,:,19:,:]),axis=2)
@@ -141,7 +151,17 @@ class DataLoader(torch.utils.data.Dataset):
        
         return x, y
     def apply_maxMinNorm(self,val,min_val,max_val):
-        return (2 * (val - min_val) / (max_val - min_val)) - 1 
+        if max_val == min_val:
+           
+        # Handle the case when the denominator is zero (division by zero)
+            return 0.0  # or any other appropriate value
+      #  elif any(math.isnan(x) or math.isinf(x) for x in [val, min_val, max_val]):
+            # Handle the case when any of the values is NaN or inf
+       #     return 0.0  # or any other appropriate value
+        else:
+            # Perform the division if everything is valid
+            return (2 * (val - min_val) / (max_val - min_val)) - 1
+     
     def maxMinNorm(self):
         print("min_max X tensor", self.X.shape)
         for i in range(0,len(self.X)):
@@ -150,6 +170,7 @@ class DataLoader(torch.utils.data.Dataset):
             minY=np.min(sample[:,:,1])
             maxX=np.max(sample[:,:,0])
             maxY=np.max(sample[:,:,1])
+           # if (minX==maxX or minY==maxY):
            
             sample[:,:,0]= self.apply_maxMinNorm(sample[:,:,0],minX,maxX) 
             sample[:,:,1]=self.apply_maxMinNorm(sample[:,:,1],minY,maxY) 
@@ -165,6 +186,13 @@ class DataLoader(torch.utils.data.Dataset):
             idx=np.array(idx,dtype=np.int32)
             self.features=self.features[idx]
             self.labels=self.labels[idx]
+            for sample in self.features:
+               
+                min_s=np.min(sample[:,:,:])
+                max_s=np.max(sample[:,:,:])
+               
+                if (min_s==max_s):
+                    print ("found_zero_sample")
             """
             if self.min_max_values==None:
                 self.min_max_values=[np.min(self.features[:,2,:,:,:]),
@@ -275,7 +303,7 @@ class TranslateY(object):
         x[1]=x[1]+val
         return x,y
 if __name__=="__main__":
-    name_exp="open_face"
+    name_exp="open_face_PartB"
    
     parent_folder="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
     config_file=open(parent_folder+"config/"+name_exp+".yml", 'r')
@@ -291,12 +319,16 @@ if __name__=="__main__":
     num_features=config['num_features']
     num_nodes=config['n_joints'] 
     num_classes=config['num_classes']
-    transform=RandomApply([RandomChoice([Rotate(),FlipV()])],p=0.5)
+    N_sample=config['N_sample']
+    TS=config['TS']
+    #transform=RandomApply([RandomChoice([Rotate(),FlipV()])],p=0.5)
     transform=None
     train_dataset=DataLoader(data_path,labels_path,edges_path,idx_path=idx_train,
                              num_features= num_features,
                              num_nodes=num_nodes,
                              num_classes= num_classes,
+                            N_sample=N_sample,
+                            TS=TS,
                              transform=transform,
                              maxMinNormalization=True,
                              min_max_values=None)
@@ -307,6 +339,8 @@ if __name__=="__main__":
                             idx_path=idx_test,
                             num_features= num_features,
                             num_nodes=num_nodes,
+                            N_sample=N_sample,
+                            TS=TS,
                             num_classes= num_classes,
                             transform=transform,
                             maxMinNormalization=True,

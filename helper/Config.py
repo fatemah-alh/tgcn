@@ -38,6 +38,7 @@ class Config:
     num_subset: int
     num_features: int
     hidden_size: int
+    N_sample: int
     TS: int
     n_joints: int
     idx_train:  str

@@ -388,7 +388,7 @@ class Trainer():
 if __name__=="__main__":
     torch.manual_seed(100)
 
-    config_file="open_face"
+    config_file="open_face_PartB"
     parent_folder="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
     config =Config.load_from_file(parent_folder+"/config/"+config_file+".yml")
 

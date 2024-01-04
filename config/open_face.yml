@@ -37,6 +37,7 @@ lr: 0.01
 num_subset: 2
 num_features: 6
 hidden_size: 1
+N_sample: 8700
 TS: 137
 n_joints: 51
 idx_train:  "data/PartA/idx_train_filterd_low_react.npy" #  #"data/PartA/idx_train_filterd.npy"

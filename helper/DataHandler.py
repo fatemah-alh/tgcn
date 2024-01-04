@@ -67,5 +67,7 @@ class DataHandler:
                 "num_classes":self.config.num_classes,
                 "contantenat":self.config.concatenate,
                 "maxMinNormalization":self.config.maxMinNormalization,
-                "normalize_labels":self.config.normalize_labels
+                "normalize_labels":self.config.normalize_labels,
+                "N_sample":self.config.N_sample,
+                "TS":self.config.TS
                 }
