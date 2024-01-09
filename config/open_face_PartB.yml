@@ -1,5 +1,6 @@
 description: ""
 name_exp : "dlib"
+dataset: "PartB"
 parent_folder: "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
 folder_data_path: "data/PartB/"
 video_path: "data/PartB/video/"
@@ -50,7 +51,7 @@ normalize_labels: False
 adaptive: False
 attention: True
 drop_out: 0.2
-protocol: "hold_out" #"hold_out" #"loso"  
+protocol: "loso" #"hold_out" #"loso"  
 maxMinNormalization: True #False #True
 
 center_loss: False
@@ -62,6 +63,6 @@ project_name: "pain_estimation"
 log_name: "hold_out_multi_2" #"1s+15k+multi+loso-filtred_LE_test0" minMaxNorm_dx_dy_
 gpu: 0
 num_classes: 5
-num_epoch: 100
+num_epoch: 70
 
 eval_loso: False

@@ -10,6 +10,7 @@ class Config:
    
     description: str
     name_exp : str
+    dataset: str
     parent_folder: str
     folder_data_path:str
     video_path: str

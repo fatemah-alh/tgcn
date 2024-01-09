@@ -81,7 +81,7 @@ class Logger:
         image_wand = wandb.Image(image, caption=title)
         wandb.log({title: image_wand})
     def save_cm(self,cm):
-        np.save(self.log_dir+"cm_best_model.npy",cm)
+        np.save(self.log_dir+"/cm_best_model.npy",cm)
     def round_values(self,values,normalized_labels,max_classes): 
         #Repeated function also in evaluation.
         if normalized_labels:

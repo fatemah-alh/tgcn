@@ -289,7 +289,6 @@ def process_all_data_new(landmarks_folder:str,filesnames:list,normalized_data:np
             frame=np.matmul( R_matrix, frame.T ).T
             processed_sample[j]=frobenius_norm(frame[:,:2])
             """
-            
             x_std=np.std(processed_sample[j,:,0])
             y_std=np.std(processed_sample[j,:,1])
             if x_std!=0:
@@ -297,16 +296,9 @@ def process_all_data_new(landmarks_folder:str,filesnames:list,normalized_data:np
             if y_std!=0:
                 processed_sample[j,:,1]=processed_sample[j,:,1]/y_std
             """
-            
         centroid_velocity=calc_velocity(sample_centroids) 
-        #print(centroid_velocity[0].shape)
-        
-        #print(np.max(centroid_velocity),np.min(centroid_velocity),  np.max(velocity),np.min(velocity),np.max(processed_sample),np.min(processed_sample)) 
         data=np.concatenate((processed_sample[:-1,:,:], velocity,centroid_velocity), axis=2)   
         normalized_data[i]= data
-        #print(data[0,:,4],data[0,:,5])
-        
-    
     print(normalized_data[:,:,:,0].shape,
           np.max(normalized_data[:,:,:,0]),
           np.min(normalized_data[:,:,:,0]),
@@ -415,7 +407,7 @@ def split_loso_LE(csv_file,):
         np.save(dir+"idx_train.npy",idx_train)
         np.save(dir+"idx_test.npy",idx_test)
 
-def split_loso_filter_LE(csv_file,filter_idx_90):
+def split_loso_filter_ME(csv_file,filter_idx_90,path,dataset,num_subjects):
     #consider the 67 subject. 
     idx_filter_90=set(np.load(filter_idx_90))
     low_expressiv_ids=["082315_w_60", "082414_m_64", "082909_m_47","083009_w_42", "083013_w_47", 
@@ -424,27 +416,28 @@ def split_loso_filter_LE(csv_file,filter_idx_90):
                         "101209_w_61", "101809_m_59", "101916_m_40", "111313_m_64", "120614_w_61"]
     df = pd.read_csv(csv_file,sep='\t')
     mask = df['subject_name'].isin(low_expressiv_ids)
-    idx_67LE= df.loc[~mask].index.tolist()
-    for i in range(0,67):
-        dir=f"/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/loso_filtered/{i}/"
-        idx_test = list(set(idx_67LE[i*100:(i+1)*100])-idx_filter_90)
+    idx_67= df.loc[~mask].index.tolist()
+    for i in range(0,num_subjects):
+        dir=path+f"loso_ME67/{i}/"
+        idx_test = list(set(idx_67[i*100:(i+1)*100])-idx_filter_90)
         
         print(len(idx_test))
-        idx_train = list(set(idx_67LE[0:i*100]+idx_67LE[(i+1)*100:])-idx_filter_90)
+        idx_train = list(set(idx_67[0:i*100]+idx_67[(i+1)*100:])-idx_filter_90)
         
         print(len(idx_train))
         os.makedirs(dir,exist_ok=True)
         np.save(dir+"idx_train.npy",idx_train)
         np.save(dir+"idx_test.npy",idx_test)
-def split_loso_filter_ME(filter_idx_90):
+def split_loso_filter_LE(filter_idx_90,path,dataset,num_subjects):
+    #path=/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/
     #consider the 87 subject. 
     idx_filter_90=set(np.load(filter_idx_90))
-    idx_87ME= list(range(0,8700))
-    print(idx_87ME,len(idx_87ME))
-    for i in range(0,87):
-        dir=f"/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/loso-filtered_ME87/{i}/"
-        idx_test = list(set(idx_87ME[i*100:(i+1)*100])-idx_filter_90)
-        idx_train = list(set(idx_87ME[0:i*100]+idx_87ME[(i+1)*100:])-idx_filter_90)
+    idx_87= list(range(0,num_subjects*100))
+   
+    for i in range(0,num_subjects):
+        dir=path+f"loso_LE87/{i}/"
+        idx_test = list(set(idx_87[i*100:(i+1)*100])-idx_filter_90)
+        idx_train = list(set(idx_87[0:i*100]+idx_87[(i+1)*100:])-idx_filter_90)
         print(len(idx_test))
         print(len(idx_train))
         os.makedirs(dir,exist_ok=True)
@@ -517,24 +510,7 @@ if name_file=="open_face_mouth":
     normalized_data = np.zeros((8700, 137, 20, 6), dtype=np.float32)
 
 """
-#%%
-#split_loso_filter_ME()
 
-#%%
-
-#get_LE_SUb()
-#%%
-#%%
-#normalized_data=process_all_data_new(landmarks_path,filesnames,normalized_data,data_path,down_sample=False)
-
-
-#labels=save_labels(csv_file,labels_path)
-
-#%%   #Split to train set and test 
-#split_idx_train_test(idx_train,idx_test,csv_file,filter_idx_90)
-
-
-#%%
 """
 standard_data,means,stds=standarization_train(data_train,6)
 print(means,stds)
@@ -544,10 +520,7 @@ data[idx_test_,:,:,:]=standard_data_test
 #np.save("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/openFace/dataset_openFace_standarized.npy",data)
 """
 #%%
-
-
 """ 
-
 labels=np.load(labels_path)
 idx_0=np.where(labels==0)[0]
 idx_0=list((set(idx_test_) | set(idx_train_)) & set(idx_0))

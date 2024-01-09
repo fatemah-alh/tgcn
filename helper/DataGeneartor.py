@@ -27,6 +27,9 @@ class DataGenerator():
         self.idx_test_path=self.parent_folder+config["idx_test"]
         self.filter_idx_90=parent_folder+config["filter_idx_90"]
         self.filesnames=get_file_names(self.csv_file)
+        self.TS=config['TS']
+        self.num_nodes=config['n_joints']
+        self.dataset=config["dataset"]
         print(len(self.filesnames))
 
     def extract_all(self):
@@ -100,7 +103,7 @@ class DataGenerator():
         self.extract_all()
         dict=self.get_output_data()
     def generate_processed_data_set(self):
-        normalized_data = np.zeros((len(self.filesnames), 137, 51, 6), dtype=np.float32)
+        normalized_data = np.zeros((len(self.filesnames), self.TS, self.num_nodes, 6), dtype=np.float32)
         process_all_data_new(landmarks_folder=self.landmarks_npy,
                              filesnames=self.filesnames,
                              normalized_data=normalized_data,
@@ -109,20 +112,32 @@ class DataGenerator():
 
     def generate_labels(self):
         save_labels(self.csv_file,self.labels_path)
-        pass
+        
     def generate_training_files_hold_out_filtered(self):
         split_idx_train_test(idx_train_path=self.idx_train_path,
                              idx_test_path=self.idx_test_path,
                              csv_file=self.csv_file,
                              filter_90=self.filter_idx_90)
-        pass
+        
     def generate_training_files_loso_ME67(self):
-        pass
-    def generate_training_files_loso_LE86(self):
-        pass
-    def generate_edges_(self,landmarks):
+        split_loso_filter_ME(csv_file=self.csv_file,
+                                filter_idx_90=self.filter_idx_90,
+                                path=self.folder_data_path,
+                                dataset=self.dataset,
+                                num_subjects=67)
+       
+    def generate_training_files_loso_LE87(self):
+        split_loso_filter_LE(filter_idx_90=self.filter_idx_90,
+                                path=self.folder_data_path,
+                                dataset=self.dataset,
+                                num_subjects=86)
+
+    def generate_edges(self,landmarks=None):
+        if landmarks==None:
+            dataset_=np.load(self.data_path)
+            landmarks=dataset_[0,0,:,:]
         get_edges(landmarks,edges_path=self.edges_path)
-        pass
+        
 if __name__=="__main__":
     name_file = 'open_face_PartB' # !IMPORTANT: name of conficuration file.
     config_file=open("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/config/"+name_file+".yml", 'r')
@@ -132,6 +147,9 @@ if __name__=="__main__":
     #data_generator.get_output_data()
     #data_generator.generate_processed_data_set()
     #data_generator.generate_labels()
+    #data_generator.generate_edges()
     #data_generator.generate_training_files_hold_out_filtered()
+    data_generator.generate_training_files_loso_ME67()
+    #data_generator.generate_training_files_loso_LE87()
    
 

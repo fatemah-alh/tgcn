@@ -333,17 +333,17 @@ class Trainer():
         targets,unrounded_predicted= self.eval(mode="test")
         acc_test,f1_test,rmse_err_test,mae_test,cm_test=self.get_results("test",targets,unrounded_predicted,epoch="Final",title="Best_Model",log_finale=True)
 
-    def run_loso(self,type_="LE87",class_="binary",start=0,end=87): # or "LE67", "multi"
+    def run_loso(self,type_="LE87",class_="binary",start=0,end=87,dataset="PartA"): # or "LE67", "multi"
 
-        folder_name=f"log/loso_{type_}_Adaptive/"
+        folder_name=f"log/{dataset}/loso_{type_}/"
         log_loso=self.config.parent_folder+folder_name+f"log_loso_{type_}_{class_}.txt"
 
 
         for i in range(start,end):
-            idx_train=f"data/PartA/loso_{type_}/{i}/idx_train.npy"
-            idx_test=f"data/PartA/loso_{type_}/{i}/idx_test.npy"
+            idx_train=f"data/{dataset}/loso_{type_}/{i}/idx_train.npy"
+            idx_test=f"data/{dataset}/loso_{type_}/{i}/idx_test.npy"
             self.LOG_DIR= folder_name+f"{i}/"
-            self.log_name= f"1s+15k+{class_}+loso_{type_}_test{i}"
+            self.log_name= f"{class_}+loso_{type_}_test{i}"
             
             self.config.idx_train=idx_train
             self.config.idx_test=idx_test
@@ -353,11 +353,12 @@ class Trainer():
             self.init_trainer()
             acc,f1,rmse,mae=self.run()
             self.logger.save_results(i,acc,f1,rmse,mae,log_loso)
-    def eval_loso(self,path="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/loso_ME87_new/",
+    def eval_loso(self,path="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/PartA/loso_LE87/",
                        type_="LE87",
                        class_="multi",
                        start=0,
-                       end=87
+                       end=87,
+                       dataset="PartA" # "PartB"
                        ):
         self.load_eval()
         self.load_model()
@@ -365,12 +366,12 @@ class Trainer():
         self.set_log_dir()
         log_loso=path+f"log_loso_EVAL_{type_}_{class_}.txt"
         for i in range(start,end):
-            idx_train=f"data/PartA/loso_{type_}/{i}/idx_train.npy"
-            idx_test=f"data/PartA/loso_{type_}/{i}/idx_test.npy"
+            idx_train=f"data/{dataset}/loso_{type_}/{i}/idx_train.npy"
+            idx_test=f"data/{dataset}/loso_{type_}/{i}/idx_test.npy"
             self.config.idx_train=idx_train
             self.config.idx_test=idx_test
             self.datahandler=DataHandler(self.config)
-            best_model=path+f"{i}/1s+15k+{class_}+loso_{type_}_test{i}/best_model.pkl"
+            best_model=path+f"{i}/{class_}+loso_{type_}_test{i}/best_model.pkl"
             print("best_model:",best_model)
             self.load_pretraind(best_model)
 
@@ -394,20 +395,21 @@ if __name__=="__main__":
 
     trainer=Trainer(config=config)
     if config.eval_loso:
-        trainer.eval_loso(path="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/loso_LE67_new/"
-                         ,type_="LE67",
+        trainer.eval_loso(path="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/PartB/loso_ME67/"
+                         ,type_="ME67",
                          class_="multi",
-                         start=0,end=67)
+                         start=0,end=67,
+                         dataset="PartB")
         print("LOSO EVALuation Done!")
         sys.exit()
         
     if config.protocol=="hold_out":
         trainer.run()
     else:
-        trainer.run_loso(type_="LE67",class_="binary",start=40,end=67)
-        #trainer.run_loso(type_="LE67",class_="multi",start=20,end=30)#20 , 50 
-        #trainer.run_loso(type_="ME87",class_="multi",start=32,end=40)
-        #trainer.run_loso(type_="ME87",class_="binary",start=75,end=87)
+        #trainer.run_loso(type_="ME67",class_="binary",start=40,end=67,dataset="PartB")
+        #trainer.run_loso(type_="ME67",class_="multi",start=20,end=30,dataset="PartB")#20 , 50 
+        trainer.run_loso(type_="LE87",class_="multi",start=60,end=87,dataset="PartB")
+        #trainer.run_loso(type_="LE87",class_="binary",start=75,end=87,dataset="PartB")
 
 
 # %%

@@ -141,7 +141,7 @@ def reshape_data(features):
     new_feat= np.reshape(reshaped_tensor, (len(features), 137,51,6,1)).squeeze(axis=-1) 
     return new_feat[:,:,:,:2]
 def main(labels_t=[0,1,2,3,4],labels_p=[0,1,2,3,4],num_plot=2,folder="gru_outputs/",random_=True):
-    config_file="open_face"
+    config_file="open_face_PartB"
     parent_folder="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
     config =Config.load_from_file(parent_folder+"/config/"+config_file+".yml")
     videos_folder="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/video/"

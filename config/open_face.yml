@@ -1,5 +1,6 @@
 description: "With complex architect+FC to reduce embeding sizes"
 name_exp : "dlib"
+dataset : "PartA"
 parent_folder: "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
 folder_data_path: "data/PartA/"
 video_path: "data/PartA/video"
