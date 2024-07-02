@@ -281,7 +281,7 @@ class UnitGCN(nn.Module):
             self.conv_b.append(nn.Conv2d(self.in_c, self.inter_c, 1))
 
     def _attentive_forward(self, y):
-        #y_shape=(N, C: self.out_c, T, V)
+        #y_shape=(N, C, T, V)
         # spatial attention
     
         se = y.mean(-2)  # N C V
@@ -318,8 +318,12 @@ class UnitGCN(nn.Module):
             )
             A2 = self.conv_b[i](x).view(N, self.inter_c * T, V)
             A1 = self.tan(torch.matmul(A1, A2) / A1.size(-1))  # N V V # The C matrix
+            #makeit_symmetric
+            #A1=torch.matmul(torch.transpose(A1,1,2),A1)/ A1.size(-1)
+            #print(A1.shape,A1==torch.transpose(A1,1,2))
             #A1_save=A1.cpu().numpy()
             #np.save("Adaptive_matrix.npy",A1_save)
+            #print(self.alpha)
             A1 = A[i] + A1 * self.alpha 
             A2 = x.view(N, C * T, V)
             z = self.conv_d[i](torch.matmul(A2, A1).view(N, C, T, V))
@@ -550,7 +554,13 @@ if __name__=="__main__":
     
     edges_index=torch.LongTensor(np.load(edges_path)).to(device)
     print(edges_index.device)
-    model = aagcn_network(num_person=1, graph=edges_index,num_nodes=num_nodes, in_channels=num_features,drop_out=0.5, adaptive=False, attention=True,num_subset=2)
+    model = aagcn_network(num_person=1,
+                           graph=edges_index,
+                          num_nodes=num_nodes,
+                           in_channels=num_features,
+                           drop_out=0.5, 
+                           adaptive=config['adaptive'],
+                             attention=True,num_subset=2)
     model.to(device)
     print(model)
 

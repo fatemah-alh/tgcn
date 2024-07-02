@@ -5,6 +5,12 @@ import sys
 import os
 import re
 from tqdm import tqdm 
+import mediapipe as mp
+import cv2
+from mediapipe import solutions
+from mediapipe.framework.formats import landmark_pb2
+from mediapipe.tasks import python
+from mediapipe.tasks.python import vision
 parent_folder= "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
 sys.path.append(parent_folder)
 
@@ -39,16 +45,82 @@ class DataGenerator():
         for i in tqdm(range (0,len(self.filesnames))):#len(filesnames))
             path=self.video_folder_path+self.filesnames[i]+".mp4"
             out_path=self.landmarks_path+self.filesnames[i]
-            self.extract_landmarks_video(path,out_path)
-    def extract_landmarks_video(self,video_path,output_path):  
+            command=f"{self.feature_extrator} -f {path} -out_dir {out_path} -3Dfp"
+            os.system(command)
+    def test_mediapipe(self):
+        base_options = python.BaseOptions(model_asset_path='/andromeda/shared/reco-pomigliano/tempo-gnn/face_landmarker_v2_with_blendshapes.task')
+        options = vision.FaceLandmarkerOptions(base_options=base_options,
+                                            output_face_blendshapes=True,
+                                            output_facial_transformation_matrixes=True,
+                                            num_faces=1)
+        detector = vision.FaceLandmarker.create_from_options(options)
+        for i in tqdm(range (0,len(self.filesnames))):
+            self.test_mediapipe_video(self.video_folder_path,self.filesnames[i],detector)
+            break
+    def test_mediapipe_video(self,root,path_file,detector):
+        path=root+"video/"+ path_file+".mp4"
+        outputfile=root+"landmarks/"+path_file+".npy"
+        os.makedirs(os.path.dirname(outputfile), exist_ok=True)
+        cap = cv2.VideoCapture(path)
+        list_landmarks=[]
+        while True:
+        # Read a frame from the video capture
+            ret, frame = cap.read()
+
+            if not ret:
+                break
+            data = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            landmarks=detector.detect(data).face_landmarks
+            print(landmarks.shape)
+    def extract_all_mediapipe(self):
+        mp_face_mesh = mp.solutions.face_mesh.FaceMesh(
+        static_image_mode=False,
+        max_num_faces=1,
+        min_detection_confidence=0.5,
+        min_tracking_confidence=0.5
+    )
+
+        for i in tqdm(range (0,len(self.filesnames))):
+             self.extract_landmarks_from_video_media_pipe(self.video_folder_path,self.filesnames[i],mp_face_mesh)
+             break
+        pass
+    def extract_landmarks_from_video_media_pipe(self,root,path_file,mp_face_mesh):
         """
-        Function to extract 3D landmarks from a single video using OpenFace library
-        feateure_extractor: path to the feature extractor of OpenFace, 
-        You shuold already have been installed the library and all dependencies.
-        check the docomentation of OpenFace to see other flags and options.
-        """ 
-        command=f"{self.feature_extrator} -f {video_path} -out_dir {output_path} -3Dfp"
-        os.system(command)
+        This function take in input:
+        root: Director where all videos are saved
+        path_file: a pathe insid videos folder to a video.mp4
+        Return:
+        list_landmarks:[num_frames,68,2]
+        """
+        #path='/home/falhamdoosh/tgcn/data/PartA/video/071309_w_21/071309_w_21-BL1-081.mp4'
+        path=root+"video/"+ path_file+".mp4"
+        outputfile=root+"landmarks/"+path_file+".npy"
+        os.makedirs(os.path.dirname(outputfile), exist_ok=True)
+        cap = cv2.VideoCapture(path)
+        list_landmarks=[]
+        while True:
+        # Read a frame from the video capture
+            ret, frame = cap.read()
+
+            if not ret:
+                break
+            data = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+            #gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            results = mp_face_mesh.process(data)
+            if results.multi_face_landmarks:
+                for face_landmarks in results.multi_face_landmarks:
+                    # Convert normalized landmarks to pixel coordinates
+                    h, w, _ = frame.shape
+                    landmarks = []
+                    for landmark in face_landmarks.landmark:
+                        x, y = int(landmark.x * w), int(landmark.y * h)
+                        landmarks.append((x, y))
+                    
+        cap.release()
+        np.save(outputfile,list_landmarks)
+        return list_landmarks
+
     def get_output_data(self):
         """
         Function to process the csv file released by OpenFace and extract a matrix of landmarks position
@@ -131,7 +203,7 @@ class DataGenerator():
                                 path=self.folder_data_path,
                                 dataset=self.dataset,
                                 num_subjects=86)
-
+    
     def generate_edges(self,landmarks=None):
         if landmarks==None:
             dataset_=np.load(self.data_path)
@@ -139,7 +211,7 @@ class DataGenerator():
         get_edges(landmarks,edges_path=self.edges_path)
         
 if __name__=="__main__":
-    name_file = 'open_face_PartB' # !IMPORTANT: name of conficuration file.
+    name_file = 'mediapipe' # !IMPORTANT: name of conficuration file.
     config_file=open("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/config/"+name_file+".yml", 'r')
     config = yaml.safe_load(config_file)
     data_generator=DataGenerator(config)
@@ -149,7 +221,9 @@ if __name__=="__main__":
     #data_generator.generate_labels()
     #data_generator.generate_edges()
     #data_generator.generate_training_files_hold_out_filtered()
-    data_generator.generate_training_files_loso_ME67()
+    #data_generator.generate_training_files_loso_ME67()
     #data_generator.generate_training_files_loso_LE87()
+    #data_generator.extract_all_mediapipe()
+    data_generator.test_mediapipe()
    
 

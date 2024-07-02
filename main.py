@@ -389,7 +389,7 @@ class Trainer():
 if __name__=="__main__":
     torch.manual_seed(100)
 
-    config_file="open_face_PartB"
+    config_file="open_face_PartB" # "open_face" #"open_face_PartB"
     parent_folder="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
     config =Config.load_from_file(parent_folder+"/config/"+config_file+".yml")
 
@@ -407,9 +407,9 @@ if __name__=="__main__":
         trainer.run()
     else:
         #trainer.run_loso(type_="ME67",class_="binary",start=40,end=67,dataset="PartB")
-        #trainer.run_loso(type_="ME67",class_="multi",start=20,end=30,dataset="PartB")#20 , 50 
-        trainer.run_loso(type_="LE87",class_="multi",start=60,end=87,dataset="PartB")
-        #trainer.run_loso(type_="LE87",class_="binary",start=75,end=87,dataset="PartB")
+        #trainer.run_loso(type_="ME67",class_="multi",start=40,end=67,dataset="PartB")#20 , 50 
+        #trainer.run_loso(type_="LE87",class_="multi",start=34,end=40,dataset="PartB")
+        trainer.run_loso(type_="LE87",class_="binary",start=34,end=40,dataset="PartB")
 
 
 # %%

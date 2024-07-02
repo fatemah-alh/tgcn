@@ -8,7 +8,7 @@ landmarks_path : "data/PartB/3dlandmarks/"
 landmarks_npy: "data/PartB/landmarksnpy/"
 csv_file: "data/PartB/samples.csv"
 labels_path: "data/PartB/lables.npy"
-data_path: "data/PartB/dataset_processed.npy" 
+data_path: "data/PartB/processed_data/dataset_openFace.npy" 
 edges_path: "data/PartB/edges.npy"
 filter_idx_90: "data/PartB/idx_low_confidance_90.npy"
 filter_idx_80: "data/PartB/idx_low_confidance_80.npy"
@@ -62,7 +62,7 @@ concatenate: False # True #True #True # # # True
 project_name: "pain_estimation"
 log_name: "hold_out_multi_2" #"1s+15k+multi+loso-filtred_LE_test0" minMaxNorm_dx_dy_
 gpu: 0
-num_classes: 5
+num_classes: 2
 num_epoch: 70
 
 eval_loso: False

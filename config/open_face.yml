@@ -1,4 +1,4 @@
-description: "With complex architect+FC to reduce embeding sizes"
+description: ""
 name_exp : "dlib"
 dataset : "PartA"
 parent_folder: "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
@@ -8,8 +8,8 @@ landmarks_path : "data/PartA/3dlandmarks/"
 landmarks_npy: "data/PartA/landmarksnpy/"
 csv_file: "data/PartA/samples.csv"
 labels_path: "data/PartA/lables.npy"
-data_path: "data/PartA/openFace/dataset_openFace_new.npy" 
-edges_path: "data/PartA/openFace/edge_openFace.npy"
+data_path: "data/PartA/processed_data/dataset_openFace.npy" 
+edges_path: "data/PartA/edges.npy"
 filter_idx_90: "data/PartA/idx_low_confidance_90.npy"
 filter_idx_80: "data/PartA/idx_low_confidance_80.npy"
 
@@ -43,12 +43,12 @@ TS: 137
 n_joints: 51
 idx_train:  "data/PartA/idx_train_filterd_low_react.npy" #  #"data/PartA/idx_train_filterd.npy"
 idx_test:  "data/PartA/idx_test_filterd_low_react.npy" # #"data/PartA/idx_test_filterd.npy"
-LOG_DIR: "log/"
+LOG_DIR: "log/PartA"
 t_kernel_size: 15
 strid: 1
 normalize_labels: False
 
-adaptive: False
+adaptive: True
 attention: True
 drop_out: 0.2
 protocol: "hold_out" #"hold_out" #"loso"  
@@ -60,9 +60,9 @@ prop: #1 # 1 #usando la classe di augmentation.
 Aug_type: #"all" #"all" #"r+f" #"all" # #"r+f" #"f" # [ "r" , "f" , "r+f","all"] None
 concatenate: False # True #True #True # # # True
 project_name: "pain_estimation"
-log_name: "hold_out_binary_FC_NOGRU" #"1s+15k+multi+loso-filtred_LE_test0" minMaxNorm_dx_dy_
-gpu: 0
-num_classes: 2
+log_name: "hold_out_multi_symmetric_adaptive" #"1s+15k+multi+loso-filtred_LE_test0" minMaxNorm_dx_dy_
+gpu: 1
+num_classes: 5
 num_epoch: 100
 
 eval_loso: False
