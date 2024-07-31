@@ -180,7 +180,7 @@ class UnitGCN(nn.Module):
         super(UnitGCN, self).__init__()
         self.inter_c = out_channels // coff_embedding
         self.out_c = out_channels
-        self.in_c = in_channels
+        self.in_c = in_channels 
         self.num_subset = num_subset
         self.A = A
         self.num_jpts = A.shape[-1]
@@ -198,6 +198,7 @@ class UnitGCN(nn.Module):
             self._init_adaptive_layers()
         else:
             self.A = Variable(self.A, requires_grad=False)
+            # If Adaptive is false: self.A will be just a fixed tensor, if 
 
         if self.attention:
             self._init_attention_layers()
@@ -270,9 +271,21 @@ class UnitGCN(nn.Module):
         nn.init.constant_(self.fc1c.bias, 0)
         nn.init.constant_(self.fc2c.weight, 0)
         nn.init.constant_(self.fc2c.bias, 0)
+    def _init_sym_adaptive_layers(self):
+        bs=self.A.shape[0]
+        A_size=self.A.shape[1]
+        self.L=self.L = nn.Parameter(torch.tril(torch.randn(bs, A_size, A_size)))
+        diag_elements = torch.diagonal(self.L, dim1=1, dim2=2).clone()
+        self.PA=  self.L + self.L.transpose(1, 2)
+        #self.PA=self.L + self.L.T 
+        batch_indices = torch.arange(bs).unsqueeze(1).unsqueeze(2)
+        diag_indices = torch.arange(A_size)
+        self.PA[batch_indices, diag_indices, diag_indices] = diag_elements
+        #self.PA=A = self.L + self.L.transpose(1, 2) - torch.diagonal(self.L, dim1=1, dim2=2).unsqueeze(-1).expand(-1, -1, self.N)
 
     def _init_adaptive_layers(self):
         self.PA = nn.Parameter(self.A)
+        #Debugge alfa
         self.alpha = nn.Parameter(torch.zeros(1))
         self.conv_a = nn.ModuleList()
         self.conv_b = nn.ModuleList()
@@ -304,6 +317,8 @@ class UnitGCN(nn.Module):
         y = y * se2.unsqueeze(-1).unsqueeze(-1) + y
 
         return y
+    def _sym_adaptive_forward(self,x,y):
+        pass
 
     def _adaptive_forward(self, x, y):
         N, C, T, V = x.size()
@@ -318,8 +333,10 @@ class UnitGCN(nn.Module):
             )
             A2 = self.conv_b[i](x).view(N, self.inter_c * T, V)
             A1 = self.tan(torch.matmul(A1, A2) / A1.size(-1))  # N V V # The C matrix
+            #printtorch.matmul(A1, A2),A1.size(-1),self.tan
             #makeit_symmetric
-            #A1=torch.matmul(torch.transpose(A1,1,2),A1)/ A1.size(-1)
+            A1=torch.matmul(torch.transpose(A1,1,2),A1)/ A1.size(-1)
+            #consider sum them and then dived by two
             #print(A1.shape,A1==torch.transpose(A1,1,2))
             #A1_save=A1.cpu().numpy()
             #np.save("Adaptive_matrix.npy",A1_save)
@@ -399,10 +416,11 @@ class AAGCN(nn.Module):
 
         self.graph = GraphAAGCN(self.edge_index, self.num_nodes,num_subset=num_subset)
         self.A = self.graph.A
-
+        #SPATIO CONV
         self.gcn1 = UnitGCN(
             in_channels, out_channels, self.A,num_subset=num_subset, adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name=L_name
         )
+        #TEMP CONV
         self.tcn1 = UnitTCN(out_channels, out_channels, stride=stride,kernel_size=kernel_size,bn=bn)
         self.relu = nn.ReLU(inplace=True)
         self.attention = attention
@@ -432,7 +450,17 @@ class AAGCN(nn.Module):
         """
         y = self.relu(self.tcn1(self.gcn1(x)) + self.residual(x))
         return y
-    
+class GatedLinearUnit(nn.Module):
+    def __init__(self, input_dim):
+        super(GatedLinearUnit, self).__init__()
+        self.linear1 = nn.Linear(input_dim, input_dim)
+        self.linear2 = nn.Linear(input_dim, input_dim)
+
+    def forward(self, x):
+        A = self.linear1(x)
+        B = self.linear2(x)
+        return A * torch.sigmoid(B)
+        
 class aagcn_network(nn.Module):
     def __init__(self, num_person=1, 
                  graph=None,
@@ -443,7 +471,7 @@ class aagcn_network(nn.Module):
                  kernel_size=9,
                  stride=1,
                  hidden_size=1,
-                 gru_layer=2,
+                 gru_layer=1,
                  adaptive=False, 
                  attention=True,
                  bn=True,
@@ -455,6 +483,8 @@ class aagcn_network(nn.Module):
             raise ValueError("No edges_index is found!")
         self.edge_index=graph
         self.embed=embed
+        self.bidirectional=False
+        self.num_dircetions= 2 if self.bidirectional else 1
         self.return_all_outputs=return_all_outputs
         self.data_bn = nn.BatchNorm1d(num_person * in_channels * num_nodes)#TODO senza 
         self.l1 = AAGCN(in_channels, 64, graph, num_subset=num_subset,num_nodes=num_nodes, residual=False, adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l1")
@@ -464,13 +494,15 @@ class aagcn_network(nn.Module):
         self.l5 = AAGCN(64, 128, graph,num_subset=num_subset, num_nodes=num_nodes,stride=stride, adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l5")
         self.l6 = AAGCN(128,128, graph,num_subset=num_subset, num_nodes=num_nodes,stride=stride,adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l6")
         
-       # self.l7 = AAGCN(128, 128, graph,num_subset=num_subset, num_nodes=num_nodes,stride=stride,adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l7")
-       # self.l8 = AAGCN(128, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=3, adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l8")
+        #self.l7 = AAGCN(128, 128, graph,num_subset=num_subset, num_nodes=num_nodes,stride=stride,adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l7")
+        #self.l8 = AAGCN(128, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=3, adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l8")
         #self.l9 = AAGCN(256, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=stride,adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l9")
         #self.l10 = AAGCN(256, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=1,adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l10")
-        self.gru=GRU(input_size=128*num_nodes, hidden_size=128,num_layers=gru_layer,batch_first=True)
+        self.gru=GRU(input_size=128*num_nodes, hidden_size=128,num_layers=gru_layer,batch_first=True,bidirectional=self.bidirectional)
+        self.glu = GatedLinearUnit(128 * self.num_dircetions)
+        
         #self.fc_1=Linear(in_features=128*num_nodes,out_features= 128) 
-        self.fc=Linear(in_features=128,out_features= 1) 
+        self.fc=Linear(in_features=128*self.num_dircetions,out_features= 1) 
         nn.init.kaiming_normal_(self.fc.weight)
         bn_init(self.data_bn, 1)
         if drop_out:
@@ -501,10 +533,15 @@ class aagcn_network(nn.Module):
         x=x.view(N,t_new,-1)
       
         embed_graph=x # Try with tow type of embeddings
+        #output.view( batch,seq_len, num_directions, hidden_size).
         x,h=self.gru(x)
+        #x=x.view(N,t_new, 0,-1)
         #x=self.fc_1(x)
+        #if biderictional: x=x
         embed_gru=x 
+        x=self.glu(x)
         x = self.drop_out(x)
+        
         x=self.fc(x)
         all_outputs= x
         all_outputs=all_outputs.view(N,-1)

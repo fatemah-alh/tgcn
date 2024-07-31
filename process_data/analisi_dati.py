@@ -1,7 +1,6 @@
 #%%
 import matplotlib.pyplot as plt
 import numpy as np
-
 import sys
 from sklearn.manifold import TSNE
 parent_folder= "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"

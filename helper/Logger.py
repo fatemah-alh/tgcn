@@ -6,7 +6,7 @@ from helper.Config import Config
 from sklearn.metrics import  ConfusionMatrixDisplay
 from PIL import Image
 import matplotlib.pyplot as plt
-
+import math
 
 class Logger:
     def __init__(self, config:Config,model=None,loss=None) -> None:
@@ -86,7 +86,8 @@ class Logger:
         #Repeated function also in evaluation.
         if normalized_labels:
             values=[x * max_classes  for x in values]
-        values=np.round(values)
+        #values=np.round(values)
+        values=np.ceil(values)
         values=torch.clamp(torch.tensor(values), min=0, max=max_classes)
         
         return values

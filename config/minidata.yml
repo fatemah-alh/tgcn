@@ -1,23 +1,20 @@
-description: ""
-name_exp : "dlib"
-dataset : "PartA"
+Description: " train on small data set from 20 sample"
+
+name_exp: "dlib"
+
 parent_folder: "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
-folder_data_path: "data/PartA/"
-video_path: "data/PartA/video"
+video_path: "data/PartA/"
 landmarks_path : "data/PartA/3dlandmarks/"
-landmarks_npy: "data/PartA/landmarksnpy/"
 csv_file: "data/PartA/samples.csv"
 labels_path: "data/PartA/lables.npy"
-data_path: "data/PartA/processed_data/dataset_openFace.npy" 
-edges_path: "data/PartA/edges.npy" #_masternode #/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/edges_masternode.npy #edges
-filter_idx_90: "data/PartA/idx_low_confidance_90.npy"
-filter_idx_80: "data/PartA/idx_low_confidance_80.npy"
 
-# "data/PartA/idx_train_filterd_low_react.npy" 
-#idx_train_all_subject
-#idx_train_filterd_low_react
-#idx_train_filterd
-# "data/PartA/idx_test_filterd_low_react.npy"
+data_path: "data/PartA/processed_data/dataset_openFace.npy"  # "data/PartA/mediapipe/dataset_mediapipe.npy" #"data/PartA/openFace/dataset_openFace_new.npy"
+edges_path: "data/PartA/edges.npy"
+ #"data/PartA/mediapipe/edges_mediapipe.npy" #"data/PartA/openFace/edge_openFace.npy"
+
+idx_train: "data/PartA/minidata/idx_train.npy"
+idx_test: "data/PartA/minidata/idx_test.npy"
+
 
 weight_decay: 0.7
 momentum: 0.9
@@ -31,7 +28,7 @@ pretrain_model: "None" #"08-05-17:36" # #"08-03-12:18" #Name of folder that cont
 Temporal_downsampling: False
 model_name: "aagcn" # "a3tgcn" # # #
 embed_dim: 128
-gru: 2
+gru: 1
 bn: True
 lr: 0.01
 
@@ -41,9 +38,7 @@ hidden_size: 1
 N_sample: 8700
 TS: 137
 n_joints: 51
-idx_train:  "data/PartA/idx_train_filterd_low_react.npy" #  #"data/PartA/idx_train_filterd.npy"
-idx_test:  "data/PartA/idx_test_filterd_low_react.npy" # #"data/PartA/idx_test_filterd.npy"
-LOG_DIR: "log/PartA"
+###Optimizer###
 t_kernel_size: 15
 strid: 1
 normalize_labels: False
@@ -60,9 +55,9 @@ prop: #1 # 1 #usando la classe di augmentation.
 Aug_type: None #"all" #"all" #"r+f" #"all" # #"r+f" #"f" # [ "r" , "f" , "r+f","all"] None
 concatenate: False # True #True #True # # # True
 project_name: "pain_estimation_Jul"
-log_name: "hold_out_binary_GLU_Ceil" 
-gpu: 0
+log_name: "hold_out_binary_bidirectional_gru_1g" 
+gpu: 1
 num_classes: 2
-num_epoch: 100
+num_epoch: 70
 
 eval_loso: False

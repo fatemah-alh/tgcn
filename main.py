@@ -14,6 +14,10 @@ from helper.Logger import Logger
 from helper.Evaluation import Evaluation
 from helper.center_loss import CenterLoss
 import sys
+import cProfile
+import pstats
+import io
+
 class Trainer():
     def __init__(self, config) -> None:
         self.config= config
@@ -388,8 +392,12 @@ class Trainer():
             
 if __name__=="__main__":
     torch.manual_seed(100)
-
-    config_file="open_face_PartB" # "open_face" #"open_face_PartB"
+    # Create a profile object
+    pr = cProfile.Profile()
+    
+    # Enable the profiler
+    pr.enable()
+    config_file="open_face" # "open_face" #"open_face_PartB"
     parent_folder="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
     config =Config.load_from_file(parent_folder+"/config/"+config_file+".yml")
 
@@ -411,5 +419,20 @@ if __name__=="__main__":
         #trainer.run_loso(type_="LE87",class_="multi",start=34,end=40,dataset="PartB")
         trainer.run_loso(type_="LE87",class_="binary",start=34,end=40,dataset="PartB")
 
-
-# %%
+    # Disable the profiler
+    pr.disable()
+    
+    # Create a StringIO object to store the profiler stats
+    s = io.StringIO()
+    
+    # Sort the profiler stats by cumulative time
+    sortby = 'cumulative'
+    
+    # Create a Stats object and print the profiler stats to the StringIO object
+    ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+    ps.print_stats()
+    
+    with open("debug.txt", 'a') as f:
+                f.write(s.getvalue())
+    # Print the profiler stats
+    

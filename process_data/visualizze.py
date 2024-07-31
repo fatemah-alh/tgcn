@@ -182,7 +182,7 @@ def visualize_sample_withNode_wieghts(data,vis_index=False):
        # ax.scatter(fram[:,0], fram[:,1],alpha=0.7, c="blue",s=node_wieghts)
         
 #%%
-path=parent_folder+"/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/08-23-16:47/"
+#path=parent_folder+"/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/08-23-16:47/"
 name_file = 'minidata'
 config_file=open(parent_folder+"config/"+name_file+".yml", 'r')
 config = yaml.safe_load(config_file)
@@ -193,6 +193,7 @@ idx_train= parent_folder+config['idx_train']
 idx_test=parent_folder+config['idx_test']
 edges=np.load(edges_path)
 TS=config['TS']
+num_nodes= config['n_joints']
 #transform=RandomApply([RandomChoice([Rotate(),FlipV(),Compose([FlipV(),Rotate()])])],p=0.01)
 #transform=RandomApply([Rotate()],p=0)
 #transform=RandomApply([FlipV(),Rotate()],p=0.5)
@@ -203,41 +204,54 @@ train_dataset=DataLoader(data_path,
                         edges_path,
                         idx_path=idx_train,
                         num_features=6,
-                        num_nodes=51,
+                        num_nodes=num_nodes,
                         reshape_data=False,
                         expand_dim=False,
                         normalize_labels=False,
-                        transform=transform)
+                        transform=transform,
+                        maxMinNormalization=True)
 
 #data=np.zeros((20,6,137,51,1))
-data=np.zeros((20,137,51,6))
+data=np.zeros((20,137,num_nodes,6))
 labels=[]
 for i,sample in enumerate(train_dataset):
     data[i]=sample[0]
     labels.append(sample[1])
 print(data.shape,len(labels))
 #%%
-print(data[0,0,:,4])
+print(data[0,0,0,:])
 #%%
 np.save("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/minidata/data.npy",data)
 #%%
-data=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/minidata/data.npy")
+data=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/mediapipe/dataset_mediapipe.npy")
 print(data.shape)
 #%%
 reshaped_tensor = np.transpose(data, (0, 2, 3, 1,4))  # Transpose dimensions from 8700,137,469,4) to 8600, 469, 4, 137
 features= np.reshape(reshaped_tensor, (20, 137,51,6,1)).squeeze(axis=-1) 
 print(features.shape)
 
-
-visualize_landmarks(features[:,:,:,:2],labels,edges,time_steps=1,vis_index=True,vis_edges=True)
+#%%
+features=data
+visualize_landmarks(features[:,:,:,:2],labels,edges,time_steps=1,vis_index=True,vis_edges=False)
 #%%
 features=data
 #%%
-visualize_sample(features[0],labels[0],edges,time_steps=1,vis_index=False,vis_edges=True)
+visualize_sample(features[0],labels[0],edges,time_steps=1,vis_index=True,vis_edges=True)
 #%%
-visualize_Adjacencey_matrix_from_edges(edges)
+edges=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/edges.npy")
+visualize_Adjacencey_matrix_from_edges(merged)
+#%%
+print(min(edges[0]))
+#%%
+master_nods_edges=[[12 for x in range(0,51) ],[y for y in range(0,51)]]
+#%%
+np.array(master_nods_edges)
 #%%
 
+merged=np.hstack((edges,np.array(master_nods_edges)))
+#%%
+np.save("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/edges_masternode.npy",merged)
+#%%
 visualize_temporal_edges(data[0])
 #%%
 adaptive=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/process_data/Adaptive_matrix.npy")

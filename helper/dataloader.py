@@ -59,6 +59,7 @@ class DataLoader(torch.utils.data.Dataset):
         self._read_data()
         
     def _read_data(self):
+        
         print("Loading Dataset")
         self.labels=np.load(self.labels_path)#0,..,4
         self.X=np.load(self.data_path)
@@ -78,10 +79,8 @@ class DataLoader(torch.utils.data.Dataset):
             self.X=self.X[:,:,:,:2] #position
             #self.X=self.X[:,:,:,2:4]#Velocity
            # self.X=self.X[:,:,:,4:]#headMotion
-        #Preprocess
-        #self.preprocess()
+        
         self._reshape_data()
-        #split data set with idx
         self.split_data()
         #Select the expirment:
         if self.num_classes==3:
@@ -151,34 +150,22 @@ class DataLoader(torch.utils.data.Dataset):
        
         return x, y
     def apply_maxMinNorm(self,val,min_val,max_val):
-        if max_val == min_val:
-           
+       
+        return np.where(max_val == min_val, 0.0, 2 * (val - min_val) / (max_val - min_val) - 1)
+  
         # Handle the case when the denominator is zero (division by zero)
-            return 0.0  # or any other appropriate value
-      #  elif any(math.isnan(x) or math.isinf(x) for x in [val, min_val, max_val]):
-            # Handle the case when any of the values is NaN or inf
-       #     return 0.0  # or any other appropriate value
-        else:
-            # Perform the division if everything is valid
-            return (2 * (val - min_val) / (max_val - min_val)) - 1
-     
+        # Handle the case when any of the values is NaN or inf
+ 
     def maxMinNorm(self):
         print("min_max X tensor", self.X.shape)
         for i in range(0,len(self.X)):
-            sample=self.X[i]
-            minX=np.min(sample[:,:,0])
-            minY=np.min(sample[:,:,1])
-            maxX=np.max(sample[:,:,0])
-            maxY=np.max(sample[:,:,1])
-           # if (minX==maxX or minY==maxY):
-           
+            sample = self.X[i]
+            minX, maxX = np.min(sample[:,:,0]), np.max(sample[:,:,0])
+            minY, maxY = np.min(sample[:,:,1]), np.max(sample[:,:,1])
             sample[:,:,0]= self.apply_maxMinNorm(sample[:,:,0],minX,maxX) 
             sample[:,:,1]=self.apply_maxMinNorm(sample[:,:,1],minY,maxY) 
             self.X[i]=sample
-            #print(np.min(sample[:,:,2]),np.max( sample[:,:,2]))
-            #print(np.min(sample[:,:,3]),np.max(sample[:,:,3]))
-            
-            #print(np.min(sample[:,:,0]),np.max(sample[:,:,0]))
+           
            
     def split_data(self):
         if self.idx_path!=None:

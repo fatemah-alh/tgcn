@@ -186,8 +186,11 @@ def get_edges(landmarks,edges_path):
     np.save(edges_path,edges_index)
     return edges_index
     
-def delete_contour(sample):
-    sample=sample[:,17:,:]
+def delete_contour(sample,type_="Dlib"):
+    if type_=="Dlib":
+        sample=sample[:,17:,:]
+    else:
+        pass
     return sample
 def downsample_nodes(sample):
     sample=np.concatenate( (sample[:,:11,:],sample[:,19:,:]),axis=1)
@@ -268,9 +271,10 @@ def calc_velocity(sample):
 
 def process_all_data_new(landmarks_folder:str,filesnames:list,normalized_data:np.array,path_save:str,down_sample=False):
     for i in tqdm(range (0,len(filesnames))):
-        path=landmarks_folder+filesnames[i]+"/"+filesnames[i].split("/")[1]+".npy"
+        #path=landmarks_folder+filesnames[i]+"/"+filesnames[i].split("/")[1]+".npy" this is for DLIB
+        path=landmarks_folder+filesnames[i]+".npy"
         sample=np.load(path) #[138,68,3] 
-        sample=delete_contour(sample)
+        #sample=delete_contour(sample)
         sample=flip_y_coordiante(sample)
         if down_sample:
             sample=downsample_nodes(sample)
@@ -298,7 +302,7 @@ def process_all_data_new(landmarks_folder:str,filesnames:list,normalized_data:np
             """
         centroid_velocity=calc_velocity(sample_centroids) 
         data=np.concatenate((processed_sample[:-1,:,:], velocity,centroid_velocity), axis=2)   
-        normalized_data[i]= data
+        normalized_data[i][:data.shape[0]]= data
     print(normalized_data[:,:,:,0].shape,
           np.max(normalized_data[:,:,:,0]),
           np.min(normalized_data[:,:,:,0]),
@@ -520,6 +524,50 @@ data[idx_test_,:,:,:]=standard_data_test
 #np.save("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/openFace/dataset_openFace_standarized.npy",data)
 """
 #%%
+
+dataA=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/processed_data/dataset_openFace.npy")
+dataB=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartB/processed_data/dataset_openFace.npy")
+idx_trainA= np.load( "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/idx_train_filterd_low_react.npy") #  #"data/PartA/idx_train_filterd.npy"
+idx_testA=  np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/idx_test_filterd_low_react.npy")
+idx_trainB= np.load( "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartB/idx_train_filterd_hold_out.npy")
+idx_testB=  np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartB/idx_test_filterd_hold_out.npy")
+labelA=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/lables.npy")
+labelB=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartB/lables.npy")
+print(dataA.shape,dataB.shape,idx_trainA.shape,idx_testA.shape,idx_trainB.shape,idx_testB.shape,labelA.shape,)
+
+#%%
+ab=np.concatenate((dataA,dataB),axis=0)
+print(ab.shape)
+#%%
+labelB.shape
+#%%
+
+labels_ab=np.concatenate((labelA,labelB),axis=0)
+print(labels_ab.shape)
+#%%
+idx_train_ab=np.concatenate((idx_trainA,idx_trainB+8700),axis=0)
+print(idx_train_ab.shape)
+#%%
+idx_test_ab=np.concatenate((idx_testA,idx_testB+8700),axis=0)
+print(idx_test_ab.shape)
+
+
+#%%
+pathAB="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/AB/dataset_openFaceAB.npy"
+pathAB_labels="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/AB/labels_ab.npy"
+pathAB_train="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/AB/train_ab.npy"
+pathAB_test="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/AB/test_ab.npy"
+pathAB_test_a="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/AB/test_a.npy"
+pathAB_test_b="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/AB/test_b.npy"
+
+np.save(pathAB,ab)
+np.save(pathAB_labels,labels_ab)
+np.save(pathAB_train,idx_train_ab)
+np.save(pathAB_test,idx_test_ab)
+np.save(pathAB_test_a,idx_testA)
+np.save(pathAB_test_b,idx_testB+8700)
+
+#%%
 """ 
 labels=np.load(labels_path)
 idx_0=np.where(labels==0)[0]
@@ -533,3 +581,5 @@ idx_2=list((set(idx_test_) | set(idx_train_)) & set(idx_2))
 idx_1=np.where(labels==1)[0]
 idx_1=list((set(idx_test_) | set(idx_train_))& set(idx_1))
 """
+
+# %%

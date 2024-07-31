@@ -25,16 +25,19 @@ class DataHandler:
         self.train_loader = self._create_data_loader(dataset=self.train_dataset, 
                                                     batch_size=config.batch_size, 
                                                     shuffle=True,
-                                                    drop_last=True)
+                                                    drop_last=True,
+                                                    num_workers=4)
         self.train_loader_for_test= self._create_data_loader(dataset=self.train_dataset_for_test, 
                                                             batch_size=config.batch_size, 
                                                             shuffle=False,
-                                                            drop_last=False)
+                                                            drop_last=False,
+                                                            num_workers=4)
         self.test_loader = self._create_data_loader(dataset=self.test_dataset, 
                                                    batch_size=config.batch_size, 
                                                    shuffle=False,
                                                    sampler=torch.utils.data.SequentialSampler(self.test_dataset),
-                                                   drop_last=False)
+                                                   drop_last=False,
+                                                   num_workers=4)
 
     def _load_dataset(self, **kwords):
         # Load and possibly preprocess the dataset
@@ -52,7 +55,7 @@ class DataHandler:
                                 "all": lambda:RandomApply([RandomChoice([Rotate(),FlipV(),TranslateY(),TranslateX()])],p=self.config.prop)
                                 }
             if self.config.Aug_type in augmentation_factory:
-                self.transform=augmentation_factory[self.config.Aug_type]
+                self.transform=augmentation_factory[self.config.Aug_type]()
             else:
                 raise(ValueError("No such augmentation type is defind. Available Augmentation : [r, f, r+f, all]"))
         else:
