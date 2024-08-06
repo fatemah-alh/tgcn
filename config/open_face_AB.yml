@@ -13,8 +13,8 @@ data_path: "data/AB/dataset_openFaceAB.npy"
 edges_path: "data/PartA/edges.npy"
 filter_idx_90: ""
 filter_idx_80: ""
-pathAB_test_a: "data/AB/test_a.npy"
-pathAB_test_b: "data/AB/test_b.npy"
+#pathAB_test_a: "data/AB/test_a.npy"
+#pathAB_test_b: "data/AB/test_b.npy"
 
 # "data/PartA/idx_train_filterd_low_react.npy" 
 #idx_train_all_subject
@@ -34,19 +34,19 @@ pretrain_model: "None" #"08-05-17:36" # #"08-03-12:18" #Name of folder that cont
 Temporal_downsampling: False
 model_name: "aagcn" # "a3tgcn" # # #
 embed_dim: 128
-gru: 1
+gru: 2
 bn: True
 lr: 0.01
 
 num_subset: 2
 num_features: 6
 hidden_size: 1
-N_sample: 8700
+N_sample: 17300
 TS: 137
 n_joints: 51
 idx_train:  "data/AB/train_ab.npy" #  #"data/PartA/idx_train_filterd.npy"
-idx_test:  "data/AB/test_ab.npy" # #"data/PartA/idx_test_filterd.npy"
-LOG_DIR: "log/PartA"
+idx_test:  "data/AB/test_b.npy" # #"data/PartA/idx_test_filterd.npy"
+LOG_DIR: "log/AB"
 t_kernel_size: 15
 strid: 1
 normalize_labels: False
@@ -63,9 +63,9 @@ prop: #1 # 1 #usando la classe di augmentation.
 Aug_type: None #"all" #"all" #"r+f" #"all" # #"r+f" #"f" # [ "r" , "f" , "r+f","all"] None
 concatenate: False # True #True #True # # # True
 project_name: "pain_estimation_Jul"
-log_name: "hold_out_binary_bidirectional_gru_1g" 
-gpu: 1
+log_name: "hold_out_binary_AB_testB" 
+gpu: 0
 num_classes: 2
-num_epoch: 70
+num_epoch: 200
 
 eval_loso: False

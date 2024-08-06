@@ -71,6 +71,7 @@ class Trainer():
                 hidden_size=self.config.hidden_size,
                 bn=self.config.bn,
                 stride=self.config.strid,
+                gru_layer=self.config.gru
                 
             ),
             "a3tgcn": lambda: A3TGCN2_network(
@@ -100,6 +101,7 @@ class Trainer():
         parameters=list(self.model.parameters())
         if self.config.center_loss:
             parameters+=list(self.center_loss.parameters())
+            print("Center LOSS is added")
         opt_factory={ "SGD": lambda: torch.optim.SGD(parameters ,lr = self.config.lr,momentum = self.config.momentum,weight_decay=self.config.L2),
                       "adam": lambda:  torch.optim.Adam(parameters, lr=self.config.lr,weight_decay=self.config.L2)
                       }
@@ -142,7 +144,7 @@ class Trainer():
             if self.config.center_loss:
                 loss+=self.center_loss(features, label) * 0.01 
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=5)  # Clip gradients
+            #torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=5)  # Clip gradients
             self.optimizer.step()
             self.optimizer.zero_grad()
             #y_hat=torch.clamp(y_hat, min=0, max=self.max_classes)

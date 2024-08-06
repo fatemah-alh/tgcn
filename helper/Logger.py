@@ -51,7 +51,8 @@ class Logger:
             
             f.write(f" Parametrs:\n {str_par}")
     def _init_wandb(self,proj_name,model,loss):
-        wandb.init(project=proj_name,config=self.config,name=self.config.log_name)
+        wandb.init(project=proj_name,config=self.config,name=self.config.log_name,settings=wandb.Settings(code_dir="/andromeda/shared/reco-pomigliano/tempo-gnn/"))
+        wandb.run.log_code("/andromeda/shared/reco-pomigliano/tempo-gnn/")
         wandb.watch(model,loss,log="all",log_freq=1,log_graph=True)
 
     def log_epoch(self,epoch,mode,mse_err,rmse_err,mea_err,acc,f1_macro,p,r,lr):

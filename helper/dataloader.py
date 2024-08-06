@@ -150,12 +150,18 @@ class DataLoader(torch.utils.data.Dataset):
        
         return x, y
     def apply_maxMinNorm(self,val,min_val,max_val):
-       
-        return np.where(max_val == min_val, 0.0, 2 * (val - min_val) / (max_val - min_val) - 1)
-  
+         if max_val == min_val:
+           
         # Handle the case when the denominator is zero (division by zero)
-        # Handle the case when any of the values is NaN or inf
- 
+            return 0.0  # or any other appropriate value
+      #  elif any(math.isnan(x) or math.isinf(x) for x in [val, min_val, max_val]):
+            # Handle the case when any of the values is NaN or inf
+       #     return 0.0  # or any other appropriate value
+         else:
+            # Perform the division if everything is valid
+            return (2 * (val - min_val) / (max_val - min_val)) - 1
+        #return np.where(max_val == min_val, 0.0, 2 * (val - min_val) / (max_val - min_val) - 1)
+  
     def maxMinNorm(self):
         print("min_max X tensor", self.X.shape)
         for i in range(0,len(self.X)):

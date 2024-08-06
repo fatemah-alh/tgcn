@@ -470,7 +470,7 @@ class aagcn_network(nn.Module):
                  num_subset=3,
                  kernel_size=9,
                  stride=1,
-                 hidden_size=1,
+                 hidden_size=128,
                  gru_layer=1,
                  adaptive=False, 
                  attention=True,
@@ -499,7 +499,7 @@ class aagcn_network(nn.Module):
         #self.l9 = AAGCN(256, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=stride,adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l9")
         #self.l10 = AAGCN(256, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=1,adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l10")
         self.gru=GRU(input_size=128*num_nodes, hidden_size=128,num_layers=gru_layer,batch_first=True,bidirectional=self.bidirectional)
-        self.glu = GatedLinearUnit(128 * self.num_dircetions)
+        #self.glu = GatedLinearUnit(128 * self.num_dircetions)
         
         #self.fc_1=Linear(in_features=128*num_nodes,out_features= 128) 
         self.fc=Linear(in_features=128*self.num_dircetions,out_features= 1) 
@@ -539,7 +539,7 @@ class aagcn_network(nn.Module):
         #x=self.fc_1(x)
         #if biderictional: x=x
         embed_gru=x 
-        x=self.glu(x)
+        #x=self.glu(x)
         x = self.drop_out(x)
         
         x=self.fc(x)

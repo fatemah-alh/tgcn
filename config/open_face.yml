@@ -37,12 +37,12 @@ lr: 0.01
 
 num_subset: 2
 num_features: 6
-hidden_size: 1
+hidden_size: 128
 N_sample: 8700
 TS: 137
 n_joints: 51
-idx_train:  "data/PartA/idx_train_filterd_low_react.npy" #  #"data/PartA/idx_train_filterd.npy"
-idx_test:  "data/PartA/idx_test_filterd_low_react.npy" # #"data/PartA/idx_test_filterd.npy"
+idx_train:  "data/PartA/idx_train_filterd_low_react.npy" #"data/PartA/idx_train_filterd_low_react.npy" #  #"data/PartA/idx_train_filterd.npy"
+idx_test:  "data/PartA/idx_test_filterd_low_react.npy" #"data/PartA/idx_test_filterd_low_react.npy" # #"data/PartA/idx_test_filterd.npy"
 LOG_DIR: "log/PartA"
 t_kernel_size: 15
 strid: 1
@@ -54,15 +54,15 @@ drop_out: 0.2
 protocol: "hold_out" #"hold_out" #"loso"  
 maxMinNormalization: True #False #True
 
-center_loss: False
+center_loss: True
 augmentaion: False #True #False #  # True
 prop: #1 # 1 #usando la classe di augmentation.
 Aug_type: None #"all" #"all" #"r+f" #"all" # #"r+f" #"f" # [ "r" , "f" , "r+f","all"] None
 concatenate: False # True #True #True # # # True
 project_name: "pain_estimation_Jul"
-log_name: "hold_out_binary_GLU_Ceil" 
-gpu: 0
-num_classes: 2
-num_epoch: 100
+log_name: "hold_out_multi_test3" 
+gpu: 1
+num_classes: 5
+num_epoch: 150
 
 eval_loso: False
