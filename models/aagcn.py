@@ -55,6 +55,7 @@ class GraphAAGCN:
         self.edge_index = edge_index #261 #274 edges
         self.num_subset=num_subset
         self.A = self.get_spatial_graph()
+        #self.A=self.normalize_adjacency_matrix(self.A)
 
     def get_spatial_graph(self):
         
@@ -73,6 +74,7 @@ class GraphAAGCN:
         edges_index=edges_index_with_loops[0]
         adj_mat=torch.squeeze(to_dense_adj(edges_index,max_num_nodes=self.num_nodes))
         adj_mat=torch.unsqueeze(adj_mat, dim=0)
+        adj_mat=self.normalize_adjacency_matrix(adj_mat)
         print(adj_mat.shape)
         return adj_mat
     def get_two_adj(self):
@@ -80,6 +82,7 @@ class GraphAAGCN:
         #edges_index=torch.LongTensor(self.edge_index)
         edges_index=to_undirected(self.edge_index,num_nodes=self.num_nodes)
         adj_1=torch.squeeze(to_dense_adj(edges_index,max_num_nodes=self.num_nodes))
+        adj_1=self.normalize_adjacency_matrix(adj_1)
         adj_mat = torch.stack((self_mat,adj_1))
         print(adj_mat.shape)
         return adj_mat
@@ -92,6 +95,14 @@ class GraphAAGCN:
         adj_mat = torch.stack((self_mat, inward_mat_norm, outward_mat_norm)) 
         print(adj_mat.shape)
         return adj_mat
+    def normalize_adjacency_matrix(self, adj_matrix):
+        num_nodes = adj_matrix.shape[0]
+        degree_matrix = torch.diag(torch.sum(adj_matrix, dim=1))
+        degree_inv_sqrt = torch.pow(degree_matrix, -0.5)
+        degree_inv_sqrt[torch.isinf(degree_inv_sqrt)] = 0.0
+        normalized_adj_matrix = torch.mm(torch.mm(degree_inv_sqrt, adj_matrix), degree_inv_sqrt)
+        return normalized_adj_matrix
+
 
 
 class UnitTCN(nn.Module):
@@ -416,6 +427,12 @@ class AAGCN(nn.Module):
 
         self.graph = GraphAAGCN(self.edge_index, self.num_nodes,num_subset=num_subset)
         self.A = self.graph.A
+        #TODO make A wieghted matrix
+        #3 Ways:
+        #1: fixed A take the media of distances over all samples.
+        #2. take the media over each sample. 
+        #3. have A atrix for each instance, dynamic graph. 
+        #see embeddings in each case. 
         #SPATIO CONV
         self.gcn1 = UnitGCN(
             in_channels, out_channels, self.A,num_subset=num_subset, adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name=L_name
@@ -533,6 +550,7 @@ class aagcn_network(nn.Module):
         x=x.view(N,t_new,-1)
       
         embed_graph=x # Try with tow type of embeddings
+        #x=self.glu(x)
         #output.view( batch,seq_len, num_directions, hidden_size).
         x,h=self.gru(x)
         #x=x.view(N,t_new, 0,-1)
