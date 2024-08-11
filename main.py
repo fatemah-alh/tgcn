@@ -211,7 +211,9 @@ class Trainer():
                                         hidden_size=self.config.hidden_size,
                                         bn=self.config.bn,
                                         stride=self.config.strid,
-                                        embed=True)
+                                        embed=True,
+                                        gru_layer=self.config.gru
+                                        )
         
         if path==None:
             self.model_embed.load_state_dict(self.model.state_dict())
@@ -219,36 +221,38 @@ class Trainer():
             self.model_embed.load_state_dict(torch.load(path))
         self.model_embed.to(self.device)
         self.model_embed.eval()
-        class_embed_all=[]
-        predicted_class_all=[]
-        embed_all=[]
+        targets=[]
+        unrounded_predicted=[]
+        embed_agcn=[]
+        embed_gru=[]
         
         tq=tqdm(self.datahandler.test_loader)
         with torch.no_grad():
             for i,snapshot in enumerate(tq):
                 x,label=snapshot
-                initial_label=label
                 x=x.to(self.device)
-                y_hat,embed_vectors = self.model_embed(x)
-                y_hat=y_hat.tolist()
-                if self.config.normalized_label:
-                    label=[x * self.max_classes for x in label]
-                    y_hat=[x * self.max_classes for x in y_hat]
-                y_hat=np.round(y_hat).tolist()
-                bs,t_step,dim_emb=embed_vectors.shape
+                y_hat,embed_vectors,embed_g = self.model_embed(x)
+    
+                #bs,t_step,dim_emb=embed_vectors.shape
                 #try with y_hat instead of true predicted
-                class_embed=np.repeat(label,t_step)
-                predictes=np.repeat(y_hat,t_step)
-                predicted_class_all.append(predictes)
-                class_embed_all.append(class_embed)
-                embed_vectors=embed_vectors.view(-1,dim_emb).cpu().numpy()
-                embed_all.append(embed_vectors)
-                assert class_embed.shape[0]==embed_vectors.shape[0]
-            class_embed_all=np.concatenate(class_embed_all)
-            embed_all=np.concatenate(embed_all)
-            predicted_class_all=np.concatenate(predicted_class_all)
-            print(class_embed_all)
-        return embed_all,class_embed_all,predicted_class_all,initial_label
+                #class_embed=np.repeat(label,t_step)
+                #predictes=np.repeat(y_hat,t_step)
+                unrounded_predicted.append(y_hat.cpu().numpy())
+                targets.append(label.cpu().numpy())
+                #embed_vectors=embed_vectors.view(-1,dim_emb).cpu().numpy()
+                embed_agcn.append(embed_vectors.cpu().numpy())
+                embed_gru.append(embed_g.cpu().numpy())
+                
+
+            targets=torch.tensor(list(chain.from_iterable(targets)))# flatten is used with arrays not with lists #np.concatenate?
+            unrounded_predicted=torch.tensor(list(chain.from_iterable(unrounded_predicted)))
+            embed_agcn=torch.tensor(list(chain.from_iterable(embed_agcn)))
+            embed_gru=torch.tensor(list(chain.from_iterable(embed_gru)))
+    
+            targets=self.evaluation.round_values(targets,self.config.normalize_labels,self.max_classes)
+            predicted=self.evaluation.round_values(unrounded_predicted,self.config.normalize_labels,self.max_classes)
+        
+        return embed_agcn,embed_gru,targets,predicted
     def get_all_outputs(self,path):
         self.model_embed= aagcn_network( graph=self.edge_index ,
                                         num_person=1,
@@ -262,7 +266,8 @@ class Trainer():
                                         hidden_size=self.config.hidden_size,
                                         bn=self.config.bn,
                                         stride=self.config.strid,
-                                        return_all_outputs=True
+                                        return_all_outputs=True,
+                                        gru_layer=self.config.gru
                                         )
         if path==None:
             self.model_embed.load_state_dict(self.model.state_dict())
@@ -283,7 +288,7 @@ class Trainer():
                 unrounded_predicted.append(y_hat.cpu().numpy())
                 all_outputs.append(outputs.cpu().numpy())
                 
-        targets=torch.tensor(list(chain.from_iterable(targets)))# flatten is used with arrays not with lists
+        targets=torch.tensor(list(chain.from_iterable(targets)))# flatten is used with arrays not with lists #np.concatenate?
         unrounded_predicted=torch.tensor(list(chain.from_iterable(unrounded_predicted)))
         all_outputs=torch.tensor(list(chain.from_iterable(all_outputs)))
     
@@ -292,8 +297,8 @@ class Trainer():
         predicted=self.evaluation.round_values(unrounded_predicted,self.config.normalize_labels,self.max_classes)
         
         print(len(targets),len(unrounded_predicted),len(all_outputs)) 
-        features=self.datahandler.test_dataset.__getattribute__("features")
-        return targets,predicted,all_outputs,features
+        
+        return targets,predicted,all_outputs
 
     def run(self):
         

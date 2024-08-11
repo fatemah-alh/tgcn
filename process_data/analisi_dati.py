@@ -9,7 +9,7 @@ from main import Trainer
 from helper.Config import Config
 from helper.DataHandler import DataHandler
 from helper.Logger import Logger
-from helper. Evaluation import Evaluation
+from helper.Evaluation import Evaluation
 
 config_file="open_face"
 parent_folder="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
@@ -45,6 +45,10 @@ def get_TSNE(embeddings,
              classes,
              predicted,
              predicted_label=4,
+
+             lr=10,
+             perp=30,
+             early_exaggeration=6,
              vis="2d",
              title="Embeddings visualising predicted 4",
              path_save=parent_folder+"data/PartA/vis/"):
@@ -86,9 +90,13 @@ def get_TSNE(embeddings,
     print(filterd_classes.shape,filtred_embedings.shape)
 
     tsn_embedded = TSNE(n_components=2, 
-                        learning_rate='auto',
+                        learning_rate=lr,#'auto',#[10,1000] #34,50max(N / early_exaggeration / 4, 50) where N is the sample size
                         init='random',
-                        perplexity=30).fit_transform(filtred_embedings)
+                        early_exaggeration=early_exaggeration,#defualt=12
+                        #max_iter=2000,
+                        n_iter_without_progress=1000,
+                        n_iter=50000,
+                        perplexity=perp).fit_transform(filtred_embedings)
     
 
     
@@ -104,22 +112,118 @@ def get_TSNE(embeddings,
         else:
             ax.scatter(tsn_embedded[ix,0], tsn_embedded[ix,1],tsn_embedded[ix,2], c = cdict[g], label = g,s=1)
         # ax.view_init(-30,60)
+    
 
     ax.legend()
-    ax.set_title(title)
+    ax.set_title(title+"_true")
     plt.show()
-    plt.savefig(path_save+title+".png")
+    plt.savefig(path_save+title+str(lr)+str(perp)+str(early_exaggeration)+"_true.png")
+
+    if vis=="2d":
+        fig, ax = plt.subplots()
+    else:
+        fig, ax = plt.subplots(subplot_kw=dict(projection='3d'))
+
+    for g in np.unique(predicted):
+        ix = np.where(predicted == g)
+        if vis=="2d":
+            ax.scatter(tsn_embedded[ix,0], tsn_embedded[ix,1], c = cdict[g], label = g,s=1)
+        else:
+            ax.scatter(tsn_embedded[ix,0], tsn_embedded[ix,1],tsn_embedded[ix,2], c = cdict[g], label = g,s=1)
+        # ax.view_init(-30,60)
+    ax.legend()
+    ax.set_title(title+"_predicted")
+    plt.show()
+    plt.savefig(path_save+title+str(lr)+str(perp)+str(early_exaggeration)+"_predicted.png")
 
 
-def get_ids(labels,predicted=4,pain_class=1):
+def get_ids(labels,pain_class=1):
     idx_0_4=np.where((labels[:,0]==0) & (labels[:,1]==pain_class))[0]
     idx_4_0=np.where((labels[:,0]==pain_class) & (labels[:,1]==0))[0] #Red
 
 
 #%%
-targets,predicted,outputs=get_all_outputs(config,"/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/1s+15k+multi+MinMaxNorm_xy+NoLabelNorm/best_model.pkl")
+def TSNE_last_frame():
+    pass
+def TSNE_match_output_withembedings():
+    pass
+
+#%%
+pretrained="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/PartA/binary_custom_round/best_model.pkl"
+targets,predicted,outputs=get_all_outputs(config,pretrained)
+#%%
+outputs.shape
 #%%
 
+embed_agcn,embed_gru,classes,predicted= get_embeddings(config,
+#path_pretrained_model="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/1s+15k+filterlow_react+binary_class_regression/best_model.pkl"
+path_pretrained_model=pretrained)
+#%%
+print(embed_agcn.shape,embed_gru.shape,classes.shape,predicted.shape)
+
+last_embed_agcn=embed_agcn[:,-1,:]
+last_embed_agcn.shape
+#%%
+last_embed_gru=embed_gru[:,-1,:]
+last_embed_gru.shape
+#%%
+
+
+get_TSNE(last_embed_agcn,
+         classes,
+         predicted,
+         predicted_label="all",
+         lr=100,
+         perp=50,
+         early_exaggeration=12,
+         vis="2d",
+         title="Embeddings_binary_agcn",
+         path_save=parent_folder+"./data/PartA/vis/")
+    
+
+get_TSNE(last_embed_gru,
+         classes,
+         predicted,
+         predicted_label="all",
+         lr=100,
+         perp=50,
+         early_exaggeration=12,
+         vis="2d",
+         title="Embeddings_binary_gru",
+         path_save=parent_folder+"./data/PartA/vis/")
+
+
+
+#%%
+from sklearn.decomposition import PCA
+pca = PCA(n_components=50)
+reduced_last_embed_gru = pca.fit_transform(last_embed_gru)  # X is your 2000x7000 dataset
+
+
+get_TSNE(reduced_last_embed_gru,
+         classes,
+         predicted,
+         predicted_label="all",
+         lr=100,
+         perp=50,
+         early_exaggeration=12,
+         vis="2d",
+         title="Embeddings_binary_gru",
+         path_save=parent_folder+"./data/PartA/vis/")
+
+reduced_last_embed_agcn = pca.fit_transform(last_embed_agcn)  # X is your 2000x7000 dataset
+
+get_TSNE(reduced_last_embed_agcn,
+         classes,
+         predicted,
+         predicted_label="all",
+         lr=100,
+         perp=50,
+         early_exaggeration=12,
+         vis="2d",
+         title="Embeddings_binary_agcn",
+         path_save=parent_folder+"./data/PartA/vis/")
+    
 #%%
 idx_0_0=np.where((targets==0) & (predicted==0))[0]
 idx_4_4=np.where((targets==4) & (predicted==4))[0] 
@@ -161,22 +265,10 @@ outputs_4=outputs[idx_4_4]
 #%%
 get_true_predicted(targets,predicted,outputs)
 #%%
-embeddings,classes,predicted,initial_label= get_embeddings(config,
-#path_pretrained_model="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/1s+15k+filterlow_react+binary_class_regression/best_model.pkl"
-path_pretrained_model="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/1s+15k+filterlow_react+binary_class_regression+adaptiv/best_model.pkl"
-   )
 #%%
 adaptive=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/process_data/Adaptive_matrix.npy")
 
 #%%
 adaptive.shape
 #%%
-get_TSNE(embeddings,
-         classes,
-         predicted,
-         predicted_label="true",
-         vis="2d",
-         title="Embeddings visualising predicted true - Daptive model",
-         path_save=parent_folder+"./data/PartA/vis/")
-
 # %%

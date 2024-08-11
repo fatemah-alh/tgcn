@@ -21,9 +21,15 @@ class Evaluation:
     def round_values(self,values,normalized_labels,max_classes):
         if normalized_labels:
             values=[x * max_classes  for x in values]
-        values=torch.round(values)
+        if max_classes>1:
+            values= torch.round(values) #torch.ceil(values)
+        else:
+            values=self.custom_round(values)
         values=torch.clamp(values, min=0, max=max_classes)
         return values
+    def custom_round(self, x):
+        return torch.floor(x + 0.5)
+
     def calc_acc(self,targets,unrounded_predicted,classes,normalized_labels=False):
         max_classes=np.max(classes)
         predicted= self.round_values(unrounded_predicted,normalized_labels,max_classes)

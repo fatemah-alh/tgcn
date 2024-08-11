@@ -88,10 +88,15 @@ class Logger:
         if normalized_labels:
             values=[x * max_classes  for x in values]
         #values=np.round(values)
-        values=np.ceil(values)
+        if max_classes>1:
+            values=np.round(values) #np.ceil(values)
+        else:
+            values=self.custom_round(values)
         values=torch.clamp(torch.tensor(values), min=0, max=max_classes)
         
         return values
+    def custom_round(self, x):
+        return np.floor(x + 0.5)
     def log_cm_wandb(self,mode,targets,predicted,classes):
         predicted= self.round_values(predicted,self.config.normalize_labels,np.max(classes))
         targets=self.round_values(targets,self.config.normalize_labels,np.max(classes))

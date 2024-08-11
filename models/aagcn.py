@@ -510,7 +510,7 @@ class aagcn_network(nn.Module):
         #self.l4 = AAGCN(64, 64, graph,num_subset=num_subset, num_nodes=num_nodes,stride=1 ,adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l4")
         self.l5 = AAGCN(64, 128, graph,num_subset=num_subset, num_nodes=num_nodes,stride=stride, adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l5")
         self.l6 = AAGCN(128,128, graph,num_subset=num_subset, num_nodes=num_nodes,stride=stride,adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l6")
-        
+       # self.glu = GatedLinearUnit(128*num_nodes)
         #self.l7 = AAGCN(128, 128, graph,num_subset=num_subset, num_nodes=num_nodes,stride=stride,adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l7")
         #self.l8 = AAGCN(128, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=3, adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l8")
         #self.l9 = AAGCN(256, 256, graph,num_subset=num_subset, num_nodes=num_nodes,stride=stride,adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name="l9")
@@ -527,6 +527,7 @@ class aagcn_network(nn.Module):
         else:
             self.drop_out = lambda x: x
     def forward(self, x):
+        
         N, C, T, V, M = x.size()
         x = x.permute(0, 4, 3, 1, 2).contiguous().view(N, M * V * C, T)
         x = self.data_bn(x)
@@ -542,13 +543,13 @@ class aagcn_network(nn.Module):
         #x = self.l8(x)#
         #x = self.l9(x)#
         #x = self.l10(x) #
-        x = self.drop_out(x)
-       
+        #x = self.drop_out(x)
+        
         t_new=x.size(2)
         c_new=x.size(1)
         x=x.permute(0, 2, 1, 3).contiguous().view(N,t_new,c_new,V) #(32,35,128,51)
         x=x.view(N,t_new,-1)
-      
+       # x=self.glu(x)      
         embed_graph=x # Try with tow type of embeddings
         #x=self.glu(x)
         #output.view( batch,seq_len, num_directions, hidden_size).
@@ -557,7 +558,7 @@ class aagcn_network(nn.Module):
         #x=self.fc_1(x)
         #if biderictional: x=x
         embed_gru=x 
-        #x=self.glu(x)
+        
         x = self.drop_out(x)
         
         x=self.fc(x)
@@ -571,7 +572,7 @@ class aagcn_network(nn.Module):
         #x=F.relu(x)
        
         if self.embed:
-            return x,embed_graph
+            return x,embed_graph,embed_gru
         elif self.return_all_outputs:
             return x, all_outputs
         else:
