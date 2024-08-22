@@ -82,8 +82,13 @@ class GraphAAGCN:
         #edges_index=torch.LongTensor(self.edge_index)
         edges_index=to_undirected(self.edge_index,num_nodes=self.num_nodes)
         adj_1=torch.squeeze(to_dense_adj(edges_index,max_num_nodes=self.num_nodes))
-        adj_1=self.normalize_adjacency_matrix(adj_1)
+       # adj_1=self.normalize_adjacency_matrix(adj_1)
         adj_mat = torch.stack((self_mat,adj_1))
+        #if wieghted
+        #A_expanded =adj_mat.unsqueeze(1).unsqueeze(2)  # Shape becomes (2, 1, 1, 51, 51)
+        # Now, repeat across the batch (N) and time (T) dimensions
+        #adj_mat  = A_expanded.repeat(1, 32, 137, 1, 1)
+        
         print(adj_mat.shape)
         return adj_mat
     def get_three_adj(self):
@@ -130,8 +135,9 @@ def compute_inverse_weighted_A(points_tensor, adjacency_matrix, epsilon=1e-6):
     """
     
     # Compute pairwise distances for all samples and time steps at once
+   
     distances = torch.cdist(points_tensor.view(-1, 51, 2), points_tensor.view(-1, 51, 2)).view(points_tensor.shape[0], points_tensor.shape[1], 51, 51)
-    
+   
     # Compute the inverse of the distances (closer nodes will have higher weights)
     inverse_distances = 1 / (distances + epsilon)
     
@@ -401,11 +407,30 @@ class UnitGCN(nn.Module):
         N, C, T, V = x.size()
         for i in range(self.num_subset):
             A1 = self.A[i]
+           
             A2 = x.view(N, C * T, V) 
+           
             z = self.conv_d[i](torch.matmul(A2, A1).view(N, C, T, V))
             y = z + y if y is not None else z
         return y
-
+    def _non_adaptive_forward_weighted(self, x, y):
+        N, C, T, V = x.size()
+        xy_coordinates=x.permute((0,2,3,1)).contiguous().reshape((N,T,V,C))[:,:,:,:2]
+        
+        wieghted_A=compute_inverse_weighted_A(xy_coordinates,self.A[1])
+    
+        for i in range(self.num_subset):
+            if i==0:
+                A1 = self.A[i]
+                A2=x.view(N, C * T, V)
+                mult=torch.matmul(A2, A1).view(N, C, T, V)
+            else:
+                A1=wieghted_A
+                A2 =  x.permute(0, 2,1, 3) #N,T,c,v,
+                mult=torch.matmul(A2, A1).permute(0,2,1,3).contiguous().reshape(N, C, T, V)
+            z = self.conv_d[i](mult)
+            y = z + y if y is not None else z
+        return y
     def forward(self, x):
         N, C, T, V = x.size()
 
@@ -413,7 +438,7 @@ class UnitGCN(nn.Module):
         if self.adaptive:
             y = self._adaptive_forward(x, y)
         else:
-            y = self._non_adaptive_forward(x, y)
+            y = self._non_adaptive_forward_weighted(x, y)
         if self.do_bn:
             y = self.bn(y)
         y += self.down(x)
@@ -465,6 +490,7 @@ class AAGCN(nn.Module):
 
         self.graph = GraphAAGCN(self.edge_index, self.num_nodes,num_subset=num_subset)
         self.A = self.graph.A
+        
         #TODO make A wieghted matrix
         #3 Ways:
         #1: fixed A take the media of distances over all samples.
@@ -472,6 +498,8 @@ class AAGCN(nn.Module):
         #3. have A atrix for each instance, dynamic graph. 
         #see embeddings in each case. 
         #SPATIO CONV
+        #If wieghted:
+        
         self.gcn1 = UnitGCN(
             in_channels, out_channels, self.A,num_subset=num_subset, adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name=L_name
         )
@@ -650,11 +678,12 @@ if __name__=="__main__":
     print(edges_index.device)
     model = aagcn_network(num_person=1,
                            graph=edges_index,
-                          num_nodes=num_nodes,
+                           num_nodes=num_nodes,
                            in_channels=num_features,
-                           drop_out=0.5, 
+                           drop_out=0.2, 
                            adaptive=config['adaptive'],
-                             attention=True,num_subset=2)
+                           attention=True,
+                           num_subset=2)
     model.to(device)
     print(model)
 

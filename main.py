@@ -404,7 +404,7 @@ if __name__=="__main__":
     
     # Enable the profiler
     pr.enable()
-    config_file="open_face_downsample" #"open_face_AB" # "open_face" #"open_face_PartB"
+    config_file="open_face" #"open_face_AB" # "open_face" #"open_face_PartB"
     parent_folder="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
     config =Config.load_from_file(parent_folder+"/config/"+config_file+".yml")
 

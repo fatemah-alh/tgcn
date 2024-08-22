@@ -768,13 +768,15 @@ predictor = dlib.shape_predictor("/andromeda/shared/reco-pomigliano/tempo-gnn/tg
 #%%
 files_name=get_file_names(csv_file)
 # Open the video file
-LBP_data = np.zeros((8700, 137, 51, 40), dtype=np.float32)
+
 for idx in tqdm( range(0,len(files_name))):
     video_path=video_folder_path+"/"+files_name[idx]+".mp4"
-    
+    #Iterate over videos
     cap = cv2.VideoCapture(video_path)
-    landmarks_list=[]
+    landmarks_video=[]
+    LBD_video=[]
     while cap.isOpened():
+        #process each frame
         ret, frame = cap.read()
         if not ret:
             break
@@ -797,12 +799,11 @@ for idx in tqdm( range(0,len(files_name))):
                 cv2.circle(frame, (x, y), 2, (0, 255, 0), -1)
             
                 fl.append((x,y))
-        landmarks_list.append(fl)
-      
-        lbp_single_video=extract_and_visualize_spatial_pyramid_lbp(smoothed_image, fl[17:], P=8, R=1, method='uniform', grid_size=2, region_size=24)  
         
-        LBP_data[idx][:lbp_single_video.shape[0]]=lbp_single_video
-        
+        landmarks_video.append(fl[17:])
+
+        lbp_single_frame=extract_and_visualize_spatial_pyramid_lbp(smoothed_image, fl[17:], P=8, R=1, method='uniform', grid_size=2, region_size=24)  
+        LBD_video.append(lbp_single_frame)
         # Display the frame with landmarks
         #frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
@@ -811,13 +812,17 @@ for idx in tqdm( range(0,len(files_name))):
         #plt.title("Landmarks")
         #plt.axis('off')  # Turn off axis labels
         #plt.show()
-        
-
+   # print(np.array(LBD_video).shape,np.array(landmarks_video).shape)
+    os.makedirs("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/2dlandmarks/"+filesnames[idx],exist_ok=True)
+    os.makedirs("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/LBD_data/"+filesnames[idx],exist_ok=True)
+  
+    np.save("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/2dlandmarks/"+filesnames[idx]+".npy",landmarks_video)    
+    np.save("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/LBD_data/"+filesnames[idx]+".npy",LBD_video)
+    
 cap.release()
 cv2.destroyAllWindows()
-np.save(parent_folder+config[LBP_data],LBP_data)
+#np.save(parent_folder+config[LBP_data],LBP_data)
 #%%
-LBP_data.shape
 #%%
 """
 if name_file=="mediapipe":

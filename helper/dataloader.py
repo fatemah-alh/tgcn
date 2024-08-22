@@ -31,7 +31,7 @@ class DataLoader(torch.utils.data.Dataset):
                     contantenat=False,
                     maxMinNormalization=False,
                     min_max_values=None,
-                    LBP_data=None
+                    LBP_data=False
                     ):
         super(DataLoader, self).__init__()
 
@@ -115,16 +115,19 @@ class DataLoader(torch.utils.data.Dataset):
         reshape (8700,137,51,6 ) to (8700, 6,137,51) aagcn (0, 3, 1, 2)
         reshape (8700,137,51,6 ) to(8700,51,6,137) a3gcn(0, 2, 3, 1)
         """
-       
+        if self.LBP_data:
+                self.lbp=np.load(self.LBP_data)
+                self.X=np.concatenate((self.X,self.lbp),axis=-1)
+                self.data_shape[1][1]=+ self.lbp.shape[3]
+                print("LBD added")
         if self.reshape_data:
              reshaped_tensor = np.transpose(self.X, self.data_shape[0])  # Transpose dimensions from 8700,137,469,4) to 8600, 469, 4, 137
-             self.features= torch.tensor(np.reshape(reshaped_tensor, self.data_shape[1]))  # Reshape to desired shape     
+             self.features= torch.tensor(np.reshape(reshaped_tensor, self.data_shape[1]))  # Reshape to desired shape 
+            
+
         else:
             self.features=self.X
-        if self.LBP_data:
-            self.lbp=np.load(self.LBP_data)
-            self.features=np.concatenate((self.features,self.lbp),axis=-1)
-            print("LBD added")
+        
         if self.expand_dim:
             self.features=np.expand_dims(self.features,axis=-1)#unsqueeze, view
     def preprocess(self):
