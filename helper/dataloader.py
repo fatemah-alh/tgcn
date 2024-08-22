@@ -30,7 +30,9 @@ class DataLoader(torch.utils.data.Dataset):
                     transform=None,
                     contantenat=False,
                     maxMinNormalization=False,
-                    min_max_values=None):
+                    min_max_values=None,
+                    LBP_data=None
+                    ):
         super(DataLoader, self).__init__()
 
         self.data_path = data_path
@@ -48,6 +50,8 @@ class DataLoader(torch.utils.data.Dataset):
         self.concatenate=contantenat
         self.maxMinNormalization=maxMinNormalization
         self.min_max_values=min_max_values
+        self.LBP_data=LBP_data
+
 
         if self.model_name=="a3tgcn":
             self.data_shape=[(0, 2, 3, 1),(N_sample,num_nodes,num_features,TS)]
@@ -65,6 +69,7 @@ class DataLoader(torch.utils.data.Dataset):
         self.X=np.load(self.data_path)
         print(np.min(self.X[:,:,:,0]),np.max(self.X[:,:,:,0]))
         print("Contains Nan values",np.isnan(self.X).any())
+        
         if self.maxMinNormalization:
             self.maxMinNorm()
         #Select featurs 
@@ -81,6 +86,7 @@ class DataLoader(torch.utils.data.Dataset):
            # self.X=self.X[:,:,:,4:]#headMotion
         
         self._reshape_data()
+       
         self.split_data()
         #Select the expirment:
         if self.num_classes==3:
@@ -115,6 +121,10 @@ class DataLoader(torch.utils.data.Dataset):
              self.features= torch.tensor(np.reshape(reshaped_tensor, self.data_shape[1]))  # Reshape to desired shape     
         else:
             self.features=self.X
+        if self.LBP_data:
+            self.lbp=np.load(self.LBP_data)
+            self.features=np.concatenate((self.features,self.lbp),axis=-1)
+            print("LBD added")
         if self.expand_dim:
             self.features=np.expand_dims(self.features,axis=-1)#unsqueeze, view
     def preprocess(self):
@@ -276,7 +286,7 @@ class FlipV(object):
         x[1]=x[1][:,self.re_index,:]
         x[2]=-x[2][:,self.re_index,:]
         x[3]=x[3][:,self.re_index,:]
-        x[4]=-x[4][:,self.re_index,:]
+        #x[4]=-x[4][:,self.re_index,:]
         #print("Flip")
         return x,y
 class TranslateX(object):

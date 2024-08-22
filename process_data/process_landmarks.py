@@ -5,7 +5,7 @@ import yaml
 import sys
 parent_folder= "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
 sys.path.append(parent_folder)
-
+from skimage.feature import local_binary_pattern
 from tqdm import tqdm 
 from scipy.spatial import Delaunay
 import matplotlib.pyplot as plt
@@ -15,6 +15,9 @@ import torch
 from torch_geometric.utils import add_self_loops,is_undirected,to_undirected,contains_self_loops
 from sklearn.preprocessing import MinMaxScaler
 import os
+import cv2
+import dlib
+from scipy.ndimage import gaussian_filter
 """
 This file should be run after the run of the file "extract_3DLandmarks_openFace.py"
 it will process the data in landmarks folder and create a uninqe dataset file in numpy format
@@ -271,10 +274,12 @@ def calc_velocity(sample):
 
 def process_all_data_new(landmarks_folder:str,filesnames:list,normalized_data:np.array,path_save:str,down_sample=False):
     for i in tqdm(range (0,len(filesnames))):
-        #path=landmarks_folder+filesnames[i]+"/"+filesnames[i].split("/")[1]+".npy" this is for DLIB
-        path=landmarks_folder+filesnames[i]+".npy"
-        sample=np.load(path) #[138,68,3] 
-        #sample=delete_contour(sample)
+        path=landmarks_folder+filesnames[i]+"/"+filesnames[i].split("/")[1]+".npy" #this is for DLIB
+       # path=landmarks_folder+filesnames[i]+".npy"
+        sample=np.load(path) #[138,68,3]
+        sample=delete_contour(sample)
+        sample=sample[::2, :, :]
+        
         sample=flip_y_coordiante(sample)
         if down_sample:
             sample=downsample_nodes(sample)
@@ -477,8 +482,267 @@ def plot_all(data,idx_train_):
     plot_single_feature(data[idx_train_,:,:,2],title="Histogram of x  velocity in train ")
     plot_single_feature(data[idx_train_,:,:,3],title="Histogram of y  velocity in train")
 
-"""
+def extract_sift_descriptors(image, pixels):
+    """
+    Extract SIFT descriptors for specific pixels in an image.
 
+    Parameters:
+    image : np.array
+        The input grayscale image.
+    pixels : list of tuples
+        List of (x, y) coordinates where SIFT descriptors need to be calculated.
+
+    Returns:
+    descriptors : dict
+        A dictionary where keys are pixel coordinates and values are SIFT descriptors.
+    """
+    # Initialize SIFT detector
+    sift = cv2.SIFT_create()
+
+    # Convert pixel coordinates into keypoints
+    keypoints = [cv2.KeyPoint(x=pixel[0], y=pixel[1], _size=1) for pixel in pixels]
+
+    # Compute SIFT descriptors for the keypoints
+    keypoints, descriptors = sift.compute(image, keypoints)
+
+    # Store the descriptors in a dictionary
+    descriptor_dict = {pixels[i]: descriptors[i] for i in range(len(pixels))}
+
+    return descriptor_dict 
+def calculate_lbp(image, points, radius, pixels):
+    """
+    Calculate LBP for specific pixels in an image.
+
+    Parameters:
+    image : np.array
+        The input grayscale image.
+    points : int
+        Number of circularly symmetric neighbor set points (quantization of the angular space).
+    radius : float
+        Radius of circle (spatial resolution of the operator).
+    pixels : list of tuples
+        List of (x, y) coordinates where LBP needs to be calculated.
+    
+    Returns:
+    lbp_values : dict
+        A dictionary where keys are pixel coordinates and values are LBP values.
+    """
+    
+    lbp_image = local_binary_pattern(image, points, radius, method='uniform')
+    lbp_values = {pixel: lbp_image[pixel[1], pixel[0]] for pixel in pixels}
+    return lbp_values  
+
+def lbp_all():
+    video_path = "path_to_your_video.mp4"
+
+# Capture the video
+    cap = cv2.VideoCapture(video_path)
+
+    # Define the points where you want to calculate LBP
+    specific_pixels = [(50, 50), (100, 100), (150, 150)]  # Example pixel locations
+
+    # Parameters for LBP
+    radius = 1  # LBP radius
+    points = 8 * radius  # Number of points considered in LBP
+
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        # Convert the frame to grayscale
+        gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        # Calculate LBP for specific pixels
+        lbp_values = calculate_lbp(gray_frame, points, radius, specific_pixels)
+
+        # Print or store the LBP values for these specific pixels
+        print(f"LBP values for specific pixels: {lbp_values}")
+
+        # You can also visualize the LBP image or process it further if needed
+        # For example, display the LBP image:
+        # lbp_image = local_binary_pattern(gray_frame, points, radius, method='uniform')
+        # cv2.imshow('LBP Image', lbp_image.astype(np.uint8))
+
+        # Break the loop if the user presses 'q'
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    # Release the video capture object and close windows
+    cap.release()
+    cv2.destroyAllWindows()
+
+
+from skimage.util import view_as_blocks
+
+def extract_spatial_pyramid_lbp(image, keypoints, P=8, R=1, method='uniform', grid_size=3, region_size=32):
+    """
+    Extract spatial pyramid LBP features around keypoints in the image.
+    
+    Parameters:
+    - image: Grayscale image from which LBP features are extracted.
+    - keypoints: List of tuples representing (x, y) coordinates of key points.
+    - P: Number of circularly symmetric neighbor set points (LBP).
+    - R: Radius of the circle (LBP).
+    - method: LBP method (default, uniform, etc.).
+    - grid_size: The size of the spatial grid (e.g., 3 for a 3x3 grid).
+    - region_size: The size of the region around each keypoint (in pixels).
+    
+    Returns:
+    - feature_vectors: A list of feature vectors for each keypoint.
+    """
+    feature_vectors = []
+    
+    half_size = region_size // 2
+    
+    # For each key point, extract the LBP features around it
+    for kp in keypoints:
+        x, y = kp
+        
+        # Ensure the region is within the bounds of the image
+        x_start = max(x - half_size, 0)
+        y_start = max(y - half_size, 0)
+        x_end = min(x + half_size, image.shape[1])
+        y_end = min(y + half_size, image.shape[0])
+        
+        # Extract the region around the keypoint
+        region = image[y_start:y_end, x_start:x_end]
+        
+        # Resize region to have even dimensions for the grid
+        region_height, region_width = region.shape
+        step_x = region_width // grid_size
+        step_y = region_height // grid_size
+        
+        # Initialize an empty list to hold the histograms for each sub-region
+        histograms = []
+        
+        # Divide the region into grid_size x grid_size subregions and extract LBP features
+        for i in range(grid_size):
+            for j in range(grid_size):
+                # Extract subregion
+                subregion = region[i * step_y:(i + 1) * step_y, j * step_x:(j + 1) * step_x]
+                
+                # Compute LBP for the subregion
+                lbp = local_binary_pattern(subregion, P, R, method=method)
+                
+                # Calculate the histogram of LBP values in the subregion
+                hist, _ = np.histogram(lbp.ravel(), bins=np.arange(0, P + 3), range=(0, P + 2))
+                
+                # Normalize the histogram
+                hist = hist.astype('float')
+                hist /= (hist.sum() + 1e-6)  # Avoid division by zero
+                
+                # Append the histogram to the list
+                histograms.append(hist)
+        
+        # Concatenate all histograms to form the feature vector for this keypoint
+        feature_vector = np.concatenate(histograms)
+        
+    
+    return np.array(feature_vectors)
+
+from skimage.draw import rectangle
+
+def extract_and_visualize_spatial_pyramid_lbp(image, keypoints, P=8, R=1, method='uniform', grid_size=1, region_size=24):
+    """
+    Extract spatial pyramid LBP features around keypoints in the image and visualize regions.
+    
+    Parameters:
+    - image: Grayscale image from which LBP features are extracted.
+    - keypoints: List of tuples representing (x, y) coordinates of key points.
+    - P: Number of circularly symmetric neighbor set points (LBP).
+    - R: Radius of the circle (LBP).
+    - method: LBP method (default, uniform, etc.).
+    - grid_size: The size of the spatial grid (e.g., 3 for a 3x3 grid).
+    - region_size: The size of the region around each keypoint (in pixels).
+    
+    Returns:
+    - feature_vectors: A list of feature vectors for each keypoint.
+    """
+    feature_vectors = []
+    half_size = region_size // 2
+
+    #fig, ax = plt.subplots()
+    #ax.imshow(image, cmap='gray')
+    
+    # For each key point, extract the LBP features around it
+    for kp in keypoints:
+        x, y = kp
+        
+        # Ensure the region is within the bounds of the image
+        x_start = max(x - half_size, 0)
+        y_start = max(y - half_size, 0)
+        x_end = min(x + half_size, image.shape[1])
+        y_end = min(y + half_size, image.shape[0])
+        
+        # Draw a rectangle around the region
+        rect_start = (y_start, x_start)
+        rect_end = (y_end, x_end)
+        
+        # Add a rectangle patch for the visualization
+        rr, cc = rectangle(rect_start, extent=(region_size, region_size), shape=image.shape)
+        image_with_regions = np.copy(image)
+        image_with_regions[rr, cc] = 255  # Highlight the rectangle
+
+        # Extract the region around the keypoint
+        region = image[y_start:y_end, x_start:x_end]
+        
+        # Resize region to have even dimensions for the grid
+        region_height, region_width = region.shape
+        step_x = region_width // grid_size
+        step_y = region_height // grid_size
+        
+        # Initialize an empty list to hold the histograms for each sub-region
+        histograms = []
+        
+        # Divide the region into grid_size x grid_size subregions and extract LBP features
+        for i in range(grid_size):
+            for j in range(grid_size):
+                # Extract subregion
+                subregion = region[i * step_y:(i + 1) * step_y, j * step_x:(j + 1) * step_x]
+                
+                # Compute LBP for the subregion
+                lbp = local_binary_pattern(subregion, P, R, method=method)
+                
+                # Calculate the histogram of LBP values in the subregion
+                hist, _ = np.histogram(lbp.ravel(), bins=np.arange(0, P + 3), range=(0, P + 2))
+                
+                # Normalize the histogram
+                hist = hist.astype('float')
+                hist /= (hist.sum() + 1e-6)  # Avoid division by zero
+                
+                # Append the histogram to the list
+                histograms.append(hist)
+        
+        # Concatenate all histograms to form the feature vector for this keypoint
+        feature_vector = np.concatenate(histograms)
+        """
+        
+        print(feature_vector.shape)
+            # Plot the feature vector as a bar graph
+        plt.figure(figsize=(10, 4))
+        plt.bar(range(len(feature_vector)), feature_vector)
+        #plt.title(f"Feature Vector for Keypoint {kp + 1} at ({x}, {y})")
+        plt.xlabel("Feature Index")
+        plt.ylabel("Normalized LBP Frequency")
+        plt.show()
+        """
+        feature_vectors.append(feature_vector)
+        
+
+        # Draw the rectangle for visualization
+        #rect_patch = plt.Rectangle((x_start, y_start), region_size, region_size, edgecolor='red', facecolor='none')
+        #ax.add_patch(rect_patch)
+    
+    #plt.show()  # Display the image with highlighted regions
+    
+    return np.array(feature_vectors)
+
+# Example usage:
+# Assume we have a grayscale image 'image' and 68 key points from a facial landmark detector
+
+#%%
+#video_path="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/video/071309_w_21/071309_w_21-BL1-081.mp4"
 name_file = 'open_face' 
 config_file=open(parent_folder+"config/"+name_file+".yml", 'r')
 path_vis=parent_folder+"/data/PartA/vis/" # path to save gif of visualizzation
@@ -499,6 +763,63 @@ filter_idx_90=parent_folder+config["filter_idx_90"]
 
 filesnames=get_file_names(csv_file)
 
+detector = dlib.get_frontal_face_detector()
+predictor = dlib.shape_predictor("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/shape_predictor_68_face_landmarks.dat")  # Download model file separately
+#%%
+files_name=get_file_names(csv_file)
+# Open the video file
+LBP_data = np.zeros((8700, 137, 51, 40), dtype=np.float32)
+for idx in tqdm( range(0,len(files_name))):
+    video_path=video_folder_path+"/"+files_name[idx]+".mp4"
+    
+    cap = cv2.VideoCapture(video_path)
+    landmarks_list=[]
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        # Convert frame to grayscale
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        #lbp_image = local_binary_pattern(gray, 16, 2, method='uniform')
+        smoothed_image = gaussian_filter(gray, sigma=1)
+        # Detect faces
+        faces = detector(gray)
+        fl=[]
+        for face in faces:
+            # Get the landmarks
+            landmarks = predictor(gray, face)
+            
+            # Loop over all the landmarks and draw them on the frame
+            for n in range(0, 68):
+                x = landmarks.part(n).x
+                y = landmarks.part(n).y
+                cv2.circle(frame, (x, y), 2, (0, 255, 0), -1)
+            
+                fl.append((x,y))
+        landmarks_list.append(fl)
+      
+        lbp_single_video=extract_and_visualize_spatial_pyramid_lbp(smoothed_image, fl[17:], P=8, R=1, method='uniform', grid_size=2, region_size=24)  
+        
+        LBP_data[idx][:lbp_single_video.shape[0]]=lbp_single_video
+        
+        # Display the frame with landmarks
+        #frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        # Display the image using Matplotlib
+        #plt.imshow(frame_rgb)
+        #plt.title("Landmarks")
+        #plt.axis('off')  # Turn off axis labels
+        #plt.show()
+        
+
+cap.release()
+cv2.destroyAllWindows()
+np.save(parent_folder+config[LBP_data],LBP_data)
+#%%
+LBP_data.shape
+#%%
+"""
 if name_file=="mediapipe":
     normalized_data = np.zeros((8700, 137, 468, 4), dtype=np.float32)
 if name_file=="open_face":
@@ -524,7 +845,7 @@ data[idx_test_,:,:,:]=standard_data_test
 #np.save("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/openFace/dataset_openFace_standarized.npy",data)
 """
 #%%
-
+"""
 dataA=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/processed_data/dataset_openFace.npy")
 dataB=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartB/processed_data/dataset_openFace.npy")
 idx_trainA= np.load( "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/idx_train_filterd_low_react.npy") #  #"data/PartA/idx_train_filterd.npy"
@@ -566,7 +887,7 @@ np.save(pathAB_train,idx_train_ab)
 np.save(pathAB_test,idx_test_ab)
 np.save(pathAB_test_a,idx_testA)
 np.save(pathAB_test_b,idx_testB+8700)
-
+"""
 #%%
 """ 
 labels=np.load(labels_path)

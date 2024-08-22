@@ -8,8 +8,8 @@ landmarks_path : "data/PartA/mediapipe/"
 landmarks_npy: "data/PartA/mediapipe/landmarksnpy/"
 csv_file: "data/PartA/samples.csv"
 labels_path: "data/PartA/lables.npy"
-data_path: "data/PartA/mediapipe/dataset_mediapipe.npy" 
-edges_path: "data/PartA/edges_mediapipe.npy"
+data_path: "data/PartA/mediapipe/dataset_mediapipe_unrotated.npy" 
+edges_path: "data/PartA/mediapipe/edges_mediapipe.npy"
 filter_idx_90: "data/PartA/idx_low_confidance_90.npy"
 filter_idx_80: "data/PartA/idx_low_confidance_80.npy"
 
@@ -25,7 +25,7 @@ step_decay: 30
 L2: 0.0001
 optimizer_name: 'SGD'
 
-batch_size: 32
+batch_size: 8
 continue_training: False   #If set True will continue training from pretrained model
 pretrain_model: "None" #"08-05-17:36" # #"08-03-12:18" #Name of folder that contains the model resume training
 Temporal_downsampling: False
@@ -60,9 +60,9 @@ prop: #1 # 1 #usando la classe di augmentation.
 Aug_type: None #"all" #"all" #"r+f" #"all" # #"r+f" #"f" # [ "r" , "f" , "r+f","all"] None
 concatenate: False # True #True #True # # # True
 project_name: "pain_estimation"
-log_name: "hold_out_mediapipe_test" #"1s+15k+multi+loso-filtred_LE_test0" minMaxNorm_dx_dy_
+log_name: "binary_mediapipe__" #"1s+15k+multi+loso-filtred_LE_test0" minMaxNorm_dx_dy_
 gpu: 0
-num_classes: 5
-num_epoch: 100
+num_classes: 2
+num_epoch: 200
 
 eval_loso: False

@@ -72,5 +72,6 @@ class DataHandler:
                 "maxMinNormalization":self.config.maxMinNormalization,
                 "normalize_labels":self.config.normalize_labels,
                 "N_sample":self.config.N_sample,
-                "TS":self.config.TS
+                "TS":self.config.TS,
+                "LBP_data": self.config.LBP_data
                 }

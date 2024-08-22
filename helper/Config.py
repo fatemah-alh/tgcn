@@ -64,6 +64,7 @@ class Config:
     num_epoch: int
     project_name: str
     eval_loso: bool
+    LBP_data:str
 
     @staticmethod
     def load_from_file(file_path: str):

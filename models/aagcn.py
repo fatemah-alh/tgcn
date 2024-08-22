@@ -104,6 +104,44 @@ class GraphAAGCN:
         return normalized_adj_matrix
 
 
+def symmetric_normalize(weighted_A):
+    # Degree matrix is the sum of weights for each node
+    degree = weighted_A.sum(dim=-1, keepdim=True)
+    
+    # Compute D^(-1/2)
+    D_inv_sqrt = torch.pow(degree, -0.5)
+    D_inv_sqrt[torch.isinf(D_inv_sqrt)] = 0.0  # Avoid division by zero
+
+    # Perform symmetric normalization: D^(-1/2) * A * D^(-1/2)
+    normalized_A = D_inv_sqrt * weighted_A * D_inv_sqrt.transpose(-1, -2)
+    
+    return normalized_A
+def compute_inverse_weighted_A(points_tensor, adjacency_matrix, epsilon=1e-6):
+    """
+    Computes the weighted adjacency matrix where weights are higher for closer nodes.
+    
+    Args:
+        points_tensor: Tensor of shape (n, 137, 51, 2) representing n samples, 137 time steps, and 51 points with (x, y) coordinates.
+        adjacency_matrix: Tensor of shape (51, 51) representing the adjacency matrix.
+        epsilon: Small constant to avoid division by zero in the inverse distance calculation.
+        
+    Returns:
+        weighted_A_tensor: Tensor of shape (n, 137, 51, 51) containing the weighted adjacency matrices.
+    """
+    
+    # Compute pairwise distances for all samples and time steps at once
+    distances = torch.cdist(points_tensor.view(-1, 51, 2), points_tensor.view(-1, 51, 2)).view(points_tensor.shape[0], points_tensor.shape[1], 51, 51)
+    
+    # Compute the inverse of the distances (closer nodes will have higher weights)
+    inverse_distances = 1 / (distances + epsilon)
+    
+    # Apply the adjacency matrix A to mask the non-neighbors (keep only the neighbors)
+    weighted_A_tensor = inverse_distances * adjacency_matrix
+    normalized_weighted_A_tensor = symmetric_normalize(weighted_A_tensor)
+
+    
+    return normalized_weighted_A_tensor
+
 
 class UnitTCN(nn.Module):
     r"""

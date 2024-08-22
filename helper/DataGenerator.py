@@ -136,7 +136,7 @@ class DataGenerator():
         self.extract_all()
         dict=self.get_output_data()
     def generate_processed_data_set(self):
-        normalized_data = np.zeros((len(self.filesnames), self.TS, self.num_nodes, 6), dtype=np.float32)
+        normalized_data = np.zeros((len(self.filesnames), 68, self.num_nodes, 6), dtype=np.float32)
         process_all_data_new(landmarks_folder=self.landmarks_npy,
                              filesnames=self.filesnames,
                              normalized_data=normalized_data,
@@ -181,7 +181,7 @@ class DataGenerator():
         get_edges(landmarks,edges_path=self.edges_path)
         
 if __name__=="__main__":
-    name_file = 'mediapipe' # !IMPORTANT: name of configuration file.
+    name_file = 'open_face_downsample' # !IMPORTANT: name of configuration file.
     config_file=open("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/config/"+name_file+".yml", 'r')
     config = yaml.safe_load(config_file)
     data_generator=DataGenerator(config)
