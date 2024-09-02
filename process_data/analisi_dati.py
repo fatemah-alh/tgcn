@@ -99,12 +99,12 @@ def get_TSNE(embeddings,
                         perplexity=perp).fit_transform(filtred_embedings)
     
 
-    
     if vis=="2d":
         fig, ax = plt.subplots()
     else:
         fig, ax = plt.subplots(subplot_kw=dict(projection='3d'))
 
+    
     for g in np.unique(filterd_classes):
         ix = np.where(filterd_classes == g)
         if vis=="2d":
@@ -113,17 +113,19 @@ def get_TSNE(embeddings,
             ax.scatter(tsn_embedded[ix,0], tsn_embedded[ix,1],tsn_embedded[ix,2], c = cdict[g], label = g,s=1)
         # ax.view_init(-30,60)
     
-
     ax.legend()
-    ax.set_title(title+"_true")
+    ax.set_title(title+"True")
     plt.show()
-    plt.savefig(path_save+title+str(lr)+str(perp)+str(early_exaggeration)+"_true.png")
+   
+    plt.savefig(path_save+title+str(lr)+str(perp)+str(early_exaggeration)+"_predicted.png")
+
 
     if vis=="2d":
         fig, ax = plt.subplots()
     else:
         fig, ax = plt.subplots(subplot_kw=dict(projection='3d'))
 
+    
     for g in np.unique(predicted):
         ix = np.where(predicted == g)
         if vis=="2d":
@@ -131,9 +133,24 @@ def get_TSNE(embeddings,
         else:
             ax.scatter(tsn_embedded[ix,0], tsn_embedded[ix,1],tsn_embedded[ix,2], c = cdict[g], label = g,s=1)
         # ax.view_init(-30,60)
+    
+
+    """
+    
+    idx_4_0=np.where((labels[:,0]==1) & (labels[:,1]==0))[0] 
+    idx_0_0=np.where((labels[:,0]==0) & (labels[:,1]==0))[0] 
+    idx_0_4=np.where((labels[:,0]==0) & (labels[:,1]==1))[0]
+    idx_4_4=np.where((labels[:,0]==1) & (labels[:,1]==1))[0] 
+    ax.scatter(tsn_embedded[idx_0_0,0], tsn_embedded[idx_0_0,1], c = "green", label = "00",s=1)
+    ax.scatter(tsn_embedded[idx_4_4,0], tsn_embedded[idx_4_4,1], c = "blue", label = "11",s=1)
+    ax.scatter(tsn_embedded[idx_4_0,0], tsn_embedded[idx_4_0,1], c = "red", label = "10",s=1)
+    ax.scatter(tsn_embedded[idx_0_4,0], tsn_embedded[idx_0_4,1], c = "orange", label = "01",s=1)
+   
+    """  
     ax.legend()
-    ax.set_title(title+"_predicted")
+    ax.set_title(title+"predicted")
     plt.show()
+   
     plt.savefig(path_save+title+str(lr)+str(perp)+str(early_exaggeration)+"_predicted.png")
 
 
@@ -149,12 +166,12 @@ def TSNE_match_output_withembedings():
     pass
 
 #%%
-pretrained="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/PartA/binary_custom_round/best_model.pkl"
+pretrained="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/PartA/multi_custom_round/best_model.pkl"
 targets,predicted,outputs=get_all_outputs(config,pretrained)
 #%%
 outputs.shape
 #%%
-
+#%%
 embed_agcn,embed_gru,classes,predicted= get_embeddings(config,
 #path_pretrained_model="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/1s+15k+filterlow_react+binary_class_regression/best_model.pkl"
 path_pretrained_model=pretrained)
@@ -167,8 +184,6 @@ last_embed_agcn.shape
 last_embed_gru=embed_gru[:,-1,:]
 last_embed_gru.shape
 #%%
-
-
 get_TSNE(last_embed_agcn,
          classes,
          predicted,
@@ -196,7 +211,7 @@ get_TSNE(last_embed_gru,
 
 #%%
 from sklearn.decomposition import PCA
-pca = PCA(n_components=50)
+pca = PCA(n_components=128)
 reduced_last_embed_gru = pca.fit_transform(last_embed_gru)  # X is your 2000x7000 dataset
 
 
@@ -204,21 +219,24 @@ get_TSNE(reduced_last_embed_gru,
          classes,
          predicted,
          predicted_label="all",
-         lr=100,
-         perp=50,
+         lr=400,
+         perp=100,
          early_exaggeration=12,
          vis="2d",
          title="Embeddings_binary_gru",
          path_save=parent_folder+"./data/PartA/vis/")
 
+#%%
+from sklearn.decomposition import PCA
+pca = PCA(n_components=128)
 reduced_last_embed_agcn = pca.fit_transform(last_embed_agcn)  # X is your 2000x7000 dataset
 
 get_TSNE(reduced_last_embed_agcn,
          classes,
          predicted,
          predicted_label="all",
-         lr=100,
-         perp=50,
+         lr=400,
+         perp=100,
          early_exaggeration=12,
          vis="2d",
          title="Embeddings_binary_agcn",

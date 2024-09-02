@@ -8,7 +8,7 @@ landmarks_path : "data/PartA/3dlandmarks/"
 csv_file: "data/PartA/samples.csv"
 labels_path: "data/PartA/lables.npy"
 
-data_path: "data/PartA/mediapipe/dataset_mediapipe.npy"
+data_path: "data/PartA/mediapipe/dataset_mediapipe_83_point.npy"
 edges_path: "data/PartA/mediapipe/edges_mediapipe.npy" 
 
 idx_train: "data/PartA/minidata/idx_train.npy"
@@ -36,7 +36,7 @@ num_features: 6
 hidden_size: 1
 N_sample: 8700
 TS: 137
-n_joints: 478 #51
+n_joints: 83 # 478 #51
 ###Optimizer###
 t_kernel_size: 15
 strid: 1
@@ -54,7 +54,7 @@ prop: #1 # 1 #usando la classe di augmentation.
 Aug_type: None #"all" #"all" #"r+f" #"all" # #"r+f" #"f" # [ "r" , "f" , "r+f","all"] None
 concatenate: False # True #True #True # # # True
 project_name: "pain_estimation_Jul"
-log_name: "hold_out_binary_bidirectional_gru_1g" 
+log_name: "binary_mediapipe_" 
 gpu: 1
 num_classes: 2
 num_epoch: 70

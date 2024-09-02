@@ -9,8 +9,8 @@ landmarks_npy: "data/PartA/landmarksnpy/"
 csv_file: "data/PartA/samples.csv"
 labels_path: "data/PartA/lables.npy"
 data_path: "data/PartA/processed_data/dataset_openFace.npy" 
-LBP_data: False #"data/PartA/processed_data/lbp_features_40.npy"
-edges_path: "data/PartA/edges.npy" #_masternode #/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/edges_masternode.npy #edges
+LBP_data: False #"/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/processed_data/lbp_features_40.npy"
+edges_path: "data/PartA/edges.npy" #"data/PartA/down_sample_edges.npy" #"data/PartA/NoNose_edges.npy" # "data/PartA/edges.npy" #_masternode #/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/edges_masternode.npy #edges
 filter_idx_90: "data/PartA/idx_low_confidance_90.npy"
 filter_idx_80: "data/PartA/idx_low_confidance_80.npy"
 
@@ -37,11 +37,11 @@ bn: True
 lr: 0.01
 
 num_subset: 2
-num_features: 6
+num_features: 6 #6
 hidden_size: 128
 N_sample: 8700
 TS: 137
-n_joints: 51
+n_joints: 51 #30 #22 #43 #51
 idx_train:  "data/PartA/idx_train_filterd_low_react.npy" #"data/PartA/idx_train_filterd_low_react.npy" #  #"data/PartA/idx_train_filterd.npy"
 idx_test:  "data/PartA/idx_test_filterd_low_react.npy" #"data/PartA/idx_test_filterd_low_react.npy" # #"data/PartA/idx_test_filterd.npy"
 LOG_DIR: "log/PartA"
@@ -61,8 +61,8 @@ prop: #0.5 #1 # 1 #usando la classe di augmentation.
 Aug_type: #"r+f" #"all" #"all" #"r+f" #"all" # #"r+f" #"f" # [ "r" , "f" , "r+f","all"] None
 concatenate: False # True #True #True # # # True
 project_name: "pain_estimation_Jul"
-log_name: "multi_weighted_A" 
-gpu: 0
+log_name: "multi_" 
+gpu: 1
 num_classes: 5
-num_epoch: 300
+num_epoch: 200
 eval_loso: False

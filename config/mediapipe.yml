@@ -8,8 +8,8 @@ landmarks_path : "data/PartA/mediapipe/"
 landmarks_npy: "data/PartA/mediapipe/landmarksnpy/"
 csv_file: "data/PartA/samples.csv"
 labels_path: "data/PartA/lables.npy"
-data_path: "data/PartA/mediapipe/dataset_mediapipe_unrotated.npy" 
-edges_path: "data/PartA/mediapipe/edges_mediapipe.npy"
+data_path: "data/PartA/mediapipe/dataset_mediapipe_83_point.npy" 
+edges_path: "data/PartA/mediapipe/edges_mediapipe_83_point.npy"
 filter_idx_90: "data/PartA/idx_low_confidance_90.npy"
 filter_idx_80: "data/PartA/idx_low_confidance_80.npy"
 
@@ -40,7 +40,7 @@ num_features: 6
 hidden_size: 1
 N_sample: 8700
 TS: 137
-n_joints: 478 #468
+n_joints: 83 #478 #468
 idx_train:  "data/PartA/idx_train_filterd_low_react.npy" #  #"data/PartA/idx_train_filterd.npy"
 idx_test:  "data/PartA/idx_test_filterd_low_react.npy" # #"data/PartA/idx_test_filterd.npy"
 LOG_DIR: "log/PartA"

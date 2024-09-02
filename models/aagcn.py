@@ -139,10 +139,10 @@ def compute_inverse_weighted_A(points_tensor, adjacency_matrix, epsilon=1e-6):
     distances = torch.cdist(points_tensor.view(-1, 51, 2), points_tensor.view(-1, 51, 2)).view(points_tensor.shape[0], points_tensor.shape[1], 51, 51)
    
     # Compute the inverse of the distances (closer nodes will have higher weights)
-    inverse_distances = 1 / (distances + epsilon)
+    #inverse_distances = 1 / (distances + epsilon)
     
     # Apply the adjacency matrix A to mask the non-neighbors (keep only the neighbors)
-    weighted_A_tensor = inverse_distances * adjacency_matrix
+    weighted_A_tensor = (distances + epsilon) * adjacency_matrix
     normalized_weighted_A_tensor = symmetric_normalize(weighted_A_tensor)
 
     
@@ -438,7 +438,7 @@ class UnitGCN(nn.Module):
         if self.adaptive:
             y = self._adaptive_forward(x, y)
         else:
-            y = self._non_adaptive_forward_weighted(x, y)
+            y = self._non_adaptive_forward(x, y)
         if self.do_bn:
             y = self.bn(y)
         y += self.down(x)
@@ -603,8 +603,11 @@ class aagcn_network(nn.Module):
         #x = self.l2(x)#
         #x = self.l3(x)#
         #x = self.l4(x)#
+       
         x = self.l5(x)
+       
         x = self.l6(x)
+        
         #x = self.l7(x)#
         #x = self.l8(x)#
         #x = self.l9(x)#

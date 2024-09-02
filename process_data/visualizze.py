@@ -10,7 +10,7 @@ import imageio
 import sys
 from scipy.spatial import Delaunay
 import torch
-from torch_geometric.utils import add_self_loops,to_undirected,to_dense_adj
+from torch_geometric.utils import add_self_loops,to_undirected,to_dense_adj,contains_self_loops,is_undirected
 import seaborn as sns
 parent_folder= "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/"
 sys.path.append(parent_folder)
@@ -20,6 +20,29 @@ from torchvision.transforms import RandomApply,RandomChoice,Compose
 import wandb
 from utiles import rotation_matrix_2d
 import pandas as pd
+def get_edges(landmarks,edges_path):
+    tri = Delaunay(landmarks[:,:2])
+    edges = []
+    for simplex in tri.simplices:
+        for i in range(3):
+            edges.append((simplex[i], simplex[(i+1)%3]))
+    edges_index=[[],[]]
+    for e in edges:
+        edges_index[0].append(e[0])
+        edges_index[1].append(e[1])
+    edges_index=torch.LongTensor(edges_index)
+    
+    print("number of index before adding symmetric edges:",edges_index.shape)
+    print(len(edges_index[0]))
+    #edges_index=to_undirected(edges_index)
+    #edges_index_with_loops=add_self_loops(edges_index)
+    #edges_index=edges_index_with_loops[0]
+    print("Contian self loops:",contains_self_loops(edges_index))
+    print("Graph is now undircte:",is_undirected(edges_index))
+    print("number of index after adding symmetric edges:",edges_index.shape)
+    np.save(edges_path,edges_index)
+    return edges_index
+    
 def visualize_landmarks(data,label_data,edges=[],time_steps=137,vis_edges=False,vis="2d",vis_index=False,save=False,path_vis=None):
     """
     this function will visualize landmarks of data tensor, just the f
@@ -183,7 +206,7 @@ def visualize_sample_withNode_wieghts(data,vis_index=False):
         
 #%%
 #path=parent_folder+"/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/08-23-16:47/"
-name_file = 'minidata'
+name_file = 'minidata' #'minidata_mediapipe'
 config_file=open(parent_folder+"config/"+name_file+".yml", 'r')
 config = yaml.safe_load(config_file)
 data_path=parent_folder+config['data_path']
@@ -210,9 +233,9 @@ train_dataset=DataLoader(data_path,
                         normalize_labels=False,
                         transform=transform,
                         maxMinNormalization=True)
-
+#%%
 #data=np.zeros((20,6,137,51,1))
-data=np.zeros((20,137,num_nodes,6))
+data=np.zeros((20,77,num_nodes,6))
 labels=[]
 for i,sample in enumerate(train_dataset):
     data[i]=sample[0]
@@ -231,24 +254,43 @@ features= np.reshape(reshaped_tensor, (20, 137,51,6,1)).squeeze(axis=-1)
 print(features.shape)
 
 #%%
-features=data
-visualize_landmarks(features[:,:,:,:2],labels,edges,time_steps=1,vis_index=True,vis_edges=False)
+edges=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/NoNose_edges.npy")
+
 #%%
 features=data
+visualize_landmarks(features[:,:,:,:2],labels,edges,time_steps=10,vis_index=True,vis_edges=False)
 #%%
+features=data
+features=np.concatenate((features[:,:,:11,:],features[:,:,19:,:]),axis=2)
+
 visualize_sample(features[0],labels[0],edges,time_steps=1,vis_index=True,vis_edges=True)
 #%%
-edges=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/edges.npy")
-visualize_Adjacencey_matrix_from_edges(merged)
+#Half face
+#idx=[5:14] [16:19] [25:31], [34:41], [45:50]
+half_nodes= np.concatenate((features[0][:,5:14,:],features[0][:,16:19,:],features[0][:,25:31,:],features[0][:,34:41,:],features[0][:,45:50,:]),axis=1)
+
 #%%
-print(min(edges[0]))
+print(half_nodes.shape)
+#%%
+#get halfnodes edges
+half_edges=get_edges(half_nodes[0][:,:2],"/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/edges_halfnodes.npy")
+#%%
+
+visualize_sample(half_nodes,labels[0],half_edges,time_steps=1,vis_index=True,vis_edges=True)
+
 #%%
 master_nods_edges=[[12 for x in range(0,51) ],[y for y in range(0,51)]]
 #%%
 np.array(master_nods_edges)
+merged=np.hstack((edges,np.array(master_nods_edges)))
+visualize_Adjacencey_matrix_from_edges(merged)
+#%%
+print(min(edges[0]))
 #%%
 
-merged=np.hstack((edges,np.array(master_nods_edges)))
+#%%
+
+
 #%%
 np.save("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/edges_masternode.npy",merged)
 #%%
@@ -302,4 +344,23 @@ df.head()
 #%%
 visualize_sample_withNode_wieghts(df)
 # %%
+# %%
+
+import seaborn as sns
+
+# Your confusion matrix
+cm = np.array([[323 ,  69],
+ [130 ,233]])
+
+# Convert to percentages
+cm_percentage = cm / cm.sum(axis=1, keepdims=True) * 100
+
+# Plotting the confusion matrix with percentages
+plt.figure(figsize=(10, 7))
+sns.heatmap(cm_percentage, annot=True, fmt=".2f", cmap="viridis", cbar_kws={'label': 'Percentage (%)'})
+
+plt.xlabel('Predicted')
+plt.ylabel('Actual')
+plt.title('Confusion Matrix with Percentages (Binary)')
+plt.show()
 # %%

@@ -67,6 +67,8 @@ class DataLoader(torch.utils.data.Dataset):
         print("Loading Dataset")
         self.labels=np.load(self.labels_path)#0,..,4
         self.X=np.load(self.data_path)
+        #delete first 2 seconds for expirments
+        #self.X=self.X[:,60:,:,:]
         print(np.min(self.X[:,:,:,0]),np.max(self.X[:,:,:,0]))
         print("Contains Nan values",np.isnan(self.X).any())
         
@@ -74,9 +76,18 @@ class DataLoader(torch.utils.data.Dataset):
             self.maxMinNorm()
         #Select featurs 
         print("Contains Nan values",np.isnan(self.X).any())
-        if self.num_nodes==43:
-            print("Fal expirment...")
+        if self.num_nodes==22:
+           
             self.X=np.concatenate((self.X[:,:,:11,:],self.X[:,:,19:,:]),axis=2)
+            self.X=self.X[:,:,::2,:]
+            print(self.X.shape)
+        if self.num_nodes==43 : 
+            print("No_Nose")   
+            self.X=np.concatenate((self.X[:,:,:11,:],self.X[:,:,19:,:]),axis=2)
+        if self.num_nodes==30 :
+            print("Half_face")
+            self.X=np.concatenate((self.X[:,:,5:14,:],self.X[:,:,16:19,:],self.X[:,:,25:31,:],self.X[:,:,34:41,:],self.X[:,:,45:50,:]),axis=2)
+
         if self.num_features==4:
              self.X=self.X[:,:,:,:4]
             #self.X=np.concatenate( (self.X[:,:,:,:2],self.X[:,:,:,3:5]),axis=3)
@@ -118,7 +129,7 @@ class DataLoader(torch.utils.data.Dataset):
         if self.LBP_data:
                 self.lbp=np.load(self.LBP_data)
                 self.X=np.concatenate((self.X,self.lbp),axis=-1)
-                self.data_shape[1][1]=+ self.lbp.shape[3]
+                #self.data_shape[1][1]=+ self.lbp.shape[3]
                 print("LBD added")
         if self.reshape_data:
              reshaped_tensor = np.transpose(self.X, self.data_shape[0])  # Transpose dimensions from 8700,137,469,4) to 8600, 469, 4, 137
@@ -240,8 +251,7 @@ class DataLoader(torch.utils.data.Dataset):
         self.labels=self.labels[indices]
         self.features=self.features[indices]  
         self.labels=self.labels/4 
-
-
+   
 class Rotate(object):
     """
     Rotate sample of N frame of 2d points
