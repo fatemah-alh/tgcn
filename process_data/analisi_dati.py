@@ -104,7 +104,7 @@ def get_TSNE(embeddings,
     else:
         fig, ax = plt.subplots(subplot_kw=dict(projection='3d'))
 
-    
+    """
     for g in np.unique(filterd_classes):
         ix = np.where(filterd_classes == g)
         if vis=="2d":
@@ -141,14 +141,15 @@ def get_TSNE(embeddings,
     idx_0_0=np.where((labels[:,0]==0) & (labels[:,1]==0))[0] 
     idx_0_4=np.where((labels[:,0]==0) & (labels[:,1]==1))[0]
     idx_4_4=np.where((labels[:,0]==1) & (labels[:,1]==1))[0] 
+    print(len(idx_4_0),len(idx_0_0),len(idx_0_4),len(idx_4_4))
     ax.scatter(tsn_embedded[idx_0_0,0], tsn_embedded[idx_0_0,1], c = "green", label = "00",s=1)
     ax.scatter(tsn_embedded[idx_4_4,0], tsn_embedded[idx_4_4,1], c = "blue", label = "11",s=1)
     ax.scatter(tsn_embedded[idx_4_0,0], tsn_embedded[idx_4_0,1], c = "red", label = "10",s=1)
     ax.scatter(tsn_embedded[idx_0_4,0], tsn_embedded[idx_0_4,1], c = "orange", label = "01",s=1)
    
-    """  
+      
     ax.legend()
-    ax.set_title(title+"predicted")
+    ax.set_title(title)
     plt.show()
    
     plt.savefig(path_save+title+str(lr)+str(perp)+str(early_exaggeration)+"_predicted.png")
@@ -166,14 +167,15 @@ def TSNE_match_output_withembedings():
     pass
 
 #%%
-pretrained="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/PartA/multi_custom_round/best_model.pkl"
+pretrained="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/PartA/binary_custom_round/best_model.pkl"
+
+#%%
 targets,predicted,outputs=get_all_outputs(config,pretrained)
 #%%
 outputs.shape
 #%%
 #%%
 embed_agcn,embed_gru,classes,predicted= get_embeddings(config,
-#path_pretrained_model="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/1s+15k+filterlow_react+binary_class_regression/best_model.pkl"
 path_pretrained_model=pretrained)
 #%%
 print(embed_agcn.shape,embed_gru.shape,classes.shape,predicted.shape)
@@ -183,6 +185,23 @@ last_embed_agcn.shape
 #%%
 last_embed_gru=embed_gru[:,-1,:]
 last_embed_gru.shape
+#%%
+classes.shape
+np.save("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/embedings/train_emb_gru.npy",last_embed_gru)
+np.save("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/embedings/train_labels.npy",classes)
+#%%
+
+test_data=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/embedings/test_emb_gru.npy")
+test_labels=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/embedings/test_labels.npy")
+
+#%%
+from sklearn.ensemble import RandomForestClassifier
+clf = RandomForestClassifier(max_depth=50, random_state=0,n_estimators=200)
+clf.fit(last_embed_gru, classes)
+pred_test=clf.predict(test_data)
+acc=np.mean(pred_test == test_labels)
+#%%
+acc
 #%%
 get_TSNE(last_embed_agcn,
          classes,

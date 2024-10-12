@@ -115,6 +115,9 @@ class Trainer():
     def load_loss(self):
         self.loss=torch.nn.MSELoss().to(self.device)
         self.center_loss=CenterLoss(num_classes=self.config.num_classes,feat_dim = 128)
+       # self.loss= torch.nn.BCELoss()
+        #self.loss=torch.nn.BCEWithLogitsLoss()
+
     def load_eval(self):
         self.evaluation=Evaluation(self.config)   
     def conc_aug_batch(self,x,y):
@@ -226,7 +229,7 @@ class Trainer():
         embed_agcn=[]
         embed_gru=[]
         
-        tq=tqdm(self.datahandler.test_loader)
+        tq=tqdm(self.datahandler.train_loader_for_test)
         with torch.no_grad():
             for i,snapshot in enumerate(tq):
                 x,label=snapshot

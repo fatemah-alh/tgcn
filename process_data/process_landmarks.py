@@ -767,7 +767,7 @@ def extract_and_visualize_spatial_pyramid_lbp(image, keypoints, P=8, R=1, method
 
 #%%
 #video_path="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/video/071309_w_21/071309_w_21-BL1-081.mp4"
-"""
+
 name_file = 'open_face' 
 config_file=open(parent_folder+"config/"+name_file+".yml", 'r')
 path_vis=parent_folder+"/data/PartA/vis/" # path to save gif of visualizzation
@@ -784,18 +784,20 @@ edges_path=parent_folder+config["edges_path"]
 idx_train=parent_folder+config["idx_train"]
 idx_test=parent_folder+config["idx_test"]
 filter_idx_90=parent_folder+config["filter_idx_90"]
+files_name=get_file_names(csv_file)
 #print frequencies of labels
-
-lbd=np.load(parent_folder+config["LBP_data"])
+#%%
+lbd=np.load(config["LBP_data"])
 print(lbd[0][0])
 #%%
 print(lbd[1][0])
 #%%
+
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/shape_predictor_68_face_landmarks.dat")  # Download model file separately
 #%%
 from pathlib import Path
-files_name=get_file_names(csv_file)
+
 # Open the video file
 #Tarygan:1000_2000 #1517 not worked
 #Tarygan:2000_3000
@@ -805,19 +807,22 @@ files_name=get_file_names(csv_file)
 #flash 5000 to 6000
 #6000 to 7000
 #lechuck 7000 to the end #8590
-LBP_data= np.zeros((8700, 137, 51, 40), dtype=np.float32)
+LBP_data= np.zeros((8700, 137, 51, 10), dtype=np.float32)
 for idx in tqdm( range(0,len(files_name))):
     LBD_path="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/LBD_data/"+files_name[idx]+".npy"
     file__=Path(LBD_path)
     if file__.exists():
         lbd=np.load(LBD_path,allow_pickle=True)
-       
         try:
             LBP_data[idx][: np.min([137,lbd.shape[0]])]=lbd[:np.min([137,lbd.shape[0]])]
         except ValueError as e:
             # print(f"Skipping this assignment due to shape mismatch: {e}")
              print(idx)
     #Iterate over videos
+#%%    
+LBP_data[0][0][0]
+#%%
+np.save(config["LBP_data"],LBP_data)
 #%%
 landmarks_MP=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/mediapipe/landmarksnpy/072714_m_23/072714_m_23-PA4-022.npy")
 video_path="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/video/072714_m_23/072714_m_23-PA4-022.mp4"
@@ -879,18 +884,12 @@ valid_points=[61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291,
               ]
 one_frame=landmarks_MP[0][valid_points]
 print(one_frame.shape)
-
-#%%
 print(len(set(valid_points)))
-#%%
-
 result=result[::2,:]
 print(result.shape)
-#%%
 print(result[0])
 #%%
 cap = cv2.VideoCapture(video_path)
-
 i=0
 while cap.isOpened():
     #process each frame
@@ -921,19 +920,16 @@ while cap.isOpened():
     break
     
     
-
-
 #%%
-np.save(parent_folder+config["LBP_data"],LBP_data)
-print(LBP_data.shape)
-#%%
-non_lbd=np.zeros((51, 40), dtype=np.float32)
-for idx in tqdm( range(1517,1518)):
+non_lbd=np.zeros((51, 10), dtype=np.float32)
+for idx in tqdm( range(516+1002+2182+4891,len(files_name))):
     video_path=video_folder_path+"/"+files_name[idx]+".mp4"
+    fl=np.load("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/2dlandmarks/"+files_name[idx]+".npy",allow_pickle=True)
     #Iterate over videos
     cap = cv2.VideoCapture(video_path)
-    landmarks_video=[]
+    
     LBD_video=[]
+    i=0
     while cap.isOpened():
         #process each frame
         ret, frame = cap.read()
@@ -944,50 +940,25 @@ for idx in tqdm( range(1517,1518)):
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         #lbp_image = local_binary_pattern(gray, 16, 2, method='uniform')
         smoothed_image = gaussian_filter(gray, sigma=1)
-        # Detect faces
-        faces = detector(gray)
-        fl=[]
-        for face in faces:
-            # Get the landmarks
-            landmarks = predictor(gray, face)
-            
-            # Loop over all the landmarks and draw them on the frame
-            for n in range(0, 68):
-                x = landmarks.part(n).x
-                y = landmarks.part(n).y
-                cv2.circle(frame, (x, y), 2, (0, 255, 0), -1)
-                fl.append((x,y))
-            
-        
-        landmarks_video.append(fl[17:])
-        #print(len(landmarks_video))
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        # Display the image using Matplotlib
-        plt.imshow(frame_rgb)
-        plt.title("Landmarks")
-        plt.axis('off')  # Turn off axis labels
-        plt.show()
-
-        if len(fl)>0:
-            lbp_single_frame=extract_and_visualize_spatial_pyramid_lbp(smoothed_image, fl[17:], P=8, R=1, method='uniform', grid_size=2, region_size=24)  
+      
+        if len(fl[i])>0:
+            lbp_single_frame=extract_and_visualize_spatial_pyramid_lbp(smoothed_image,fl[i] , P=8, R=1, method='uniform', grid_size=1, region_size=24)
+           
         else:
             lbp_single_frame=non_lbd
         LBD_video.append(lbp_single_frame)
         # Display the frame with landmarks
        
 
-   # print(np.array(LBD_video).shape,np.array(landmarks_video).shape)
-    os.makedirs("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/2dlandmarks/"+files_name[idx],exist_ok=True)
-    os.makedirs("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/LBD_data/"+files_name[idx],exist_ok=True)
-  
-    np.save("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/2dlandmarks/"+files_name[idx]+".npy",landmarks_video)    
+    os.makedirs("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/LBD_data/"+files_name[idx],exist_ok=True)  
     np.save("/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/LBD_data/"+files_name[idx]+".npy",LBD_video)
+    i=i+1
     
 cap.release()
 cv2.destroyAllWindows()
 #np.save(parent_folder+config[LBP_data],LBP_data)
 
-"""
+
 #%%
 #%%
 """

@@ -73,8 +73,10 @@ class GraphAAGCN:
         edges_index_with_loops=add_self_loops(edges_index)
         edges_index=edges_index_with_loops[0]
         adj_mat=torch.squeeze(to_dense_adj(edges_index,max_num_nodes=self.num_nodes))
-        adj_mat=torch.unsqueeze(adj_mat, dim=0)
         adj_mat=self.normalize_adjacency_matrix(adj_mat)
+        adj_mat=torch.unsqueeze(adj_mat, dim=0)
+       
+        #print(adj_mat.shape)
         print(adj_mat.shape)
         return adj_mat
     def get_two_adj(self):
@@ -82,7 +84,9 @@ class GraphAAGCN:
         #edges_index=torch.LongTensor(self.edge_index)
         edges_index=to_undirected(self.edge_index,num_nodes=self.num_nodes)
         adj_1=torch.squeeze(to_dense_adj(edges_index,max_num_nodes=self.num_nodes))
-       # adj_1=self.normalize_adjacency_matrix(adj_1)
+        #adj_1=adj_1-self_mat
+        adj_1=self.normalize_adjacency_matrix(adj_1)
+       # print("adj_matrix,",adj_1)
         adj_mat = torch.stack((self_mat,adj_1))
         #if wieghted
         #A_expanded =adj_mat.unsqueeze(1).unsqueeze(2)  # Shape becomes (2, 1, 1, 51, 51)
@@ -101,11 +105,17 @@ class GraphAAGCN:
         print(adj_mat.shape)
         return adj_mat
     def normalize_adjacency_matrix(self, adj_matrix):
-        num_nodes = adj_matrix.shape[0]
+       
         degree_matrix = torch.diag(torch.sum(adj_matrix, dim=1))
+       # print("max_degree",np.max(degree_matrix ))
+        print(adj_matrix)
+        #Lablacian
+        #adj_matrix = degree_matrix - adj_matrix
+        #print(adj_matrix)
         degree_inv_sqrt = torch.pow(degree_matrix, -0.5)
         degree_inv_sqrt[torch.isinf(degree_inv_sqrt)] = 0.0
         normalized_adj_matrix = torch.mm(torch.mm(degree_inv_sqrt, adj_matrix), degree_inv_sqrt)
+        print(normalized_adj_matrix )
         return normalized_adj_matrix
 
 
@@ -329,7 +339,7 @@ class UnitGCN(nn.Module):
     def _init_sym_adaptive_layers(self):
         bs=self.A.shape[0]
         A_size=self.A.shape[1]
-        self.L=self.L = nn.Parameter(torch.tril(torch.randn(bs, A_size, A_size)))
+        self.L = nn.Parameter(torch.tril(torch.randn(bs, A_size, A_size)))
         diag_elements = torch.diagonal(self.L, dim1=1, dim2=2).clone()
         self.PA=  self.L + self.L.transpose(1, 2)
         #self.PA=self.L + self.L.T 
@@ -365,7 +375,7 @@ class UnitGCN(nn.Module):
         #np.save("temporal_attention.npy",se1)
         y = y * se1.unsqueeze(-1) + y
         # channel attention
-        se = y.mean(-1).mean(-1)
+        se = y.mean(-1).mean(-1) #N,C
         se1 = self.relu(self.fc1c(se))
         se2 = self.sigmoid(self.fc2c(se1))
         #np.save("channel_attention.npy",se2)
@@ -586,6 +596,7 @@ class aagcn_network(nn.Module):
         
         #self.fc_1=Linear(in_features=128*num_nodes,out_features= 128) 
         self.fc=Linear(in_features=128*self.num_dircetions,out_features= 1) 
+        #self.fc_2=Linear(in_features=128,out_features= 1)
         nn.init.kaiming_normal_(self.fc.weight)
         bn_init(self.data_bn, 1)
         if drop_out:
@@ -616,7 +627,7 @@ class aagcn_network(nn.Module):
         
         t_new=x.size(2)
         c_new=x.size(1)
-        x=x.permute(0, 2, 1, 3).contiguous().view(N,t_new,c_new,V) #(32,35,128,51)
+        x=x.permute(0, 2, 1, 3).contiguous().view(N,t_new,c_new,V) #(32,137,128,51)
         x=x.view(N,t_new,-1)
        # x=self.glu(x)      
         embed_graph=x # Try with tow type of embeddings
@@ -631,6 +642,8 @@ class aagcn_network(nn.Module):
         x = self.drop_out(x)
         
         x=self.fc(x)
+       # x = self.drop_out(x)
+        #x=self.fc_2(x)
         all_outputs= x
         all_outputs=all_outputs.view(N,-1)
        
