@@ -265,9 +265,6 @@ class UnitGCN(nn.Module):
             self.A = Variable(self.A, requires_grad=False)
             # If Adaptive is false: self.A will be just a fixed tensor, if 
 
-        if self.attention:
-            self._init_attention_layers()
-
         if in_channels != out_channels:
             self.down = nn.Sequential(
                 nn.Conv2d(in_channels, out_channels, 1), nn.BatchNorm2d(out_channels)
@@ -311,31 +308,7 @@ class UnitGCN(nn.Module):
         for i in range(self.num_subset):
             self._conv_branch_init(self.conv_d[i], self.num_subset)
 
-    def _init_attention_layers(self):
-        # temporal attention
-        pad_t = int((self.kernel_size - 1) / 2)
-       
-        self.conv_ta = nn.Conv1d(self.out_c, 1, self.kernel_size, padding=pad_t,padding_mode='replicate')
-        
-        nn.init.constant_(self.conv_ta.weight, 0)
-        nn.init.constant_(self.conv_ta.bias, 0)
-
-        # s attention
-        ker_jpt = self.num_jpts - 1 if not self.num_jpts % 2 else self.num_jpts
-        pad = (ker_jpt - 1) // 2
-        self.conv_sa = nn.Conv1d(self.out_c, 1, ker_jpt, padding=pad,padding_mode='replicate') 
-       
-        nn.init.xavier_normal_(self.conv_sa.weight)
-        nn.init.constant_(self.conv_sa.bias, 0)
-
-        # channel attention
-        rr = 2
-        self.fc1c = nn.Linear(self.out_c, self.out_c // rr)
-        self.fc2c = nn.Linear(self.out_c // rr, self.out_c)
-        nn.init.kaiming_normal_(self.fc1c.weight)
-        nn.init.constant_(self.fc1c.bias, 0)
-        nn.init.constant_(self.fc2c.weight, 0)
-        nn.init.constant_(self.fc2c.bias, 0)
+    
     def _init_sym_adaptive_layers(self):
         bs=self.A.shape[0]
         A_size=self.A.shape[1]
@@ -357,33 +330,6 @@ class UnitGCN(nn.Module):
         for i in range(self.num_subset):
             self.conv_a.append(nn.Conv2d(self.in_c, self.inter_c, 1))
             self.conv_b.append(nn.Conv2d(self.in_c, self.inter_c, 1))
-
-    def _attentive_forward(self, y):
-        #y_shape=(N, C, T, V)
-        # spatial attention
-    
-        se = y.mean(-2)  # N C V
-        #se1 = self.sigmoid(self.conv_sa(se)) # l'importanza di ogni nodo 
-        se1 = self.sigmoid(self.conv_sa(se)) # l'importanza di ogni nodo 
-        #se1_save=se1.cpu().numpy()
-        #np.save(f"Attention_nodes_{self.L_name}.npy",se1_save)
-        y = y * se1.unsqueeze(-2) + y # moltiplica l'input per il vettore di pesi o attention se1.
-  
-        # temporal attention
-        se = y.mean(-1)
-        se1 = self.sigmoid(self.conv_ta(se))
-        #np.save("temporal_attention.npy",se1)
-        y = y * se1.unsqueeze(-1) + y
-        # channel attention
-        se = y.mean(-1).mean(-1) #N,C
-        se1 = self.relu(self.fc1c(se))
-        se2 = self.sigmoid(self.fc2c(se1))
-        #np.save("channel_attention.npy",se2)
-        y = y * se2.unsqueeze(-1).unsqueeze(-1) + y
-
-        return y
-    def _sym_adaptive_forward(self,x,y):
-        pass
 
     def _adaptive_forward(self, x, y):
         N, C, T, V = x.size()
@@ -453,8 +399,7 @@ class UnitGCN(nn.Module):
             y = self.bn(y)
         y += self.down(x)
         y = self.relu(y) # (N, self.out_c, T, V)
-        if self.attention:
-            y = self._attentive_forward(y)
+        
         return y
 
 
@@ -500,7 +445,7 @@ class AAGCN(nn.Module):
 
         self.graph = GraphAAGCN(self.edge_index, self.num_nodes,num_subset=num_subset)
         self.A = self.graph.A
-        
+        self.sigmoid = nn.Sigmoid()
         #TODO make A wieghted matrix
         #3 Ways:
         #1: fixed A take the media of distances over all samples.
@@ -509,6 +454,13 @@ class AAGCN(nn.Module):
         #see embeddings in each case. 
         #SPATIO CONV
         #If wieghted:
+        self.inter_c = out_channels // 4
+        self.out_c = out_channels
+        self.in_c = in_channels 
+        self.num_jpts = self.A.shape[-1]
+        self.attention = attention
+        self.adaptive = adaptive
+        self.kernel_size=kernel_size
         
         self.gcn1 = UnitGCN(
             in_channels, out_channels, self.A,num_subset=num_subset, adaptive=adaptive, attention=attention,kernel_size=kernel_size,bn=bn,L_name=L_name
@@ -528,6 +480,59 @@ class AAGCN(nn.Module):
             self.residual = UnitTCN(
                 in_channels, out_channels, kernel_size=1, stride=stride  
             )
+    
+        if self.attention:
+            self._init_attention_layers()
+
+    def _init_attention_layers(self):
+        # temporal attention
+        pad_t = int((self.kernel_size - 1) / 2)
+       
+        self.conv_ta = nn.Conv1d(self.out_c, 1, self.kernel_size, padding=pad_t,padding_mode='replicate')
+        
+        nn.init.constant_(self.conv_ta.weight, 0)
+        nn.init.constant_(self.conv_ta.bias, 0)
+
+        # s attention
+        ker_jpt = self.num_jpts - 1 if not self.num_jpts % 2 else self.num_jpts
+        pad = (ker_jpt - 1) // 2
+        self.conv_sa = nn.Conv1d(self.out_c, 1, ker_jpt, padding=pad,padding_mode='replicate') 
+       
+        nn.init.xavier_normal_(self.conv_sa.weight)
+        nn.init.constant_(self.conv_sa.bias, 0)
+
+        # channel attention
+        rr = 2
+        self.fc1c = nn.Linear(self.out_c, self.out_c // rr)
+        self.fc2c = nn.Linear(self.out_c // rr, self.out_c)
+        nn.init.kaiming_normal_(self.fc1c.weight)
+        nn.init.constant_(self.fc1c.bias, 0)
+        nn.init.constant_(self.fc2c.weight, 0)
+        nn.init.constant_(self.fc2c.bias, 0)
+    def _attentive_forward(self, y):
+        #y_shape=(N, C, T, V)
+        # spatial attention
+    
+        se = y.mean(-2)  # N C V
+        #se1 = self.sigmoid(self.conv_sa(se)) # l'importanza di ogni nodo 
+        se1 = self.sigmoid(self.conv_sa(se)) # l'importanza di ogni nodo 
+        #se1_save=se1.cpu().numpy()
+        #np.save(f"Attention_nodes_{self.L_name}.npy",se1_save)
+        y = y * se1.unsqueeze(-2) + y # moltiplica l'input per il vettore di pesi o attention se1.
+  
+        # temporal attention
+        se = y.mean(-1)
+        se1 = self.sigmoid(self.conv_ta(se))
+        #np.save("temporal_attention.npy",se1)
+        y = y * se1.unsqueeze(-1) + y
+        # channel attention
+        se = y.mean(-1).mean(-1) #N,C
+        se1 = self.relu(self.fc1c(se))
+        se2 = self.sigmoid(self.fc2c(se1))
+        #np.save("channel_attention.npy",se2)
+        y = y * se2.unsqueeze(-1).unsqueeze(-1) + y
+
+        return y
 
     def forward(self, x):
         """
@@ -542,6 +547,8 @@ class AAGCN(nn.Module):
             with shape (B, out_channels, T_in//stride, N_nodes).
         """
         y = self.relu(self.tcn1(self.gcn1(x)) + self.residual(x))
+        if self.attention:
+            y = self._attentive_forward(y)
         return y
 class GatedLinearUnit(nn.Module):
     def __init__(self, input_dim):

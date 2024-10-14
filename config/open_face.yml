@@ -9,7 +9,7 @@ landmarks_npy: "data/PartA/landmarksnpy/"
 csv_file: "data/PartA/samples.csv"
 labels_path: "data/PartA/lables.npy"
 data_path: "data/PartA/processed_data/dataset_openFace.npy" 
-LBP_data: "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/processed_data/lbp_features_10.npy"
+LBP_data: False #"/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/processed_data/lbp_features_10.npy"
 edges_path: "data/PartA/edges.npy" #"data/PartA/down_sample_edges.npy" #"data/PartA/NoNose_edges.npy" # "data/PartA/edges.npy" #_masternode #/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/data/PartA/edges_masternode.npy #edges
 filter_idx_90: "data/PartA/idx_low_confidance_90.npy"
 filter_idx_80: "data/PartA/idx_low_confidance_80.npy"
@@ -37,7 +37,7 @@ bn: True
 lr: 0.01
 
 num_subset: 2
-num_features: 16 #6
+num_features: 6 #6
 hidden_size: 128
 N_sample: 8700
 TS: 137
@@ -61,8 +61,8 @@ prop: #0.5 #1 # 1 #usando la classe di augmentation.
 Aug_type: #"r+f" #"all" #"all" #"r+f" #"all" # #"r+f" #"f" # [ "r" , "f" , "r+f","all"] None
 concatenate: False # True #True #True # # # True
 project_name: "pain_estimation_Jul"
-log_name: "multi_lbd_10" 
+log_name: "multi_attention_moved" 
 gpu: 0
 num_classes: 5
-num_epoch: 300
+num_epoch: 250
 eval_loso: False
