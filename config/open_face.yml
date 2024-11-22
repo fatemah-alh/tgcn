@@ -61,8 +61,8 @@ prop: #0.5 #1 # 1 #usando la classe di augmentation.
 Aug_type: #"r+f" #"all" #"all" #"r+f" #"all" # #"r+f" #"f" # [ "r" , "f" , "r+f","all"] None
 concatenate: False # True #True #True # # # True
 project_name: "pain_estimation_Jul"
-log_name: "multi_attention_moved" 
+log_name: "binary_12_nov_diff_pool" 
 gpu: 0
-num_classes: 5
-num_epoch: 250
+num_classes: 2
+num_epoch: 300
 eval_loso: False

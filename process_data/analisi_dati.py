@@ -45,7 +45,6 @@ def get_TSNE(embeddings,
              classes,
              predicted,
              predicted_label=4,
-
              lr=10,
              perp=30,
              early_exaggeration=6,
@@ -94,8 +93,8 @@ def get_TSNE(embeddings,
                         init='random',
                         early_exaggeration=early_exaggeration,#defualt=12
                         #max_iter=2000,
-                        n_iter_without_progress=1000,
-                        n_iter=50000,
+                        #n_iter_without_progress=1000,
+                        #n_iter=5000,
                         perplexity=perp).fit_transform(filtred_embedings)
     
 
@@ -142,10 +141,10 @@ def get_TSNE(embeddings,
     idx_0_4=np.where((labels[:,0]==0) & (labels[:,1]==1))[0]
     idx_4_4=np.where((labels[:,0]==1) & (labels[:,1]==1))[0] 
     print(len(idx_4_0),len(idx_0_0),len(idx_0_4),len(idx_4_4))
-    ax.scatter(tsn_embedded[idx_0_0,0], tsn_embedded[idx_0_0,1], c = "green", label = "00",s=1)
-    ax.scatter(tsn_embedded[idx_4_4,0], tsn_embedded[idx_4_4,1], c = "blue", label = "11",s=1)
-    ax.scatter(tsn_embedded[idx_4_0,0], tsn_embedded[idx_4_0,1], c = "red", label = "10",s=1)
-    ax.scatter(tsn_embedded[idx_0_4,0], tsn_embedded[idx_0_4,1], c = "orange", label = "01",s=1)
+    ax.scatter(tsn_embedded[idx_0_0,0], tsn_embedded[idx_0_0,1], c = "green", label = "00",s=0.5)
+    ax.scatter(tsn_embedded[idx_4_4,0], tsn_embedded[idx_4_4,1], c = "blue", label = "11",s=0.5)
+    ax.scatter(tsn_embedded[idx_4_0,0], tsn_embedded[idx_4_0,1], c = "red", label = "10",s=0.5)
+    ax.scatter(tsn_embedded[idx_0_4,0], tsn_embedded[idx_0_4,1], c = "orange", label = "01",s=0.5)
    
       
     ax.legend()
@@ -153,6 +152,54 @@ def get_TSNE(embeddings,
     plt.show()
    
     plt.savefig(path_save+title+str(lr)+str(perp)+str(early_exaggeration)+"_predicted.png")
+    #Plot just the last-output embedings
+    if vis=="2d":
+        fig, ax = plt.subplots()
+    else:
+        fig, ax = plt.subplots(subplot_kw=dict(projection='3d'))
+    #take the last out_put
+   
+    labels_2=labels[136::137]
+    tsn_embedded_2=tsn_embedded[136::137]
+    print("labels for the second figure are",labels_2.shape)
+    idx_4_0=np.where((labels_2[:,0]==1) & (labels_2[:,1]==0))[0] 
+    idx_0_0=np.where((labels_2[:,0]==0) & (labels_2[:,1]==0))[0] 
+    idx_0_4=np.where((labels_2[:,0]==0) & (labels_2[:,1]==1))[0]
+    idx_4_4=np.where((labels_2[:,0]==1) & (labels_2[:,1]==1))[0] 
+    print(len(idx_4_0),len(idx_0_0),len(idx_0_4),len(idx_4_4))
+    ax.scatter(tsn_embedded_2[idx_0_0,0], tsn_embedded_2[idx_0_0,1], c = "green", label = "00",s=1)
+    ax.scatter(tsn_embedded_2[idx_4_4,0], tsn_embedded_2[idx_4_4,1], c = "blue", label = "11",s=1)
+    ax.scatter(tsn_embedded_2[idx_4_0,0], tsn_embedded_2[idx_4_0,1], c = "red", label = "10",s=1)
+    ax.scatter(tsn_embedded_2[idx_0_4,0], tsn_embedded_2[idx_0_4,1], c = "orange", label = "01",s=1)
+    ax.legend()
+    ax.set_title(title+"Last_output")
+    plt.show()
+    plt.savefig(path_save+title+str(lr)+str(perp)+str(early_exaggeration)+"_2predicted.png")
+     
+   #Plot also with just the predicted label for the whole sequence is just the last one. 
+ 
+    if vis=="2d":
+        fig, ax = plt.subplots()
+    else:
+        fig, ax = plt.subplots(subplot_kw=dict(projection='3d'))
+    labels_3=np.repeat(labels_2,137,axis=0)
+    print("labeld3.shape",labels_3.shape)
+    idx_4_0=np.where((labels_3[:,0]==1) & (labels_3[:,1]==0))[0] 
+    idx_0_0=np.where((labels_3[:,0]==0) & (labels_3[:,1]==0))[0] 
+    idx_0_4=np.where((labels_3[:,0]==0) & (labels_3[:,1]==1))[0]
+    idx_4_4=np.where((labels_3[:,0]==1) & (labels_3[:,1]==1))[0] 
+    print(len(idx_4_0),len(idx_0_0),len(idx_0_4),len(idx_4_4))
+    ax.scatter(tsn_embedded[idx_0_0,0], tsn_embedded[idx_0_0,1], c = "green", label = "00",s=0.5)
+    ax.scatter(tsn_embedded[idx_4_4,0], tsn_embedded[idx_4_4,1], c = "blue", label = "11",s=0.5)
+    ax.scatter(tsn_embedded[idx_4_0,0], tsn_embedded[idx_4_0,1], c = "red", label = "10",s=0.5)
+    ax.scatter(tsn_embedded[idx_0_4,0], tsn_embedded[idx_0_4,1], c = "orange", label = "01",s=0.5)
+    ax.legend()
+    ax.set_title(title)
+    plt.show()
+    plt.savefig(path_save+title+str(lr)+str(perp)+str(early_exaggeration)+"_3predicted.png")
+
+
+
 
 
 def get_ids(labels,pain_class=1):
@@ -169,19 +216,43 @@ def TSNE_match_output_withembedings():
 #%%
 pretrained="/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/PartA/binary_custom_round/best_model.pkl"
 
+#/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/PartA/binary_test_10/best_model.pkl
+#/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/PartA/hold_out_multi_test4_a_o/best_model.pkl
 #%%
 targets,predicted,outputs=get_all_outputs(config,pretrained)
 #%%
 outputs.shape
+#%%
+output_flatten=outputs.flatten()
+output_flatten.shape
+#%%
+
+#%%
+evaluation=Evaluation(config=config)
+output_flatten_rounded=evaluation.round_values(output_flatten,False,2)
+output_flatten_rounded  
+
+#%%
+
 #%%
 #%%
 embed_agcn,embed_gru,classes,predicted= get_embeddings(config,
 path_pretrained_model=pretrained)
 #%%
 print(embed_agcn.shape,embed_gru.shape,classes.shape,predicted.shape)
-
+#%%
 last_embed_agcn=embed_agcn[:,-1,:]
 last_embed_agcn.shape
+
+#%%
+embed_agcn_flatten=embed_agcn.view(-1,embed_agcn.shape[-1])
+embed_agcn_flatten.shape
+
+#%%
+classes_flatten=classes.repeat_interleave(137)
+classes_flatten.shape
+#%%
+classes_flatten
 #%%
 last_embed_gru=embed_gru[:,-1,:]
 last_embed_gru.shape
@@ -203,17 +274,18 @@ acc=np.mean(pred_test == test_labels)
 #%%
 acc
 #%%
-get_TSNE(last_embed_agcn,
-         classes,
-         predicted,
+get_TSNE(embed_agcn_flatten,
+         classes_flatten,
+         output_flatten_rounded,
          predicted_label="all",
-         lr=100,
+         lr=50,
          perp=50,
          early_exaggeration=12,
          vis="2d",
-         title="Embeddings_binary_agcn",
+         title="T-SNE of short-term Embeddings ",
          path_save=parent_folder+"./data/PartA/vis/")
     
+#%%
 
 get_TSNE(last_embed_gru,
          classes,
@@ -223,7 +295,7 @@ get_TSNE(last_embed_gru,
          perp=50,
          early_exaggeration=12,
          vis="2d",
-         title="Embeddings_binary_gru",
+         title="T-SNE of longt-term Embeddings",
          path_save=parent_folder+"./data/PartA/vis/")
 
 

@@ -115,9 +115,20 @@ class Trainer():
     def load_loss(self):
         self.loss=torch.nn.MSELoss().to(self.device)
         self.center_loss=CenterLoss(num_classes=self.config.num_classes,feat_dim = 128)
+        #self.loss=self.costum_loss()
        # self.loss= torch.nn.BCELoss()
         #self.loss=torch.nn.BCEWithLogitsLoss()
+        #self.loss=torch.nn.CrossEntropyLoss()
+    def costum_loss(self, p, t, num_class):
+        if num_class == 2:
+            loss =p[:, 0] * (t - 0)**2 + p[:, 1] * (t - 1)**2
+        elif num_class == 5:
+            loss = p[:, 0] * (t - 0)**2 +p[:, 1] * (t - 1)**2+ p[:, 2] * (t - 2)**2 + p[:, 3] * (t - 3)**2 +p[:, 4] * (t - 4)**2
+        else:
+            raise ValueError("num_class must be either 2 or 5")
+        return loss.mean() 
 
+        
     def load_eval(self):
         self.evaluation=Evaluation(self.config)   
     def conc_aug_batch(self,x,y):
@@ -143,10 +154,13 @@ class Trainer():
                 x,label=self.conc_aug_batch(x,label)
             y_hat,features = self.model(x)
             
-            loss=self.loss(y_hat,label.float()) #+ 
+            loss=self.loss(y_hat,label.float()) #+ label.float()
+            
+            #loss=torch.nn.CrossEntropyLoss()(y_hat, label)
             if self.config.center_loss:
                 loss+=self.center_loss(features, label) * 0.01 
             loss.backward()
+            
             #torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=5)  # Clip gradients
             self.optimizer.step()
             self.optimizer.zero_grad()
@@ -171,12 +185,14 @@ class Trainer():
                 x=x.to(self.device)
                 label = label.to(self.device) 
                 y_hat,features = self.model(x) 
-                loss=self.loss(y_hat,label.float())
+                loss=self.loss(y_hat,label.float())#.float()
+                #loss=torch.nn.CrossEntropyLoss()(y_hat, label)#self.costum_loss(y_hat,label,self.config.num_classes)
                 targets.append(label.cpu().numpy())
                 unrounded_predicted.append(y_hat.cpu().numpy())
                 tq.set_description(f"{mode} loss batch {i} : {loss}")
         targets=torch.tensor(list(chain.from_iterable(targets)))# flatten is used with arrays not with lists
         unrounded_predicted=torch.tensor(list(chain.from_iterable(unrounded_predicted)))
+        #_, unrounded_predicted = torch.max(unrounded_predicted, 1) #When using softmax and crossentropy loss. 
         
         return targets,unrounded_predicted
     
@@ -229,7 +245,7 @@ class Trainer():
         embed_agcn=[]
         embed_gru=[]
         
-        tq=tqdm(self.datahandler.train_loader_for_test)
+        tq=tqdm(self.datahandler.test_loader)
         with torch.no_grad():
             for i,snapshot in enumerate(tq):
                 x,label=snapshot
@@ -300,7 +316,14 @@ class Trainer():
         predicted=self.evaluation.round_values(unrounded_predicted,self.config.normalize_labels,self.max_classes)
         
         print(len(targets),len(unrounded_predicted),len(all_outputs)) 
+        # Convert attention lists to numpy arrays
+        #spatial_attention = np.concatenate(self.model_embed.spatial_attention, axis=0)  # (N, V)
+        #temporal_attention = np.concatenate(self.model_embed.temporal_attention, axis=0)  # (N, T)
+        #channel_attention = np.concatenate(self.model_embed.channel_attention, axis=0)  # (N, C)
+        #print(spatial_attention.shape,temporal_attention.shape,channel_attention.shape)
+        # Save attention vectors to separate NumPy files
         
+        print("Attention vectors saved successfully.")
         return targets,predicted,all_outputs
 
     def run(self):

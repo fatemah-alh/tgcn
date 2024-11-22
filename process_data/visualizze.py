@@ -363,4 +363,161 @@ plt.xlabel('Predicted')
 plt.ylabel('Actual')
 plt.title('Confusion Matrix with Percentages (Binary)')
 plt.show()
+
+
+# %%
+import numpy as np
+import os
+import matplotlib.pyplot as plt
+import seaborn as sns
+import re
+# Base path where your confusion matrices are stored
+base_path = "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/PartA/loso_ME87_new/"
+
+# List to hold the confusion matrices
+confusion_matrices = []
+
+# Regular expression to extract confusion matrix from the log file
+start_cm_pattern = re.compile(r"cm:\[\[(.*)")
+# List to hold confusion matrices
+confusion_matrices = []
+
+# Iterate through the folders (assuming folder names are '1', '2', ..., '87')
+for subject_id in range(0, 87):
+    log_file_path = os.path.join(base_path, f"{subject_id}/1s+15k+multi+loso_ME87_test{subject_id}/log.txt")
+    num_rows=1
+    if os.path.exists(log_file_path):
+        with open(log_file_path, "r") as file:
+            lines = file.readlines()
+            matrix_found = False
+            cm = []
+# Process the file line by line
+            for line in lines:
+                # Search for the start of the confusion matrix
+                if not matrix_found:
+                    match = start_cm_pattern.search(line)
+                    if match:
+                        row_str = match.group(1).strip()  # The first row
+                        row_str = row_str.replace(']', '').replace('[', '')  # Remove remaining brackets
+                        row = list(map(int, row_str.split()))
+                        cm.append(row)
+                        matrix_found = True
+                else:
+                    # Subsequent rows of the confusion matrix
+                    num_rows=num_rows+1
+                    if num_rows<=5:
+                        row_str = line.strip().replace('[', '').replace(']', '')
+                        if row_str:
+                            row = list(map(int, row_str.split()))
+                            cm.append(row)
+
+            if cm:
+                confusion_matrices.append(np.array(cm))
+            else:
+                print(f"No confusion matrix found in {log_file_path}")
+    else:
+        print(f"Log file not found: {log_file_path}")
+
+# Stack all confusion matrices and calculate the mean
+mean_confusion_matrix = np.mean(confusion_matrices, axis=0)
+
+# Convert to percentage
+mean_confusion_matrix_percent = mean_confusion_matrix / np.sum(mean_confusion_matrix, axis=1, keepdims=True) * 100
+
+# Visualize the mean confusion matrix as a heatmap
+plt.figure(figsize=(8, 6))
+sns.heatmap(mean_confusion_matrix_percent, annot=True, fmt=".2f", cmap="Blues", cbar=True)
+plt.title("Mean Confusion Matrix (Percentage)")
+plt.xlabel("Predicted Label")
+plt.ylabel("True Label")
+plt.show()
+# %%
+
+import os
+import re
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Define the base path for the folders
+base_path = "/andromeda/shared/reco-pomigliano/tempo-gnn/tgcn/log/PartA/loso_ME87_new/"
+
+# A pattern to detect the confusion matrix in the logs
+cm_pattern = re.compile(r"cm:\[\[([0-9\s]+)\]\]")
+
+# List to hold confusion matrices
+confusion_matrices = []
+
+# Iterate through the folders (assuming folder names are '1', '2', ..., '87')
+for subject_id in range(0, 67):
+    log_file_path = os.path.join(base_path, f"{subject_id}/1s+15k+multi+loso_LE67_test{subject_id}/log.txt")
+    
+    if os.path.exists(log_file_path):
+        with open(log_file_path, "r") as file:
+            log_content = file.read()
+            matches = cm_pattern.findall(log_content)
+
+            # If matches are found, we take the last one
+            if matches:
+                last_cm_str = matches[-1].strip()  # Get the last confusion matrix
+                # Split rows by handling spaces and remove unwanted brackets
+                cm = np.array([list(map(int, row.split())) for row in last_cm_str.split('] [')])
+                confusion_matrices.append(cm)
+            else:
+                print(f"No confusion matrix found in {log_file_path}")
+    else:
+        print(f"Log file not found: {log_file_path}")
+
+# Check if confusion matrices were found
+if len(confusion_matrices) > 0:
+    # Calculate the mean confusion matrix
+    mean_confusion_matrix = np.mean(confusion_matrices, axis=0)
+
+    # Convert the mean confusion matrix to percentage
+    mean_confusion_matrix_percent = mean_confusion_matrix / np.sum(mean_confusion_matrix, axis=1, keepdims=True) * 100
+
+    # Visualize the mean confusion matrix as a heatmap
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(mean_confusion_matrix_percent, annot=True, fmt=".2f", cmap="Blues", cbar=True)
+    plt.title("Mean Confusion Matrix (Percentage)")
+    plt.xlabel("Predicted Label")
+    plt.ylabel("True Label")
+    plt.show()
+else:
+    print("No confusion matrices were found.")
+
+# %%
+
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Sample confusion matrices (binary and multi-class)
+binary_cm = np.array([[82.4, 17.6], [35.81, 64.19]])
+multi_cm = np.array([[10.20, 35.97, 39.80, 11.99, 2.04],
+                     [6.98, 42.12, 34.88, 13.95, 2.07],
+                     [5.08, 31.73, 37.82, 20.81, 4.57],
+                     [3.70, 25.13, 33.07, 26.72, 11.38],
+                     [3.58, 14.33, 29.48, 27.55, 25.07]])
+
+# Create subplots for side-by-side visualizations
+fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+
+# Flip the binary confusion matrix
+sns.heatmap(binary_cm, annot=True, fmt=".2f", cmap="viridis", cbar_kws={'label': 'Percentage (%)'}, ax=axes[0])
+axes[0].set_title('Confusion Matrix with Percentages (Binary)')
+axes[0].invert_yaxis()  # Flip the y-axis so label 0 is at the bottom
+
+# Flip the multi-class confusion matrix
+sns.heatmap(multi_cm, annot=True, fmt=".2f", cmap="viridis", cbar_kws={'label': 'Percentage (%)'}, ax=axes[1])
+axes[1].set_title('Confusion Matrix with Percentages (Multi)')
+axes[1].invert_yaxis()  # Flip the y-axis so label 0 is at the bottom
+
+# Set common labels for both heatmaps
+for ax in axes:
+    ax.set_xlabel("Predicted")
+    ax.set_ylabel("Actual")
+
+plt.tight_layout()
+plt.show()
 # %%

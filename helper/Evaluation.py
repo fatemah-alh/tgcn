@@ -14,8 +14,8 @@ class Evaluation:
         mse_loss=torch.nn.MSELoss()
         mea_loss=torch.nn.L1Loss(reduction="mean")
         unrounded_predicted=torch.clamp(unrounded_predicted, min=0, max=max_classes)
-        mse_err =mse_loss(targets,unrounded_predicted)
-        mea_err=mea_loss(targets,unrounded_predicted)
+        mse_err =mse_loss(targets,unrounded_predicted.float())
+        mea_err=mea_loss(targets,unrounded_predicted.float())
         rmse_err= torch.sqrt(mse_err)
         return mse_err.item(),rmse_err,mea_err
     def round_values(self,values,normalized_labels,max_classes):
